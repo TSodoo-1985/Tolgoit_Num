@@ -9,28 +9,44 @@ from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
 
-# --- Тохиргоо (Neon PostgreSQL болон SQLite-ийг хослуулсан) ---
+# --- ТОХИРГОО (Хамгаалалттай хувилбар) ---
 basedir = os.path.abspath(os.path.dirname(__file__))
 
-# Render дээрх Environment Variable-аас DATABASE_URL-ийг авна
-database_url = os.environ.get('DATABASE_URL')
+# 1. Environment Variable-аас хаягийг авч цэвэрлэх
+raw_db_url = os.environ.get('DATABASE_URL', '')
 
-# SQLAlchemy-д зориулж 'postgres://'-г 'postgresql://' болгож засах
-if database_url and database_url.startswith("postgres://"):
-    database_url = database_url.replace("postgres://", "postgresql://", 1)
+if raw_db_url:
+    # Илүүдэл хоосон зай, хашилт (" эсвэл ') арилгах
+    raw_db_url = raw_db_url.strip().replace('"', '').replace("'", "")
+    
+    # SQLAlchemy 1.4+ хувилбарт заавал 'postgresql://' байх ёстой
+    if raw_db_url.startswith("postgres://"):
+        raw_db_url = raw_db_url.replace("postgres://", "postgresql://", 1)
+    
+    app.config['SQLALCHEMY_DATABASE_URI'] = raw_db_url
+else:
+    # Хэрэв Render дээр DATABASE_URL тохируулаагүй бол локаль SQLite ашиглана
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(basedir, 'num_service.db')
 
-# Хэрэв Render дээр байгаа бол Neon, локаль орчинд бол SQLite ашиглана
-app.config['SQLALCHEMY_DATABASE_URI'] = database_url or 'sqlite:///' + os.path.join(basedir, 'num_service.db')
-
-# Бусад чухал тохиргоонууд
+# Бусад тохиргоонууд
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'num_service_123_key')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SESSION_PERMANENT'] = False
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=30)
 
-db = SQLAlchemy(app)
+# Өгөгдлийн санг эхлүүлэх
+try:
+    db = SQLAlchemy(app)
+except Exception as e:
+    print(f"SQLAlchemy эхлүүлэхэд алдаа гарлаа: {e}")
+    # Алдаа гарвал локаль руу хүчээр шилжүүлэх
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(basedir, 'num_service.db')
+    db = SQLAlchemy(app)
+
 login_manager = LoginManager(app)
 login_manager.login_view = 'login'
+
+# --- Модель хэсэг (Эндээс цааш таны User, Product классууд үргэлжилнэ) ---
 
 # --- Модель хэсэг ---
 class User(UserMixin, db.Model):
