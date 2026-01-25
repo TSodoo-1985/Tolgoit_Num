@@ -22,18 +22,14 @@ if raw_db_url:
 else:
     # DATABASE_URL байхгүй бол SQLite ашиглах
     app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(basedir, 'num_service.db')
-
 # Neon-оос авсан хаягаа энд яг зөв тавиарай
 app.config['SQLALCHEMY_DATABASE_URI'] = "postgresql://neondb_owner:npg_J8h1MnAQlbPK@ep-mute-river-a1c92rpd-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require"
 app.config['SECRET_KEY'] = 'Sodoo123'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-
 login_manager = LoginManager(app)
 login_manager.login_view = 'login'
-
 # --- DB-Г ЭНД ЗАРЛАНА ---
 db = SQLAlchemy(app)
-
 # --- Модель хэсэг ---
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
