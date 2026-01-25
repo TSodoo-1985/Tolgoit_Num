@@ -257,8 +257,8 @@ def delete_user(id):
     user_to_delete = User.query.get_or_404(id)
 
     # Одоо 'Sodoo'-г устгаж болохгүй хамгаалалттай болгоно
-    if user_to_delete.username == 'Sodoo':
-        flash('Үндсэн админ Sodoo-г устгах боломжгүй!')
+    if user_to_delete.username == 'admin':
+        flash('Үндсэн админ admin-г устгах боломжгүй!')
         return redirect(url_for('users_list'))
 
     db.session.delete(user_to_delete)
@@ -685,20 +685,20 @@ def delete_product(id):
 # --- СИСТЕМ ЭХЛЭХ ХЭСЭГ ---
 if __name__ == '__main__':
     with app.app_context():
-        # 1. Бүх хүснэгтүүдийг Neon дээр автоматаар үүсгэнэ
-        db.create_all()
+        db.create_all()  # Хүснэгтүүд үүсгэх
         
-        # 2. Анхдагч админ хэрэглэгч байхгүй бол үүсгэх (Нэмэлт хамгаалалт)
-        if not User.query.filter_by(username='admin').first():
-            admin_user = User(
-                username='admin', 
-                password=generate_password_hash('admin123', method='pbkdf2:sha256'), 
+        # Админ хэрэглэгч байхгүй бол үүсгэх
+        from werkzeug.security import generate_password_hash
+        admin_exists = User.query.filter_by(username='admin').first()
+        if not admin_exists:
+            new_admin = User(
+                username='admin',
+                password=generate_password_hash('admin123'),
                 role='admin'
             )
-            db.session.add(admin_user)
+            db.session.add(new_admin)
             db.session.commit()
-            print("--- Өгөгдлийн сан болон Админ хэрэглэгч бэлэн боллоо ---")
-
-    # Render дээр ажиллах порт тохиргоо
+            print("Админ хэрэглэгч амжилттай үүсгэгдлээ: admin / admin123")
+            
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port)
