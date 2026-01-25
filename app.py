@@ -21,13 +21,29 @@ if raw_db_url:
     app.config['SQLALCHEMY_DATABASE_URI'] = raw_db_url
 else:
     # DATABASE_URL байхгүй бол SQLite ашиглах
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(basedir, 'num_service.db')
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(basedir, 'num_service.db')
 # Neon-оос авсан хаягаа энд яг зөв тавиарай
 app.config['SQLALCHEMY_DATABASE_URI'] = "postgresql://neondb_owner:npg_J8h1MnAQlbPK@ep-mute-river-a1c92rpd-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require"
 app.config['SECRET_KEY'] = 'Sodoo123'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 login_manager = LoginManager(app)
 login_manager.login_view = 'login'
+app = Flask(__name__)
+
+# --- ӨГӨГДЛИЙН САНГИЙН ТОХИРГОО ---
+app.config['SQLALCHEMY_DATABASE_URI'] = "postgresql://neondb_owner:npg_J8h1MnAQlbPK@ep-mute-river-a1c92rpd-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require"
+app.config['SECRET_KEY'] = 'Sodoo123'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+# ЭНД ХОЛБОЛТЫН ТОХИРГООГ НЭМНЭ (db зарлахаас өмнө)
+app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+    "pool_pre_ping": True,
+    "pool_recycle": 300,
+}
+
+# Одоо db-гээ зарлана
+db = SQLAlchemy(app)
+
 # --- DB-Г ЭНД ЗАРЛАНА ---
 db = SQLAlchemy(app)
 # --- Модель хэсэг ---
@@ -79,7 +95,26 @@ with app.app_context():
     if not User.query.filter_by(username='admin').first():
         db.session.add(User(username='admin', password=generate_password_hash('admin123', method='pbkdf2:sha256'), role='admin'))
         db.session.commit()
+# ... Энд классууд байгаа ...
 
+# --- Өгөгдлийн сан үүсгэх ба Админ шинэчлэх хэсэг ---
+with app.app_context():
+    db.create_all()  # Хүснэгтүүдийг Neon руу үүсгэнэ
+    admin = User.query.filter_by(username='admin').first()
+    if not admin:
+        # Админ байхгүй бол шинээр үүсгэх
+        db.session.add(User(username='admin', password=generate_password_hash('admin123'), role='admin'))
+        db.session.commit()
+    else:
+        # Хэрэв байгаа бол нууц үгийг нь 'admin123' болгож хүчээр шинэчлэх
+        admin.password = generate_password_hash('admin123')
+        db.session.commit()
+
+# --- Маршрутууд (Routes) эндээс эхэлнэ ---
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    # ...
+    
 # --- Маршрутууд ---
 
 @app.route('/login', methods=['GET', 'POST'])
