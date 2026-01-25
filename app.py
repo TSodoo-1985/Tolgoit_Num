@@ -23,18 +23,23 @@ else:
     # DATABASE_URL байхгүй бол SQLite ашиглах
     app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(basedir, 'num_service.db')
 
-app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'default_secret_123')
+# Neon-оос авсан хаягаа энд яг зөв тавиарай
+app.config['SQLALCHEMY_DATABASE_URI'] = "postgresql://neondb_owner:npg_J8h1MnAQlbPK@ep-mute-river-a1c92rpd-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require"
+app.config['SECRET_KEY'] = 'Sodoo123'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 login_manager = LoginManager(app)
 login_manager.login_view = 'login'
 
+# --- DB-Г ЭНД ЗАРЛАНА ---
+db = SQLAlchemy(app)
+
 # --- Модель хэсэг ---
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(50), unique=True, nullable=False)
-    password = db.Column(db.String(100), nullable=False)
-    role = db.Column(db.String(20), default='staff')
+    username = db.Column(db.String(150), unique=True, nullable=False)
+    password = db.Column(db.String(150), nullable=False)
+    role = db.Column(db.String(50), default='user')
 
     def check_password(self, password):
         return check_password_hash(self.password, password)
