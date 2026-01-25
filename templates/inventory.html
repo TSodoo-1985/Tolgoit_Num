@@ -1,0 +1,119 @@
+{% extends "layout.html" %}
+{% block content %}
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" />
+
+<style>
+    body { background-color: #f4f7f6; }
+    .card { border: none; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
+    /* Select2-ийг өндөр болгох */
+    .select2-container--bootstrap-5 .select2-selection { height: 45px; display: flex; align-items: center; }
+    
+    /* Утсан дээрх харагдацыг сайжруулах */
+    @media (max-width: 768px) {
+        .container { padding-left: 8px; padding-right: 8px; }
+        .card-body { padding: 15px !important; }
+        h4, .card-header { font-size: 1rem; }
+        .table { font-size: 0.85rem; }
+        .btn-lg { font-size: 1rem; padding: 12px; }
+    }
+</style>
+
+<div class="container mt-2">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <a href="{{ url_for('dashboard') }}" class="btn btn-outline-secondary btn-sm rounded-pill px-3">
+            <i class="bi bi-arrow-left me-1"></i>Буцах
+        </a>
+        <h5 class="fw-bold mb-0"><i class="bi bi-box-seam me-2 text-primary"></i>Агуулахын Тооллого</h5>
+    </div>
+
+    <div class="row g-3">
+        <div class="col-md-5">
+            <div class="card shadow-sm mb-4 border-top border-primary border-4">
+                <div class="card-header bg-white fw-bold py-3">Шинэ тооллого бүртгэх</div>
+                <div class="card-body p-4">
+                    <form action="/do_inventory" method="POST">
+                        <div class="mb-4">
+                            <label class="form-label small fw-bold text-muted text-uppercase">🔎 Бараа хайх (Код эсвэл нэр)</label>
+                            <select name="product_id" id="productSelect" class="form-select" required>
+                                <option value="" disabled selected>Барааны нэр эсвэл код бичнэ үү...</option>
+                                {% for p in products %}
+                                <option value="{{ p.id }}">
+                                    {{ p.sku }} - {{ p.name }} (Одоо: {{ p.stock or 0 }})
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="mb-4">
+                            <label class="form-label small fw-bold text-muted text-uppercase">🔢 Бодит тоолсон тоо</label>
+                            <input type="number" step="0.1" name="quantity" class="form-control form-control-lg border-2 border-primary shadow-sm" placeholder="0.0" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-lg w-100 fw-bold shadow">
+                            <i class="bi bi-check-circle me-2"></i>ХАДГАЛАХ
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-7">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-white fw-bold py-3">Сүүлийн тооллогын түүх</div>
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="bg-light">
+                            <tr style="font-size: 0.75rem;" class="text-uppercase text-muted">
+                                <th class="ps-3">Огноо</th>
+                                <th>Бараа</th>
+                                <th>Зөрүү</th>
+                                <th class="pe-3">Тоолсон</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for h in history %}
+                            <tr>
+                                <td class="ps-3">
+                                    <div class="small text-dark fw-semibold">{{ h.timestamp.strftime('%m/%d') }}</div>
+                                    <div style="font-size: 10px;" class="text-muted">{{ h.timestamp.strftime('%H:%M') }}</div>
+                                </td>
+                                <td>
+                                    <div class="fw-bold text-primary">{{ h.product.sku }}</div>
+                                    <div style="font-size: 11px;" class="text-truncate d-inline-block" style="max-width: 120px;">{{ h.product.name }}</div>
+                                </td>
+                                <td>
+                                    <span class="small">{{ h.type }}</span>
+                                </td>
+                                <td class="pe-3 text-end">
+                                    <span class="badge bg-light text-dark border fw-normal">{{ h.user.username }}</span>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                            {% if not history %}
+                            <tr>
+                                <td colspan="4" class="text-center py-4 text-muted small">Одоогоор тооллогын түүх байхгүй байна.</td>
+                            </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+
+<script>
+    $(document).ready(function() {
+        // Dropdown-ийг хайлттай болгох идэвхжүүлэлт
+        $('#productSelect').select2({
+            theme: 'bootstrap-5',
+            width: '100%',
+            placeholder: 'Барааны нэр эсвэл код бичнэ үү...',
+            allowClear: true,
+            dropdownParent: $('.card-body') // Утсан дээр хайлт зөв ажиллахад тусална
+        });
+    });
+</script>
+{% endblock %}

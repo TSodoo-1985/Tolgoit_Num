@@ -1,0 +1,100 @@
+{% extends "layout.html" %}
+{% block content %}
+<style>
+    .card { border: none; border-radius: 15px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
+    .table-hover tbody tr:hover { background-color: rgba(13, 110, 253, 0.02); }
+</style>
+
+<div class="container py-3">
+    <div class="mb-4">
+        <a href="{{ url_for('dashboard') }}" class="btn btn-outline-secondary btn-sm rounded-pill px-3">
+            <i class="bi bi-arrow-left me-1"></i>Буцах
+        </a>
+    </div>
+
+    <div class="card p-4 mb-4 border-start border-primary border-4">
+        <h5 class="fw-bold mb-3"><i class="bi bi-person-plus-fill text-primary me-2"></i>Шинэ хэрэглэгч нэмэх</h5>
+        <form action="{{ url_for('add_user') }}" method="POST" class="row g-3 align-items-end">
+            <div class="col-md-4">
+                <label class="form-label small fw-bold text-muted">НЭВТРЭХ НЭР</label>
+                <input type="text" name="username" class="form-control border-2 shadow-sm" placeholder="Нэр бичих" required>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label small fw-bold text-muted">НУУЦ ҮГ</label>
+                <div class="input-group shadow-sm">
+                    <input type="password" name="password" id="passInp" class="form-control border-2" placeholder="Нууц үг" required>
+                    <button class="btn btn-outline-secondary border-2" type="button" onclick="togglePass()">
+                        <i class="bi bi-eye" id="eyeIcon"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small fw-bold text-muted">ЭРХ</label>
+                <select name="role" class="form-select border-2 shadow-sm">
+                    <option value="staff">Ажилтан</option>
+                    <option value="admin">Админ</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-primary w-100 fw-bold shadow-sm py-2">НЭМЭХ</button>
+            </div>
+        </form>
+    </div>
+
+    <div class="card overflow-hidden border-0 shadow-sm">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="bg-light">
+                    <tr>
+                        <th class="ps-4 py-3">Хэрэглэгчийн нэр</th>
+                        <th>Эрх</th>
+                        <th class="text-end pe-4">Үйлдэл</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for user in users %}
+                    <tr>
+                        <td class="ps-4">
+                            <div class="d-flex align-items-center">
+                                <div class="bg-soft-primary text-primary rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 35px; height: 35px;">
+                                    {{ user.username[0] | upper }}
+                                </div>
+                                <span class="fw-bold">{{ user.username }}</span>
+                            </div>
+                        </td>
+                        <td>
+                            <span class="badge {{ 'bg-danger' if user.role == 'admin' else 'bg-info text-dark' }} rounded-pill px-3">
+                                {{ user.role }}
+                            </span>
+                        </td>
+                        <td class="text-end pe-4">
+                            {% if user.username != 'Sodoo' %}
+                            <a href="{{ url_for('delete_user', id=user.id) }}" class="btn btn-sm btn-outline-danger px-3 rounded-pill" onclick="return confirm('Устгахдаа итгэлтэй байна уу?')">
+                                <i class="bi bi-trash3 me-1"></i>Устгах
+                            </a>
+                            {% else %}
+                            <span class="badge bg-primary px-3 rounded-pill fw-bold"><i class="bi bi-shield-lock me-1"></i>ҮНДСЭН АДМИН</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+    function togglePass() {
+        const inp = document.getElementById('passInp');
+        const ico = document.getElementById('eyeIcon');
+        if (inp.type === 'password') {
+            inp.type = 'text';
+            ico.className = 'bi bi-eye-slash';
+        } else {
+            inp.type = 'password';
+            ico.className = 'bi bi-eye';
+        }
+    }
+</script>
+{% endblock %}
