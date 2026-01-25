@@ -9,39 +9,25 @@ from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
 
-# --- ТОХИРГОО (Хамгаалалттай хувилбар) ---
+# --- ӨГӨГДЛИЙН САНГИЙН ТОХИРГОО ---
 basedir = os.path.abspath(os.path.dirname(__file__))
-
-# 1. Environment Variable-аас хаягийг авч цэвэрлэх
-raw_db_url = os.environ.get('DATABASE_URL', '')
+raw_db_url = os.environ.get('DATABASE_URL', '').strip()
 
 if raw_db_url:
-    # Илүүдэл хоосон зай, хашилт (" эсвэл ') арилгах
-    raw_db_url = raw_db_url.strip().replace('"', '').replace("'", "")
-    
-    # SQLAlchemy 1.4+ хувилбарт заавал 'postgresql://' байх ёстой
+    # Илүүдэл тэмдэгт цэвэрлэх
+    raw_db_url = raw_db_url.replace('"', '').replace("'", "")
     if raw_db_url.startswith("postgres://"):
         raw_db_url = raw_db_url.replace("postgres://", "postgresql://", 1)
-    
     app.config['SQLALCHEMY_DATABASE_URI'] = raw_db_url
 else:
-    # Хэрэв Render дээр DATABASE_URL тохируулаагүй бол локаль SQLite ашиглана
+    # DATABASE_URL байхгүй бол SQLite ашиглах
     app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(basedir, 'num_service.db')
 
-# Бусад тохиргоонууд
-app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'num_service_123_key')
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'default_secret_123')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['SESSION_PERMANENT'] = False
-app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=30)
 
-# Өгөгдлийн санг эхлүүлэх
-try:
-    db = SQLAlchemy(app)
-except Exception as e:
-    print(f"SQLAlchemy эхлүүлэхэд алдаа гарлаа: {e}")
-    # Алдаа гарвал локаль руу хүчээр шилжүүлэх
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(basedir, 'num_service.db')
-    db = SQLAlchemy(app)
+# Өгөгдлийн санг ЗӨВХӨН НЭГ УДАА энд зарлана
+db = SQLAlchemy(app)
 
 login_manager = LoginManager(app)
 login_manager.login_view = 'login'
