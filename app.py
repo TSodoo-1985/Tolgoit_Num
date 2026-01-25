@@ -687,15 +687,7 @@ def delete_product(id):
 # ... (бусад кодууд)
 
 if __name__ == '__main__':
-    # Датабааз шинэчлэх хэсэг
     with app.app_context():
-        try:
-            # Багана байгаа эсэхийг шалгах
-            db.session.execute(db.text("SELECT is_active FROM product LIMIT 1"))
-        except Exception:
-            # Байхгүй бол нэмэх
-            db.session.execute(db.text("ALTER TABLE product ADD COLUMN is_active BOOLEAN DEFAULT 1"))
-            db.session.commit()
-            print("--- is_active багана амжилттай нэмэгдлээ! ---")
-
+        db.create_all()
+    # Render дээр ажиллахын тулд app.run() доторх debug-ийг False болгож болно
     app.run(debug=True)
