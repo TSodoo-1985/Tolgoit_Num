@@ -26,9 +26,6 @@ else:
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'default_secret_123')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-# Өгөгдлийн санг ЗӨВХӨН НЭГ УДАА энд зарлана
-db = SQLAlchemy(app)
-
 login_manager = LoginManager(app)
 login_manager.login_view = 'login'
 
