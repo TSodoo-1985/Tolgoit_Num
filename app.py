@@ -9,10 +9,21 @@ from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
 
-# --- Тохиргоо ---
+# --- Тохиргоо (Neon PostgreSQL болон SQLite-ийг хослуулсан) ---
 basedir = os.path.abspath(os.path.dirname(__file__))
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(basedir, 'num_service.db')
-app.config['SECRET_KEY'] = 'num_service_123_key'
+
+# Render дээрх Environment Variable-аас DATABASE_URL-ийг авна
+database_url = os.environ.get('DATABASE_URL')
+
+# SQLAlchemy-д зориулж 'postgres://'-г 'postgresql://' болгож засах
+if database_url and database_url.startswith("postgres://"):
+    database_url = database_url.replace("postgres://", "postgresql://", 1)
+
+# Хэрэв Render дээр байгаа бол Neon, локаль орчинд бол SQLite ашиглана
+app.config['SQLALCHEMY_DATABASE_URI'] = database_url or 'sqlite:///' + os.path.join(basedir, 'num_service.db')
+
+# Бусад чухал тохиргоонууд
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'num_service_123_key')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SESSION_PERMANENT'] = False
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=30)
