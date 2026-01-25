@@ -682,24 +682,22 @@ def delete_product(id):
     flash(f'"{product.name}" барааг жагсаалтаас хаслаа.')
     return redirect(url_for('dashboard'))
 
-# app.py-ийн хамгийн доод хэсэг
+# app.py-ийн төгсгөлд түр зуур ингэж бичнэ
 if __name__ == '__main__':
     with app.app_context():
-        # 1. Хүснэгтүүдийг Neon дээр үүсгэнэ
         db.create_all()
-        
-        # 2. Админ хэрэглэгч байгаа эсэхийг шалгах
-        admin_user = User.query.filter_by(username='admin').first()
-        if not admin_user:
-            # Байхгүй бол шинээр үүсгэх
-            hashed_pw = generate_password_hash('admin123')
-            new_admin = User(username='admin', password=hashed_pw, role='admin')
+        user = User.query.filter_by(username='admin').first()
+        if user:
+            # Байгаа хэрэглэгчийн нууц үгийг шинээр сольж байна
+            user.password = generate_password_hash('123456')
+            db.session.commit()
+            print("--- Admin-ий нууц үгийг '123456' болгож шинэчиллээ ---")
+        else:
+            # Байхгүй бол үүсгэх
+            new_admin = User(username='admin', password=generate_password_hash('123456'), role='admin')
             db.session.add(new_admin)
             db.session.commit()
-            print("--- Админ хэрэглэгч (admin/admin123) үүсгэгдлээ ---")
-        else:
-            print("--- Админ хэрэглэгч аль хэдийн байна ---")
+            print("--- Шинэ Admin үүсгэлээ ---")
 
-    # Render-ийн порт тохиргоо
     port = int(os.environ.get("PORT", 10000))
     app.run(host='0.0.0.0', port=port)
