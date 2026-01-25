@@ -700,10 +700,23 @@ def delete_product(id):
     flash(f'"{product.name}" барааг жагсаалтаас хаслаа.')
     return redirect(url_for('dashboard'))
 
-# ... (бусад кодууд)
-
+# --- СИСТЕМ ЭХЛЭХ ХЭСЭГ ---
 if __name__ == '__main__':
     with app.app_context():
+        # 1. Бүх хүснэгтүүдийг Neon дээр автоматаар үүсгэнэ
         db.create_all()
-    # Render дээр ажиллахын тулд app.run() доторх debug-ийг False болгож болно
-    app.run(debug=True)
+        
+        # 2. Анхдагч админ хэрэглэгч байхгүй бол үүсгэх (Нэмэлт хамгаалалт)
+        if not User.query.filter_by(username='admin').first():
+            admin_user = User(
+                username='admin', 
+                password=generate_password_hash('admin123', method='pbkdf2:sha256'), 
+                role='admin'
+            )
+            db.session.add(admin_user)
+            db.session.commit()
+            print("--- Өгөгдлийн сан болон Админ хэрэглэгч бэлэн боллоо ---")
+
+    # Render дээр ажиллах порт тохиргоо
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host='0.0.0.0', port=port)
