@@ -420,75 +420,80 @@ def export_expense_report(category):
     start_date_str = request.args.get('start_date')
     end_date_str = request.args.get('end_date')
     
-    if category == "Бүгд":
-        query = Expense.query
-    else:
-        query = Expense.query.filter(Expense.category == category)
+    # КАТЕГОРИЙГ ШҮҮХ: "Зардал" эсвэл "Ажлын хөлс"
+    query = Expense.query.filter(Expense.category == category)
     
     date_range_label = ""
     if start_date_str:
-        start_date = datetime.strptime(start_date_str, '%Y-%m-%d')
-        query = query.filter(Expense.date >= start_date)
+        query = query.filter(Expense.date >= datetime.strptime(start_date_str, '%Y-%m-%d'))
         date_range_label += start_date_str
-    
     if end_date_str:
-        end_date = datetime.strptime(end_date_str, '%Y-%m-%d')
-        query = query.filter(Expense.date < end_date + timedelta(days=1))
+        query = query.filter(Expense.date < datetime.strptime(end_date_str, '%Y-%m-%d') + timedelta(days=1))
         date_range_label += f"_аас_{end_date_str}"
     
+    if not date_range_label:
+        date_range_label = datetime.now().strftime('%Y-%m-%d')
+
     expenses = query.order_by(Expense.date.desc()).all()
     
+    # Хүснэгтийн баганы нэрийг категориос хамаарч өөрчлөх
+    amount_column_name = 'Олгосон дүн' if category == "Ажлын хөлс" else 'Зардлын дүн'
+    
     data = []
-    total_impact_expense = 0 # Ашгаас хасагдах зардал
-    total_monitoring_expense = 0 # Зөвхөн хянах зардал (Ажлын хөлс)
-
     for e in expenses:
-        is_salary = "ажлын хөлс" in e.category.lower() or "цалин" in e.category.lower()
-        
-        if is_salary:
-            total_monitoring_expense += e.amount
-        else:
-            total_impact_expense += e.amount
-
         data.append({
             'Огноо': e.date.strftime('%Y-%m-%d'),
-            'Төрөл/Категори': e.category,
+            'Төрөл': e.category,
             'Тайлбар': e.description,
-            'Зардлын дүн': e.amount,
-            'Ашгаас хасагдах эсэх': "Үгүй (Хяналт)" if is_salary else "Тийм",
-            'Бүртгэсэн': e.user.username if e.user else "-"
+            amount_column_name: e.amount,
+            'Ажилтан': e.user.username if e.user else "-"
         })
         
     df = pd.DataFrame(data)
     
-    # НИЙТ ДҮНГҮҮДИЙГ НЭМЭХ
+    # НИЙТ ДҮН БОДОХ
     if not df.empty:
-        summary_rows = [
-            {'Огноо': 'НИЙТ ЗАРДАЛ (БҮГД):', 'Зардлын дүн': df['Зардлын дүн'].sum()},
-            {'Огноо': 'АШГААС ХАСАГДАХ ЗАРДАЛ:', 'Зардлын дүн': total_impact_expense},
-            {'Огноо': 'АЖЛЫН ХӨЛС (ХЯНАЛТ):', 'Зардлын дүн': total_monitoring_expense}
-        ]
-        df = pd.concat([df, pd.DataFrame(summary_rows)], ignore_index=True)
+        total_label = 'НИЙТ ОЛГОСОН ХӨЛС:' if category == "Ажлын хөлс" else 'НИЙТ ЗАРДАЛ:'
+        totals = {
+            'Огноо': total_label,
+            'Төрөл': '',
+            'Тайлбар': '',
+            amount_column_name: df[amount_column_name].sum(),
+            'Ажилтан': ''
+        }
+        df = pd.concat([df, pd.DataFrame([totals])], ignore_index=True)
 
     output = BytesIO()
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-        df.to_excel(writer, index=False, sheet_name='Зардал')
+        df.to_excel(writer, index=False, sheet_name=category[:31])
         workbook = writer.book
-        worksheet = writer.sheets['Зардал']
+        worksheet = writer.sheets[category[:31]]
+        
+        # ЭХНИЙ МӨРИЙГ ЦАРЦААХ
         worksheet.freeze_panes(1, 0)
         
-        # Форматууд
+        # ФОРМАТ
         money_fmt = workbook.add_format({'num_format': '#,##0.00'})
-        total_fmt = workbook.add_format({'bold': True, 'bg_color': '#FCE4D6', 'num_format': '#,##0.00'})
+        total_fmt = workbook.add_format({'bold': True, 'bg_color': '#FCE4D6', 'border': 1, 'num_format': '#,##0.00'})
         
         for i, col in enumerate(df.columns):
-            worksheet.set_column(i, i, 20, money_fmt if 'дүн' in col else None)
+            column_len = max(df[col].astype(str).map(len).max(), len(col)) + 5
+            worksheet.set_column(i, i, column_len, money_fmt if 'дүн' in col else None)
+
+        if not df.empty:
+            last_row = len(df)
+            for col_num in range(len(df.columns)):
+                worksheet.write(last_row, col_num, df.iloc[last_row-1, col_num], total_fmt)
 
     output.seek(0)
-    mgl_filename = f"Зардал_{category}_{date_range_label}.xlsx"
+    
+    # Файлын нэрийг тохируулах (Зардал_... эсвэл Ажлын хөлс_...)
+    mgl_filename = f"{category}_Тайлан_{date_range_label}.xlsx"
+    
     response = send_file(output, as_attachment=True, download_name=mgl_filename)
     response.headers["Content-Disposition"] = f"attachment; filename*=UTF-8''{quote(mgl_filename)}"
     return response
+    
 
 # --- ХЭРЭГЛЭГЧИЙН УДИРДЛАГА ---
 
