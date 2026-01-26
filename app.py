@@ -53,14 +53,6 @@ class Transaction(db.Model):
 
 class Expense(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    category = db.Column(db.String(50))
-    description = db.Column(db.String(200))
-    amount = db.Column(db.Float, default=0.0)
-    date = db.Column(db.DateTime, default=datetime.now)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
-
-class Expense(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
     category = db.Column(db.String(50), nullable=False)
     amount = db.Column(db.Float, nullable=False)
     description = db.Column(db.Text)
@@ -220,34 +212,46 @@ def do_inventory():
 @app.route('/statistics')
 @login_required
 def statistics():
-    today = datetime.now().date()
-    dates = [(today - timedelta(days=i)).strftime('%Y-%m-%d') for i in range(6, -1, -1)]
+    # Огнооны шүүлтүүр авах
+    start_date_str = request.args.get('start_date')
+    end_date_str = request.args.get('end_date')
     
-    sales_values = []
-    profit_values = []
-    expense_values = []
+    if start_date_str and end_date_str:
+        start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+        end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
+        # Сонгосон хоногуудын жагсаалт
+        delta = end_date - start_date
+        dates = [(start_date + timedelta(days=i)).strftime('%Y-%m-%d') for i in range(delta.days + 1)]
+    else:
+        # Анхдагчаар сүүлийн 7 хоног
+        today = datetime.now().date()
+        dates = [(today - timedelta(days=i)).strftime('%Y-%m-%d') for i in range(6, -1, -1)]
+
+    sales_data = []
+    profit_data = []
+    expense_data = []
     
     for date_str in dates:
-        # 1. Борлуулалт (Зарлагын нийт дүн)
+        # 1. Борлуулалт (Бөөний болон Жижиглэн зарлага)
         sales = db.session.query(db.func.sum(Transaction.quantity * db.case(
                 (Transaction.type == 'Бөөний зарлага', Product.wholesale_price),
                 (Transaction.type == 'Жижиглэн зарлага', Product.retail_price),
                 else_=0
             ))).join(Product).filter(db.func.date(Transaction.timestamp) == date_str).scalar() or 0
         
-        # 2. Өртөг (Зарсан барааны нийт өртөг - Ашиг бодоход хэрэгтэй)
+        # 2. Өртөг (Зарсан барааны өртөг - Ашиг бодоход хэрэгтэй)
         cost_sum = db.session.query(db.func.sum(Transaction.quantity * Product.cost_price)).\
             join(Product).filter(Transaction.type.like('%зарлага%'), 
             db.func.date(Transaction.timestamp) == date_str).scalar() or 0
         
-        # 3. Зардал (Ашгаас хасагдах ерөнхий зардал)
+        # 3. Зардал (Ажлын хөлс ороогүй цэвэр зардал)
         daily_expense = db.session.query(db.func.sum(Expense.amount)).\
             filter(Expense.category != "Ажлын хөлс", db.func.date(Expense.date) == date_str).scalar() or 0
 
-        sales_values.append(float(sales))
-        expense_values.append(float(daily_expense))
+        sales_data.append(float(sales))
+        expense_data.append(float(daily_expense))
         # Цэвэр ашиг = (Борлуулалт - Өртөг) - Зардал
-        profit_values.append(float(sales - cost_sum - daily_expense))
+        profit_data.append(float(sales - cost_sum - daily_expense))
 
     # 4. Топ 5 бараа (Ширхэгээр)
     top_products = db.session.query(Product.name, db.func.sum(Transaction.quantity)).\
@@ -259,11 +263,13 @@ def statistics():
 
     return render_template('statistics.html', 
                          dates=dates, 
-                         sales=sales_values, 
-                         profits=profit_values, 
-                         expenses=expense_values,
+                         sales=sales_data, 
+                         profit=profit_data, 
+                         expenses=expense_data,
                          top_labels=top_labels,
-                         top_values=top_values)
+                         top_values=top_values,
+                         start_date=start_date_str or "",
+                         end_date=end_date_str or "")
 
 @app.route('/export-balance')
 @login_required
