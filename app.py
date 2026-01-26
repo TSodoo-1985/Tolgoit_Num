@@ -207,6 +207,30 @@ def do_inventory():
         db.session.commit()
     return redirect(url_for('inventory'))
 
+@app.route('/expenses', methods=['GET', 'POST'])
+@login_required
+def expenses():
+    if request.method == 'POST':
+        category = request.form.get('category')
+        amount = float(request.form.get('amount') or 0)
+        description = request.form.get('description')
+        
+        new_expense = Expense(
+            category=category,
+            amount=amount,
+            description=description,
+            date=datetime.now(),
+            user_id=current_user.id
+        )
+        db.session.add(new_expense)
+        db.session.commit()
+        flash('Зардал амжилттай бүртгэгдлээ!')
+        return redirect(url_for('expenses'))
+
+    # Зардлын жагсаалтыг харуулах
+    expense_list = Expense.query.order_by(Expense.date.desc()).all()
+    return render_template('expenses.html', expenses=expense_list)
+
 # --- ТАЙЛАН, СТАТИСТИК ---
 
 @app.route('/statistics')
