@@ -256,10 +256,10 @@ def expenses():
     # Зардлын жагсаалтыг харуулах
     expense_list = Expense.query.order_by(Expense.date.desc()).all()
     return render_template('expenses.html', expenses=expense_list)
+    
 @app.route('/cart')
 @login_required
 def cart_page():
-    # Сагсны хуудас руу үсрэх
     return render_template('cart.html')
 
 @app.route('/add_transaction_bulk', methods=['POST'])
@@ -267,31 +267,17 @@ def cart_page():
 def add_transaction_bulk():
     data = request.json
     items = data.get('items', [])
-    if not items:
-        return {"status": "error", "message": "Сагс хоосон байна"}, 400
-
     for item in items:
         product = Product.query.get(item['product_id'])
-        qty = float(item['quantity'])
-        if not product: continue
-        
-        # Үлдэгдэл тооцох
-        if item['type'] == 'Орлого':
-            product.stock += qty
-        else:
-            product.stock -= qty
-            
-        new_tx = Transaction(
-            product_id=product.id,
-            type=item['type'],
-            quantity=qty,
-            date=datetime.now(),
-            user_id=current_user.id
-        )
-        db.session.add(new_tx)
-    
+        if product:
+            qty = float(item['quantity'])
+            if item['type'] == 'Орлого':
+                product.stock += qty
+            else:
+                product.stock -= qty
+            db.session.add(Transaction(product_id=product.id, type=item['type'], quantity=qty, date=datetime.now(), user_id=current_user.id))
     db.session.commit()
-    flash(f"{len(items)} төрлийн барааны гүйлгээ амжилттай бүртгэгдлээ.")
+    flash("Бүх гүйлгээ амжилттай хадгалагдлаа.")
     return {"status": "success"}, 200
     
 # --- ТАЙЛАН, СТАТИСТИК ---
