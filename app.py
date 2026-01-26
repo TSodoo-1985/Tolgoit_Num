@@ -160,6 +160,26 @@ def statistics():
                            returns=[0], 
                            top_labels=[], 
                            top_values=[])
+@app.route('/inventory')
+@login_required
+def inventory():
+    products = Product.query.filter_by(is_active=True).all()
+    # Тооллогын түүхийг харуулах хэсэг
+    history = Transaction.query.filter(Transaction.type.like('Тооллого%')).order_by(Transaction.timestamp.desc()).limit(10).all()
+    return render_template('inventory.html', products=products, history=history)
+
+@app.route('/do_inventory', methods=['POST'])
+@login_required
+def do_inventory():
+    p_id = request.form.get('product_id')
+    new_qty = float(request.form.get('quantity') or 0)
+    product = Product.query.get(p_id)
+    if product:
+        diff = new_qty - product.stock
+        product.stock = new_qty
+        db.session.add(Transaction(product_id=p_id, type=f'Тооллого (Зөрүү: {diff})', quantity=new_qty, user_id=current_user.id))
+        db.session.commit()
+    return redirect(url_for('inventory'))
 
 if __name__ == '__main__':
     with app.app_context():
