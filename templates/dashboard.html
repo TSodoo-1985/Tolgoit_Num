@@ -1,0 +1,73 @@
+{% extends "layout.html" %}
+{% block content %}
+
+<div class="row g-2 mb-3">
+    <div class="col-8">
+        <input type="text" id="mainSearch" class="form-control border-0 shadow-sm" placeholder="Бараа хайх..." onkeyup="filterProducts()">
+    </div>
+    <div class="col-4">
+        <select id="catFilter" class="form-select border-0 shadow-sm fw-bold" onchange="filterProducts()">
+            <option value="">Бүх төрөл</option>
+            {% for c in categories %}<option value="{{ c }}">{{ c }}</option>{% endfor %}
+        </select>
+    </div>
+</div>
+
+<div class="row" id="productContainer">
+    {% for p in products %}
+    <div class="col-12 col-md-6 col-lg-4 item-to-filter" data-category="{{ p.category }}">
+        <div class="card border-0 shadow-sm rounded-4 p-3 mb-3">
+            <div class="d-flex justify-content-between align-items-start mb-2">
+                <div>
+                    <span class="badge bg-dark small">{{ p.sku }}</span>
+                    <h6 class="fw-bold mt-2 mb-0 text-dark">{{ p.name }}</h6>
+                </div>
+                <div class="badge {% if p.stock <= 5 %}bg-danger{% else %}bg-success{% endif %} p-2">
+                    {{ p.stock|int }} ш
+                </div>
+            </div>
+
+            <div class="d-flex gap-2 mt-3">
+                <input type="number" step="0.1" id="qty-{{ p.id }}" class="form-control text-center fw-bold border-2" style="width: 80px;" placeholder="Тоо">
+                <select id="type-{{ p.id }}" class="form-select fw-bold border-2">
+                    <option value="Жижиглэн зарлага">Жижиглэн</option>
+                    <option value="Бөөний зарлага">Бөөний</option>
+                    <option value="Орлого">Орлого</option>
+                </select>
+                <button type="button" onclick="addToCartLocal('{{ p.id }}', '{{ p.name }}')" class="btn btn-primary px-3 shadow-sm">
+                    <i class="bi bi-cart-plus"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<script>
+    function addToCartLocal(id, name) {
+        const qty = document.getElementById(`qty-${id}`).value;
+        const type = document.getElementById(`type-${id}`).value;
+        if (!qty || qty <= 0) { alert("Тоо оруулна уу!"); return; }
+
+        let cart = JSON.parse(localStorage.getItem('myCart')) || [];
+        cart.push({ product_id: id, name: name, quantity: parseFloat(qty), type: type });
+        localStorage.setItem('myCart', JSON.stringify(cart));
+        
+        updateBadge(); // layout.html-ийн тоог шинэчлэх
+        document.getElementById(`qty-${id}`).value = '';
+        
+        // Жижиг мэдэгдэл (Toast байдлаар)
+        alert(`${name} сагсанд нэмэгдлээ`);
+    }
+
+    function filterProducts() {
+        let s = document.getElementById('mainSearch').value.toLowerCase();
+        let c = document.getElementById('catFilter').value;
+        document.querySelectorAll('.item-to-filter').forEach(item => {
+            let t = item.innerText.toLowerCase();
+            let matches = t.includes(s) && (c === "" || item.dataset.category === c);
+            item.style.display = matches ? "block" : "none";
+        });
+    }
+</script>
+{% endblock %}
