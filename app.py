@@ -312,53 +312,95 @@ def export_balance():
 @app.route('/export-transactions/<type>')
 @login_required
 def export_transactions(type):
-    # Энэ функц layout.html дээр дуудагдаж байгаа тул заавал байх ёстой
-    # (Хялбарчилсан хувилбар)
-    start_date = request.args.get('start_date')
-    end_date = request.args.get('end_date')
+    start_date_str = request.args.get('start_date')
+    end_date_str = request.args.get('end_date')
     
     query = Transaction.query.filter(Transaction.type == type)
-    if start_date: query = query.filter(Transaction.timestamp >= start_date)
-    if end_date: query = query.filter(Transaction.timestamp <= end_date)
     
+    date_range_label = ""
+    if start_date_str:
+        start_date = datetime.strptime(start_date_str, '%Y-%m-%d')
+        query = query.filter(Transaction.timestamp >= start_date)
+        date_range_label += start_date_str
+    
+    if end_date_str:
+        end_date = datetime.strptime(end_date_str, '%Y-%m-%d')
+        query = query.filter(Transaction.timestamp < end_date + timedelta(days=1))
+        date_range_label += f"_аас_{end_date_str}"
+    
+    if not date_range_label:
+        date_range_label = datetime.now().strftime('%Y-%m-%d')
+
     transactions = query.all()
     
     data = []
     for t in transactions:
+        cost_price = t.product.cost_price if t.product else 0
+        sell_price = 0
+        if "Бөөний" in t.type:
+            sell_price = t.product.wholesale_price if t.product else 0
+        elif "Жижиглэн" in t.type:
+            sell_price = t.product.retail_price if t.product else 0
+            
+        unit_profit = sell_price - cost_price
+        total_profit = unit_profit * t.quantity
+        
+        # Энд цагийг хасаж, зөвхөн огноог үлдээлээ (%Y-%m-%d)
         data.append({
-            "Огноо": t.timestamp.strftime('%Y-%m-%d %H:%M'),
-            "Бараа": t.product.name if t.product else "-",
-            "Тоо": t.quantity,
-            "Хэн": t.user.username if t.user else "-"
+            'Огноо': t.timestamp.strftime('%Y-%m-%d'),
+            'Барааны код': t.product.sku if t.product else "-",
+            'Барааны нэр': t.product.name if t.product else "Устгагдсан",
+            'Гүйлгээний төрөл': t.type,
+            'Тоо ширхэг': t.quantity,
+            'Нэгж өртөг': cost_price,
+            'Зарах үнэ': sell_price,
+            'Нийт ашиг': total_profit if sell_price > 0 else 0,
+            'Ажилтан': t.user.username if t.user else "-"
         })
         
     df = pd.DataFrame(data)
+    
+    if not df.empty and type != 'Орлого':
+        totals = {
+            'Огноо': 'НИЙТ ДҮН:', 'Барааны код': '', 'Барааны нэр': '', 'Гүйлгээний төрөл': '',
+            'Тоо ширхэг': df['Тоо ширхэг'].sum(),
+            'Нэгж өртөг': '', 'Зарах үнэ': '', 
+            'Нийт ашиг': df['Нийт ашиг'].sum(),
+            'Ажилтан': ''
+        }
+        df = pd.concat([df, pd.DataFrame([totals])], ignore_index=True)
+
     output = BytesIO()
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-        df.to_excel(writer, index=False)
-    output.seek(0)
-    return send_file(output, as_attachment=True, download_name=f"{type}_Report.xlsx")
+        sheet_name = f"{type} Тайлан"
+        df.to_excel(writer, index=False, sheet_name=sheet_name[:31])
+        
+        workbook = writer.book
+        worksheet = writer.sheets[sheet_name[:31]]
+        
+        worksheet.freeze_panes(1, 0) # Эхний мөрийг царцаах
+        
+        # Форматууд
+        money_fmt = workbook.add_format({'num_format': '#,##0.00'})
+        total_row_fmt = workbook.add_format({'bold': True, 'bg_color': '#FCE4D6', 'border': 1, 'num_format': '#,##0.00'})
+        
+        for i, col in enumerate(df.columns):
+            column_len = max(df[col].astype(str).map(len).max(), len(col)) + 2
+            worksheet.set_column(i, i, column_len, money_fmt if any(x in col for x in ['үнэ', 'ашиг', 'өртөг']) else None)
 
-@app.route('/export-expense-report/<category>')
-@login_required
-def export_expense_report(category):
-    start_date = request.args.get('start_date')
-    end_date = request.args.get('end_date')
-    
-    query = Expense.query.filter(Expense.category == category)
-    if start_date: query = query.filter(Expense.date >= start_date)
-    if end_date: query = query.filter(Expense.date <= end_date)
-    
-    expenses = query.all()
-    data = [{"Огноо": e.date, "Тайлбар": e.description, "Дүн": e.amount} for e in expenses]
-    
-    df = pd.DataFrame(data)
-    output = BytesIO()
-    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-        df.to_excel(writer, index=False)
-    output.seek(0)
-    return send_file(output, as_attachment=True, download_name=f"{category}_Report.xlsx")
+        if not df.empty:
+            last_row = len(df)
+            for col_num in range(len(df.columns)):
+                val = df.iloc[last_row-1, col_num]
+                worksheet.write(last_row, col_num, val, total_row_fmt)
 
+    output.seek(0)
+    
+    mgl_filename = f"{type}_Тайлан_{date_range_label}.xlsx"
+    response = send_file(output, as_attachment=True, download_name=mgl_filename)
+    response.headers["Content-Disposition"] = f"attachment; filename*=UTF-8''{quote(mgl_filename)}"
+    return response
+    
 @app.route('/export-inventory-report')
 @login_required
 def export_inventory_report():
