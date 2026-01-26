@@ -388,7 +388,7 @@ def export_transactions(type):
     if end_date_str:
         end_date = datetime.strptime(end_date_str, '%Y-%m-%d')
         query = query.filter(Transaction.timestamp < end_date + timedelta(days=1))
-        date_range_label += f"_аас_{end_date_str}"
+        date_range_label += f"_to_{end_date_str}"
     
     if not date_range_label:
         date_range_label = datetime.now().strftime('%Y-%m-%d')
@@ -407,7 +407,6 @@ def export_transactions(type):
         unit_profit = sell_price - cost_price
         total_profit = unit_profit * t.quantity
         
-        # Энд цагийг хасаж, зөвхөн огноог үлдээлээ (%Y-%m-%d)
         data.append({
             'Огноо': t.timestamp.strftime('%Y-%m-%d'),
             'Барааны код': t.product.sku if t.product else "-",
@@ -422,6 +421,7 @@ def export_transactions(type):
         
     df = pd.DataFrame(data)
     
+    # Нийт дүн нэмэх (Орлогоос бусад тохиолдолд)
     if not df.empty and type != 'Орлого':
         totals = {
             'Огноо': 'НИЙТ ДҮН:', 'Барааны код': '', 'Барааны нэр': '', 'Гүйлгээний төрөл': '',
@@ -440,23 +440,40 @@ def export_transactions(type):
         workbook = writer.book
         worksheet = writer.sheets[sheet_name[:31]]
         
-        worksheet.freeze_panes(1, 0) # Эхний мөрийг царцаах
-        
-        # Форматууд
-        # Тайлан болгон дээр мөнгөн дүнгийн баганыг форматлах хэсэг:
-        money_format = workbook.add_format({'num_format': '#,##0', 'border': 1})
-        worksheet.set_column('D:D', 15, money_format) # Жишээ нь D багана мөнгөн дүн бол
-        total_row_fmt = workbook.add_format({'bold': True, 'bg_color': '#FCE4D6', 'border': 1, 'num_format': '#,##0.00'})
-        
-        for i, col in enumerate(df.columns):
-            column_len = max(df[col].astype(str).map(len).max(), len(col)) + 2
-            worksheet.set_column(i, i, column_len, money_fmt if any(x in col for x in ['үнэ', 'ашиг', 'өртөг']) else None)
+        # --- ФОРМАТУУД ТОХИРУУЛАХ ---
+        border_fmt = workbook.add_format({'border': 1, 'align': 'left'})
+        header_fmt = workbook.add_format({'bold': True, 'bg_color': '#D7E4BC', 'border': 1, 'align': 'center'})
+        money_fmt = workbook.add_format({'num_format': '#,##0', 'border': 1, 'align': 'right'})
+        total_row_fmt = workbook.add_format({'bold': True, 'bg_color': '#FCE4D6', 'border': 1, 'num_format': '#,##0'})
 
-        if not df.empty:
-            last_row = len(df)
+        # Толгой мөрийг форматлах
+        for col_num, value in enumerate(df.columns.values):
+            worksheet.write(0, col_num, value, header_fmt)
+
+        # Бүх нүдэнд хүрээ болон мөнгөн дүнгийн форматлах
+        for row_num in range(1, len(df)):
             for col_num in range(len(df.columns)):
-                val = df.iloc[last_row-1, col_num]
-                worksheet.write(last_row, col_num, val, total_row_fmt)
+                val = df.iloc[row_num-1, col_num]
+                col_name = df.columns[col_num]
+                
+                # Хэрэв мөнгөн дүнтэй багана бол
+                if any(x in col_name for x in ['өртөг', 'үнэ', 'ашиг']):
+                    worksheet.write(row_num, col_num, val, money_fmt)
+                else:
+                    worksheet.write(row_num, col_num, val, border_fmt)
+
+        # Хамгийн сүүлийн мөрийг (Total) форматлах
+        if not df.empty:
+            last_row_idx = len(df)
+            for col_num in range(len(df.columns)):
+                worksheet.write(last_row_idx, col_num, df.iloc[-1, col_num], total_row_fmt)
+
+        # Баганын өргөнийг автоматаар тохируулах
+        for i, col in enumerate(df.columns):
+            column_len = max(df[col].astype(str).map(len).max(), len(col)) + 4
+            worksheet.set_column(i, i, column_len)
+
+        worksheet.freeze_panes(1, 0)
 
     output.seek(0)
     
