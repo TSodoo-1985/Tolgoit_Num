@@ -10,10 +10,13 @@
     .animate-pulse { animation: pulse 2s infinite; }
     @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
     
-    /* Шинээр нэмсэн засах, устгах товчны загвар */
     .action-btns { position: absolute; top: 10px; right: 10px; display: flex; gap: 5px; opacity: 0.3; transition: opacity 0.3s; }
     .product-card:hover .action-btns { opacity: 1; }
     .btn-action { width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border-radius: 6px; font-size: 0.8rem; padding: 0; }
+
+    /* Сагсны загвар */
+    #cart-sticky { position: fixed; bottom: 20px; right: 20px; width: 350px; z-index: 1050; display: none; }
+    .cart-container { background: white; border-radius: 15px; border: 2px solid #0d6efd; max-height: 400px; overflow-y: auto; }
 </style>
 
 <div class="row g-2 mb-3">
@@ -62,22 +65,98 @@
                 <span>Бөөний: <b>{{ "{:,.0f}".format(p.wholesale_price or 0) }}₮</b></span>
             </div>
 
-            <form action="{{ url_for('add_transaction') }}" method="POST" class="d-flex gap-2 mt-3">
-                <input type="hidden" name="product_id" value="{{ p.id }}">
-                <input type="number" step="0.1" name="quantity" class="form-control qty-input-box" placeholder="Тоо" required>
-                <select name="type" class="form-select fw-bold flex-grow-1 border-2">
+            <div class="d-flex gap-2 mt-3">
+                <input type="number" step="0.1" id="qty-{{ p.id }}" class="form-control qty-input-box" placeholder="Тоо">
+                <select id="type-{{ p.id }}" class="form-select fw-bold flex-grow-1 border-2">
                     <option value="Жижиглэн зарлага">Жижиглэн</option>
                     <option value="Бөөний зарлага">Бөөний</option>
                     <option value="Орлого">Орлого</option>
                 </select>
-                <button class="btn btn-primary px-3 shadow-sm"><i class="bi bi-check-lg"></i></button>
-            </form>
+                <button type="button" onclick="addToCart('{{ p.id }}', '{{ p.name }}')" class="btn btn-primary px-3 shadow-sm"><i class="bi bi-cart-plus"></i></button>
+            </div>
         </div>
     </div>
     {% endfor %}
 </div>
 
+<div id="cart-sticky" class="shadow-lg">
+    <div class="cart-container p-3">
+        <div class="d-flex justify-content-between align-items-center mb-2 border-bottom pb-2">
+            <h6 class="m-0 fw-bold text-primary"><i class="bi bi-cart4"></i> Сонгосон бараанууд</h6>
+            <button onclick="clearCart()" class="btn btn-sm btn-outline-danger border-0"><i class="bi bi-trash"></i></button>
+        </div>
+        <div id="cart-items-list" style="font-size: 0.85rem;">
+            </div>
+        <div class="mt-3">
+            <button onclick="submitCart()" class="btn btn-success w-100 fw-bold py-2 shadow-sm">
+                БОРЛУУЛАХ <i class="bi bi-send-fill ms-1"></i>
+            </button>
+        </div>
+    </div>
+</div>
+
 <script>
+    let cart = [];
+
+    function addToCart(pId, pName) {
+        const qty = document.getElementById(`qty-${pId}`).value;
+        const type = document.getElementById(`type-${pId}`).value;
+
+        if (!qty || qty <= 0) {
+            alert("Тоо ширхэг оруулна уу!");
+            return;
+        }
+
+        cart.push({ product_id: pId, name: pName, quantity: qty, type: type });
+        updateCartUI();
+        document.getElementById(`qty-${pId}`).value = ''; // Input цэвэрлэх
+    }
+
+    function updateCartUI() {
+        const cartDiv = document.getElementById('cart-sticky');
+        const listDiv = document.getElementById('cart-items-list');
+        
+        if (cart.length > 0) {
+            cartDiv.style.display = 'block';
+            listDiv.innerHTML = cart.map((item, index) => `
+                <div class="d-flex justify-content-between align-items-center mb-1 border-bottom pb-1">
+                    <span><b>${item.quantity}</b>x ${item.name} <small class="text-muted">(${item.type.split(' ')[0]})</small></span>
+                    <i class="bi bi-x-circle text-danger cursor-pointer" onclick="removeFromCart(${index})" style="cursor:pointer"></i>
+                </div>
+            `).join('');
+        } else {
+            cartDiv.style.display = 'none';
+        }
+    }
+
+    function removeFromCart(index) {
+        cart.splice(index, 1);
+        updateCartUI();
+    }
+
+    function clearCart() {
+        cart = [];
+        updateCartUI();
+    }
+
+    async function submitCart() {
+        if (!confirm("Эдгээр гүйлгээг хадгалах уу?")) return;
+
+        const response = await fetch('/add_transaction', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ items: cart })
+        });
+
+        const result = await response.json();
+        if (result.success) {
+            alert(result.message);
+            location.reload();
+        } else {
+            alert("Алдаа гарлаа: " + result.message);
+        }
+    }
+
     function filterProducts() {
         let searchInput = document.getElementById('mainSearch').value.toLowerCase();
         let catSelect = document.getElementById('catFilter').value;
