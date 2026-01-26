@@ -166,9 +166,36 @@ def delete_product(id):
 
 # --- ГҮЙЛГЭЭ, ТООЛЛОГО ---
 
+from flask import jsonify # Файлын дээр заавал нэмээрэй
+
 @app.route('/add_transaction', methods=['POST'])
 @login_required
 def add_transaction():
+    # JSON өгөгдөл ирсэн эсэхийг шалгах (Олон бараа нэг дор)
+    data = request.get_json()
+    
+    if data and 'items' in data:
+        try:
+            for item in data['items']:
+                p_id = item.get('product_id')
+                t_type = item.get('type')
+                qty = float(item.get('quantity') or 0)
+                product = Product.query.get(p_id)
+                
+                if product:
+                    if t_type in ['Орлого', 'буцаалт']:
+                        product.stock += qty
+                    else:
+                        product.stock -= qty
+                    db.session.add(Transaction(product_id=p_id, type=t_type, quantity=qty, user_id=current_user.id))
+            
+            db.session.commit()
+            return jsonify({"success": True, "message": "Бүх гүйлгээ амжилттай хадгалагдлаа."})
+        except Exception as e:
+            db.session.rollback()
+            return jsonify({"success": False, "message": str(e)}), 500
+
+    # Хуучин ганц бараагаар нэмэх хэсгийг хэвээр үлдээв (Compatibility)
     p_id = request.form.get('product_id')
     t_type = request.form.get('type')
     qty = float(request.form.get('quantity') or 0)
@@ -179,19 +206,11 @@ def add_transaction():
             product.stock += qty
         else:
             product.stock -= qty
-            
         db.session.add(Transaction(product_id=p_id, type=t_type, quantity=qty, user_id=current_user.id))
         db.session.commit()
         flash(f"{product.name} - {t_type} бүртгэгдлээ.")
         
     return redirect(request.referrer or url_for('dashboard'))
-
-@app.route('/inventory')
-@login_required
-def inventory():
-    products = Product.query.filter_by(is_active=True).all()
-    history = Transaction.query.filter(Transaction.type.like('Тооллого%')).order_by(Transaction.timestamp.desc()).limit(10).all()
-    return render_template('inventory.html', products=products, history=history)
 
 @app.route('/do_inventory', methods=['POST'])
 @login_required
