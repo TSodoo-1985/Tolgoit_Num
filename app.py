@@ -443,7 +443,9 @@ def export_transactions(type):
         worksheet.freeze_panes(1, 0) # Эхний мөрийг царцаах
         
         # Форматууд
-        money_fmt = workbook.add_format({'num_format': '#,##0.00'})
+        # Тайлан болгон дээр мөнгөн дүнгийн баганыг форматлах хэсэг:
+        money_format = workbook.add_format({'num_format': '#,##0', 'border': 1})
+        worksheet.set_column('D:D', 15, money_format) # Жишээ нь D багана мөнгөн дүн бол
         total_row_fmt = workbook.add_format({'bold': True, 'bg_color': '#FCE4D6', 'border': 1, 'num_format': '#,##0.00'})
         
         for i, col in enumerate(df.columns):
@@ -482,7 +484,7 @@ def export_expense_report(category):
     start_date_str = request.args.get('start_date')
     end_date_str = request.args.get('end_date')
     
-    # 1. Шүүлтүүр бэлдэх
+    # 1. Өгөгдөл шүүх хэсэг
     if category == "Бүгд":
         query = Expense.query
     else:
@@ -500,95 +502,116 @@ def export_expense_report(category):
         try:
             end_date = datetime.strptime(end_date_str, '%Y-%m-%d')
             query = query.filter(Expense.date < end_date + timedelta(days=1))
-            date_range_label += f"_аас_{end_date_str}"
+            date_range_label += f"_to_{end_date_str}"
         except: pass
     
     if not date_range_label:
         date_range_label = datetime.now().strftime('%Y-%m-%d')
 
-    # 2. Өгөгдөл татах
     expenses = query.order_by(Expense.date.desc()).all()
     
-    # Баганын нэрийг категориос хамаарч өөрчлөх
+    # Баганын нэрийг тодорхойлох
     amount_col = 'Олгосон дүн' if category == "Ажлын хөлс" else 'Зардлын дүн'
     
-    data = []
+    # 2. Тайлангийн өгөгдлийг жагсаалт болгох
+    report_data = []
     for e in expenses:
-        # ХАМГААЛАЛТ: 'user' attribute байгаа эсэхийг шалгах
-        # Хэрэв баазад user_id байхгүй бол алдаа заалгүй "-" гэж харуулна
-        staff_name = "-"
+        # Ажилтан бүртгэсэн эсэхийг хамгаалалттай шалгах
+        staff = "-"
         if hasattr(e, 'user') and e.user:
-            staff_name = e.user.username
-        elif hasattr(e, 'user_id') and e.user_id:
-            # Хэрэв relationship байхгүй ч ID байвал хайж үзэх
-            from models import User # Моделийн нэрээс хамаарч өөрчилж болно
-            u = User.query.get(e.user_id)
-            staff_name = u.username if u else "-"
-
-        data.append({
+            staff = e.user.username
+        
+        report_data.append({
             'Огноо': e.date.strftime('%Y-%m-%d') if e.date else "-",
             'Төрөл': e.category,
-            'Тайлбар': e.description,
+            'Тайлбар': e.description or "-",
             amount_col: e.amount,
-            'Бүртгэсэн': staff_name
+            'Бүртгэсэн': staff
         })
         
-    df = pd.DataFrame(data)
+    df = pd.DataFrame(report_data)
     
-    # 3. Нийт дүн бодох
+    # 3. Нийт дүнгийн мөрийг нэмэх
     if not df.empty:
-        total_text = 'НИЙТ ОЛГОСОН ХӨЛС:' if category == "Ажлын hөлс" else 'НИЙТ ЗАРДАЛ:'
+        total_sum = df[amount_col].sum()
         totals = {
-            'Огноо': total_text,
+            'Огноо': 'НИЙТ:',
             'Төрөл': '',
             'Тайлбар': '',
-            amount_col: df[amount_col].sum(),
+            amount_col: total_sum,
             'Бүртгэсэн': ''
         }
         df = pd.concat([df, pd.DataFrame([totals])], ignore_index=True)
 
-    # 4. Excel файл үүсгэх
+    # 4. Excel үүсгэх болон Borders (Хүрээ) тохируулах
     output = BytesIO()
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-        sheet_name = category[:31] # Excel-ийн хуудасны нэр хамгийн ихдээ 31 тэмдэгт
+        sheet_name = category[:31]
         df.to_excel(writer, index=False, sheet_name=sheet_name)
         
         workbook = writer.book
         worksheet = writer.sheets[sheet_name]
         
-        # Эхний мөрийг царцаах
-        worksheet.freeze_panes(1, 0)
+        # --- ФОРМАТУУД ТОХИРУУЛАХ ---
+        # Энгийн нүдний хүрээ
+        border_fmt = workbook.add_format({'border': 1, 'align': 'left', 'valign': 'vcenter'})
         
-        # Форматжуулалт
-        money_fmt = workbook.add_format({'num_format': '#,##0.00', 'border': 1})
-        header_fmt = workbook.add_format({'bold': True, 'bg_color': '#D7E4BC', 'border': 1})
-        total_row_fmt = workbook.add_format({'bold': True, 'bg_color': '#FCE4D6', 'border': 1, 'num_format': '#,##0.00'})
+        # Мөнгөн дүнгийн формат (Таслалтай + Хүрээтэй)
+        money_fmt = workbook.add_format({'num_format': '#,##0', 'border': 1, 'align': 'right'})
+        
+        # Толгой хэсгийн формат (Ногоон өнгө + Хүрээ)
+        header_fmt = workbook.add_format({
+            'bold': True, 'bg_color': '#D7E4BC', 'border': 1, 
+            'align': 'center', 'valign': 'vcenter'
+        })
+        
+        # Нийт дүнгийн формат (Улбар шар өнгө + Хүрээ)
+        total_row_fmt = workbook.add_format({
+            'bold': True, 'bg_color': '#FCE4D6', 'border': 1, 'num_format': '#,##0'
+        })
 
-        # Баганын өргөн тохируулах
+        # Толгой мөрийг форматлах
+        for col_num, value in enumerate(df.columns.values):
+            worksheet.write(0, col_num, value, header_fmt)
+
+        # Бүх өгөгдлийг хүрээтэй болгох (Нийт дүнгээс бусад мөрүүд)
+        for row_num in range(1, len(df)):
+            for col_num in range(len(df.columns)):
+                val = df.iloc[row_num-1, col_num]
+                # Сүүлийн мөр биш бол энгийн хүрээ ашиглана
+                if row_num < len(df):
+                    if df.columns[col_num] == amount_col:
+                        worksheet.write(row_num, col_num, val, money_fmt)
+                    else:
+                        worksheet.write(row_num, col_num, val, border_fmt)
+
+        # Сүүлийн мөрийг (Нийт дүн) форматлах
+        last_row_idx = len(df)
+        for col_num in range(len(df.columns)):
+            worksheet.write(last_row_idx, col_num, df.iloc[-1, col_num], total_row_fmt)
+
+        # Баганын өргөнийг автоматаар тохируулах
         for i, col in enumerate(df.columns):
             column_len = max(df[col].astype(str).map(len).max(), len(col)) + 5
-            worksheet.set_column(i, i, column_len, money_fmt if amount_col in col else None)
+            worksheet.set_column(i, i, column_len)
 
-        # Сүүлийн мөрийг (Total) өнгөөр ялгах
-        if not df.empty:
-            last_idx = len(df)
-            for c in range(len(df.columns)):
-                worksheet.write(last_idx, c, df.iloc[-1, c], total_row_fmt)
+        worksheet.freeze_panes(1, 0) # Дээд мөрийг царцаах
 
     output.seek(0)
     
-    # Монгол нэртэй файл илгээх
-    mgl_filename = f"{category}_Тайлан_{date_range_label}.xlsx"
+    # Файлын нэрийг бэлдэх
+    filename = f"{category}_Report_{date_range_label}.xlsx"
     response = send_file(
         output,
         as_attachment=True,
-        download_name=mgl_filename,
+        download_name=filename,
         mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
-    response.headers["Content-Disposition"] = f"attachment; filename*=UTF-8''{quote(mgl_filename)}"
+    # Монгол нэрний кодыг дэмжүүлэх
+    from urllib.parse import quote
+    response.headers["Content-Disposition"] = f"attachment; filename*=UTF-8''{quote(filename)}"
     
     return response
-    
 
 # --- ХЭРЭГЛЭГЧИЙН УДИРДЛАГА ---
 
