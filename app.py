@@ -146,6 +146,20 @@ def expenses():
     return render_template('expenses.html', items=items)
 
 # (Бусад шаардлагатай функцүүдийг энд үргэлжлүүлэн бичнэ...)
+@app.route('/statistics')
+@login_required
+def statistics():
+    # Энэ функц байхгүй учраас Render дээр алдаа заагаад байгаа юм
+    products = Product.query.all()
+    return render_template('statistics.html', 
+                           products=products, 
+                           dates=[], 
+                           sales=[], 
+                           profit=[], 
+                           expenses=[], 
+                           returns=[0], 
+                           top_labels=[], 
+                           top_values=[])
 
 if __name__ == '__main__':
     with app.app_context():
