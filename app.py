@@ -7,6 +7,7 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
 from urllib.parse import quote
+from flask import jsonify
 
 app = Flask(__name__)
 
@@ -171,31 +172,37 @@ from flask import jsonify # Файлын дээр заавал нэмээрэй
 @app.route('/add_transaction', methods=['POST'])
 @login_required
 def add_transaction():
-    # JSON өгөгдөл ирсэн эсэхийг шалгах (Олон бараа нэг дор)
-    data = request.get_json()
-    
-    if data and 'items' in data:
-        try:
-            for item in data['items']:
-                p_id = item.get('product_id')
-                t_type = item.get('type')
-                qty = float(item.get('quantity') or 0)
-                product = Product.query.get(p_id)
+    # JSON өгөгдөл ирсэн эсэхийг шалгах (Олон бараа нэг дор сагснаас ирэх үед)
+    if request.is_json:
+        data = request.get_json()
+        if data and 'items' in data:
+            try:
+                for item in data['items']:
+                    p_id = item.get('product_id')
+                    t_type = item.get('type')
+                    qty = float(item.get('quantity') or 0)
+                    product = Product.query.get(p_id)
+                    
+                    if product:
+                        if t_type in ['Орлого', 'буцаалт']:
+                            product.stock += qty
+                        else:
+                            product.stock -= qty
+                        
+                        db.session.add(Transaction(
+                            product_id=p_id, 
+                            type=t_type, 
+                            quantity=qty, 
+                            user_id=current_user.id
+                        ))
                 
-                if product:
-                    if t_type in ['Орлого', 'буцаалт']:
-                        product.stock += qty
-                    else:
-                        product.stock -= qty
-                    db.session.add(Transaction(product_id=p_id, type=t_type, quantity=qty, user_id=current_user.id))
-            
-            db.session.commit()
-            return jsonify({"success": True, "message": "Бүх гүйлгээ амжилттай хадгалагдлаа."})
-        except Exception as e:
-            db.session.rollback()
-            return jsonify({"success": False, "message": str(e)}), 500
+                db.session.commit()
+                return jsonify({"success": True, "message": "Бүх гүйлгээ амжилттай хадгалагдлаа."})
+            except Exception as e:
+                db.session.rollback() # Алдаа гарвал бүх үйлдлийг цуцална
+                return jsonify({"success": False, "message": str(e)}), 500
 
-    # Хуучин ганц бараагаар нэмэх хэсгийг хэвээр үлдээв (Compatibility)
+    # Хуучин Form-оор ганц бараа ирэх үеийн логикийг хэвээр үлдээв
     p_id = request.form.get('product_id')
     t_type = request.form.get('type')
     qty = float(request.form.get('quantity') or 0)
