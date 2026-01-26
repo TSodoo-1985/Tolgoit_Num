@@ -59,6 +59,17 @@ class Expense(db.Model):
     date = db.Column(db.DateTime, default=datetime.now)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
 
+class Expense(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    category = db.Column(db.String(50), nullable=False)
+    amount = db.Column(db.Float, nullable=False)
+    description = db.Column(db.Text)
+    date = db.Column(db.DateTime, default=datetime.utcnow)
+    # Энэ мөрийг нэмэх:
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    # Энэ мөрийг нэмэх:
+    user = db.relationship('User', backref='expenses')
+
 @login_manager.user_loader
 def load_user(user_id):
     return User.query.get(int(user_id))
@@ -209,29 +220,50 @@ def do_inventory():
 @app.route('/statistics')
 @login_required
 def statistics():
-    # Статистик тооцоолох логик (Энгийн байдлаар)
-    products = Product.query.filter_by(is_active=True).all()
-    # Энд датаг боловсруулаад HTML рүү дамжуулна
-    return render_template('statistics.html', 
-                           products=products, 
-                           dates=[], sales=[], profit=[], expenses=[], returns=[0], top_labels=[], top_values=[], 
-                           start_date=datetime.now().strftime('%Y-%m-%d'), end_date=datetime.now().strftime('%Y-%m-%d'))
-
-@app.route('/expenses', methods=['GET', 'POST'])
-@login_required
-def expenses():
-    if request.method == 'POST':
-        db.session.add(Expense(
-            category=request.form.get('category'), 
-            description=request.form.get('description'), 
-            amount=float(request.form.get('amount') or 0), 
-            user_id=current_user.id
-        ))
-        db.session.commit()
-        return redirect(url_for('expenses'))
+    today = datetime.now().date()
+    dates = [(today - timedelta(days=i)).strftime('%Y-%m-%d') for i in range(6, -1, -1)]
     
-    items = Expense.query.order_by(Expense.date.desc()).limit(20).all()
-    return render_template('expenses.html', items=items)
+    sales_values = []
+    profit_values = []
+    expense_values = []
+    
+    for date_str in dates:
+        # 1. Борлуулалт (Зарлагын нийт дүн)
+        sales = db.session.query(db.func.sum(Transaction.quantity * db.case(
+                (Transaction.type == 'Бөөний зарлага', Product.wholesale_price),
+                (Transaction.type == 'Жижиглэн зарлага', Product.retail_price),
+                else_=0
+            ))).join(Product).filter(db.func.date(Transaction.timestamp) == date_str).scalar() or 0
+        
+        # 2. Өртөг (Зарсан барааны нийт өртөг - Ашиг бодоход хэрэгтэй)
+        cost_sum = db.session.query(db.func.sum(Transaction.quantity * Product.cost_price)).\
+            join(Product).filter(Transaction.type.like('%зарлага%'), 
+            db.func.date(Transaction.timestamp) == date_str).scalar() or 0
+        
+        # 3. Зардал (Ашгаас хасагдах ерөнхий зардал)
+        daily_expense = db.session.query(db.func.sum(Expense.amount)).\
+            filter(Expense.category != "Ажлын хөлс", db.func.date(Expense.date) == date_str).scalar() or 0
+
+        sales_values.append(float(sales))
+        expense_values.append(float(daily_expense))
+        # Цэвэр ашиг = (Борлуулалт - Өртөг) - Зардал
+        profit_values.append(float(sales - cost_sum - daily_expense))
+
+    # 4. Топ 5 бараа (Ширхэгээр)
+    top_products = db.session.query(Product.name, db.func.sum(Transaction.quantity)).\
+        join(Transaction).filter(Transaction.type.like('%зарлага%')).\
+        group_by(Product.name).order_by(db.func.sum(Transaction.quantity).desc()).limit(5).all()
+    
+    top_labels = [p[0] for p in top_products]
+    top_values = [int(p[1]) for p in top_products]
+
+    return render_template('statistics.html', 
+                         dates=dates, 
+                         sales=sales_values, 
+                         profits=profit_values, 
+                         expenses=expense_values,
+                         top_labels=top_labels,
+                         top_values=top_values)
 
 @app.route('/export-balance')
 @login_required
@@ -420,78 +452,111 @@ def export_expense_report(category):
     start_date_str = request.args.get('start_date')
     end_date_str = request.args.get('end_date')
     
-    # КАТЕГОРИЙГ ШҮҮХ: "Зардал" эсвэл "Ажлын хөлс"
-    query = Expense.query.filter(Expense.category == category)
+    # 1. Шүүлтүүр бэлдэх
+    if category == "Бүгд":
+        query = Expense.query
+    else:
+        query = Expense.query.filter(Expense.category == category)
     
     date_range_label = ""
     if start_date_str:
-        query = query.filter(Expense.date >= datetime.strptime(start_date_str, '%Y-%m-%d'))
-        date_range_label += start_date_str
+        try:
+            start_date = datetime.strptime(start_date_str, '%Y-%m-%d')
+            query = query.filter(Expense.date >= start_date)
+            date_range_label += start_date_str
+        except: pass
+    
     if end_date_str:
-        query = query.filter(Expense.date < datetime.strptime(end_date_str, '%Y-%m-%d') + timedelta(days=1))
-        date_range_label += f"_аас_{end_date_str}"
+        try:
+            end_date = datetime.strptime(end_date_str, '%Y-%m-%d')
+            query = query.filter(Expense.date < end_date + timedelta(days=1))
+            date_range_label += f"_аас_{end_date_str}"
+        except: pass
     
     if not date_range_label:
         date_range_label = datetime.now().strftime('%Y-%m-%d')
 
+    # 2. Өгөгдөл татах
     expenses = query.order_by(Expense.date.desc()).all()
     
-    # Хүснэгтийн баганы нэрийг категориос хамаарч өөрчлөх
-    amount_column_name = 'Олгосон дүн' if category == "Ажлын хөлс" else 'Зардлын дүн'
+    # Баганын нэрийг категориос хамаарч өөрчлөх
+    amount_col = 'Олгосон дүн' if category == "Ажлын хөлс" else 'Зардлын дүн'
     
     data = []
     for e in expenses:
+        # ХАМГААЛАЛТ: 'user' attribute байгаа эсэхийг шалгах
+        # Хэрэв баазад user_id байхгүй бол алдаа заалгүй "-" гэж харуулна
+        staff_name = "-"
+        if hasattr(e, 'user') and e.user:
+            staff_name = e.user.username
+        elif hasattr(e, 'user_id') and e.user_id:
+            # Хэрэв relationship байхгүй ч ID байвал хайж үзэх
+            from models import User # Моделийн нэрээс хамаарч өөрчилж болно
+            u = User.query.get(e.user_id)
+            staff_name = u.username if u else "-"
+
         data.append({
-            'Огноо': e.date.strftime('%Y-%m-%d'),
+            'Огноо': e.date.strftime('%Y-%m-%d') if e.date else "-",
             'Төрөл': e.category,
             'Тайлбар': e.description,
-            amount_column_name: e.amount,
-            'Ажилтан': e.user.username if e.user else "-"
+            amount_col: e.amount,
+            'Бүртгэсэн': staff_name
         })
         
     df = pd.DataFrame(data)
     
-    # НИЙТ ДҮН БОДОХ
+    # 3. Нийт дүн бодох
     if not df.empty:
-        total_label = 'НИЙТ ОЛГОСОН ХӨЛС:' if category == "Ажлын хөлс" else 'НИЙТ ЗАРДАЛ:'
+        total_text = 'НИЙТ ОЛГОСОН ХӨЛС:' if category == "Ажлын hөлс" else 'НИЙТ ЗАРДАЛ:'
         totals = {
-            'Огноо': total_label,
+            'Огноо': total_text,
             'Төрөл': '',
             'Тайлбар': '',
-            amount_column_name: df[amount_column_name].sum(),
-            'Ажилтан': ''
+            amount_col: df[amount_col].sum(),
+            'Бүртгэсэн': ''
         }
         df = pd.concat([df, pd.DataFrame([totals])], ignore_index=True)
 
+    # 4. Excel файл үүсгэх
     output = BytesIO()
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-        df.to_excel(writer, index=False, sheet_name=category[:31])
-        workbook = writer.book
-        worksheet = writer.sheets[category[:31]]
+        sheet_name = category[:31] # Excel-ийн хуудасны нэр хамгийн ихдээ 31 тэмдэгт
+        df.to_excel(writer, index=False, sheet_name=sheet_name)
         
-        # ЭХНИЙ МӨРИЙГ ЦАРЦААХ
+        workbook = writer.book
+        worksheet = writer.sheets[sheet_name]
+        
+        # Эхний мөрийг царцаах
         worksheet.freeze_panes(1, 0)
         
-        # ФОРМАТ
-        money_fmt = workbook.add_format({'num_format': '#,##0.00'})
-        total_fmt = workbook.add_format({'bold': True, 'bg_color': '#FCE4D6', 'border': 1, 'num_format': '#,##0.00'})
-        
+        # Форматжуулалт
+        money_fmt = workbook.add_format({'num_format': '#,##0.00', 'border': 1})
+        header_fmt = workbook.add_format({'bold': True, 'bg_color': '#D7E4BC', 'border': 1})
+        total_row_fmt = workbook.add_format({'bold': True, 'bg_color': '#FCE4D6', 'border': 1, 'num_format': '#,##0.00'})
+
+        # Баганын өргөн тохируулах
         for i, col in enumerate(df.columns):
             column_len = max(df[col].astype(str).map(len).max(), len(col)) + 5
-            worksheet.set_column(i, i, column_len, money_fmt if 'дүн' in col else None)
+            worksheet.set_column(i, i, column_len, money_fmt if amount_col in col else None)
 
+        # Сүүлийн мөрийг (Total) өнгөөр ялгах
         if not df.empty:
-            last_row = len(df)
-            for col_num in range(len(df.columns)):
-                worksheet.write(last_row, col_num, df.iloc[last_row-1, col_num], total_fmt)
+            last_idx = len(df)
+            for c in range(len(df.columns)):
+                worksheet.write(last_idx, c, df.iloc[-1, c], total_row_fmt)
 
     output.seek(0)
     
-    # Файлын нэрийг тохируулах (Зардал_... эсвэл Ажлын хөлс_...)
+    # Монгол нэртэй файл илгээх
     mgl_filename = f"{category}_Тайлан_{date_range_label}.xlsx"
-    
-    response = send_file(output, as_attachment=True, download_name=mgl_filename)
+    response = send_file(
+        output,
+        as_attachment=True,
+        download_name=mgl_filename,
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
     response.headers["Content-Disposition"] = f"attachment; filename*=UTF-8''{quote(mgl_filename)}"
+    
     return response
     
 
