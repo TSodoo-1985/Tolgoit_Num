@@ -1,42 +1,32 @@
 {% extends "layout.html" %}
 {% block content %}
-
-<div class="row g-2 mb-3">
-    <div class="col-8">
-        <input type="text" id="mainSearch" class="form-control border-0 shadow-sm" placeholder="Бараа хайх..." onkeyup="filterProducts()">
-    </div>
-    <div class="col-4">
-        <select id="catFilter" class="form-select border-0 shadow-sm fw-bold" onchange="filterProducts()">
+<div class="row g-3 mb-4">
+    <div class="col-md-8"><input type="text" id="pSearch" class="form-control" placeholder="Хайх..." onkeyup="filter()"></div>
+    <div class="col-md-4">
+        <select id="pCat" class="form-select" onchange="filter()">
             <option value="">Бүх төрөл</option>
             {% for c in categories %}<option value="{{ c }}">{{ c }}</option>{% endfor %}
         </select>
     </div>
 </div>
 
-<div class="row" id="productContainer">
+<div class="row" id="pGrid">
     {% for p in products %}
-    <div class="col-12 col-md-6 col-lg-4 item-to-filter" data-category="{{ p.category }}">
-        <div class="card border-0 shadow-sm rounded-4 p-3 mb-3">
-            <div class="d-flex justify-content-between align-items-start mb-2">
-                <div>
-                    <span class="badge bg-dark small">{{ p.sku }}</span>
-                    <h6 class="fw-bold mt-2 mb-0 text-dark">{{ p.name }}</h6>
-                </div>
-                <div class="badge {% if p.stock <= 5 %}bg-danger{% else %}bg-success{% endif %} p-2">
-                    {{ p.stock|int }} ш
-                </div>
+    <div class="col-md-4 mb-3 p-item" data-cat="{{ p.category }}">
+        <div class="card p-3 shadow-sm border-0">
+            <div class="d-flex justify-content-between">
+                <span class="badge bg-dark">{{ p.sku }}</span>
+                <span class="badge bg-success">{{ p.stock|int }} ш</span>
             </div>
-
-            <div class="d-flex gap-2 mt-3">
-                <input type="number" step="0.1" id="qty-{{ p.id }}" class="form-control text-center fw-bold border-2" style="width: 80px;" placeholder="Тоо">
-                <select id="type-{{ p.id }}" class="form-select fw-bold border-2">
+            <h6 class="mt-2 fw-bold text-truncate">{{ p.name }}</h6>
+            <div class="d-flex gap-1 mt-2">
+                <input type="number" id="q-{{ p.id }}" class="form-control form-control-sm" placeholder="Тоо" style="width:70px">
+                <select id="t-{{ p.id }}" class="form-select form-select-sm">
                     <option value="Жижиглэн зарлага">Жижиглэн</option>
                     <option value="Бөөний зарлага">Бөөний</option>
                     <option value="Орлого">Орлого</option>
                 </select>
-                <button type="button" onclick="addToCartLocal('{{ p.id }}', '{{ p.name }}')" class="btn btn-primary px-3 shadow-sm">
-                    <i class="bi bi-cart-plus"></i>
-                </button>
+                <button onclick="add('{{ p.id }}', '{{ p.name }}')" class="btn btn-primary btn-sm"><i class="bi bi-cart-plus"></i></button>
             </div>
         </div>
     </div>
@@ -44,29 +34,25 @@
 </div>
 
 <script>
-    function addToCartLocal(id, name) {
-        const qty = document.getElementById(`qty-${id}`).value;
-        const type = document.getElementById(`type-${id}`).value;
-        if (!qty || qty <= 0) { alert("Тоо оруулна уу!"); return; }
+    function add(id, name) {
+        const q = document.getElementById('q-'+id).value;
+        const t = document.getElementById('t-'+id).value;
+        if(!q || q <= 0) return alert("Тоо оруулна уу");
 
         let cart = JSON.parse(localStorage.getItem('myCart')) || [];
-        cart.push({ product_id: id, name: name, quantity: parseFloat(qty), type: type });
+        cart.push({ product_id: id, name: name, quantity: q, type: t });
         localStorage.setItem('myCart', JSON.stringify(cart));
-        
-        updateBadge(); // layout.html-ийн тоог шинэчлэх
-        document.getElementById(`qty-${id}`).value = '';
-        
-        // Жижиг мэдэгдэл (Toast байдлаар)
-        alert(`${name} сагсанд нэмэгдлээ`);
+        updateBadge();
+        document.getElementById('q-'+id).value = '';
+        alert("Сагсанд нэмэгдлээ");
     }
 
-    function filterProducts() {
-        let s = document.getElementById('mainSearch').value.toLowerCase();
-        let c = document.getElementById('catFilter').value;
-        document.querySelectorAll('.item-to-filter').forEach(item => {
-            let t = item.innerText.toLowerCase();
-            let matches = t.includes(s) && (c === "" || item.dataset.category === c);
-            item.style.display = matches ? "block" : "none";
+    function filter() {
+        let s = document.getElementById('pSearch').value.toLowerCase();
+        let c = document.getElementById('pCat').value;
+        document.querySelectorAll('.p-item').forEach(el => {
+            let matches = el.innerText.toLowerCase().includes(s) && (c === "" || el.dataset.cat === c);
+            el.style.display = matches ? "block" : "none";
         });
     }
 </script>
