@@ -52,15 +52,15 @@ class Transaction(db.Model):
     user = db.relationship('User', backref='transactions')
 
 class Expense(db.Model):
+    __tablename__ = 'expense'
+    __table_args__ = {'extend_existing': True}  # Энэ мөр давхардал алдаанаас хамгаална
     id = db.Column(db.Integer, primary_key=True)
     category = db.Column(db.String(50), nullable=False)
     amount = db.Column(db.Float, nullable=False)
     description = db.Column(db.Text)
     date = db.Column(db.DateTime, default=datetime.utcnow)
-    # Энэ мөрийг нэмэх:
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
-    # Энэ мөрийг нэмэх:
-    user = db.relationship('User', backref='expenses')
+    user = db.relationship('User', backref='expense_records')
 
 @login_manager.user_loader
 def load_user(user_id):
