@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="mn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>📦 Толгойт Нум</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+</head>
+<body class="bg-light">
+
+<nav class="navbar navbar-dark bg-dark sticky-top shadow-sm">
+    <div class="container-fluid">
+        <a class="navbar-brand fw-bold" href="{{ url_for('dashboard') }}">📦 Толгойт Нум</a>
+
+        <div class="d-flex gap-2">
+            <a href="{{ url_for('cart_page') }}" class="btn btn-outline-primary btn-sm position-relative">
+                <i class="bi bi-cart3"></i>
+                <span id="cart-badge" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style="display: none;">0</span>
+            </a>
+
+            <div class="dropdown">
+                <button class="btn btn-success btn-sm dropdown-toggle" data-bs-toggle="dropdown">Тайлан</button>
+                <ul class="dropdown-menu dropdown-menu-end p-3 shadow-lg" style="min-width: 250px;">
+                    <div class="mb-2">
+                        <label class="small fw-bold">Огноо сонгох:</label>
+                        <input type="date" id="rep_s" class="form-control form-control-sm mb-1">
+                        <input type="date" id="rep_e" class="form-control form-control-sm">
+                    </div>
+                    <li><hr class="dropdown-divider"></li>
+                    <li><button class="dropdown-item" onclick="dl('Жижиглэн зарлага')">Жижиглэн тайлан</button></li>
+                    <li><button class="dropdown-item" onclick="dl('Бөөний зарлага')">Бөөний тайлан</button></li>
+                    <li><button class="dropdown-item" onclick="dl('Орлого')">Орлого тайлан</button></li>
+                    <li><hr class="dropdown-divider"></li>
+                    <li><button class="dropdown-item text-danger" onclick="dlExp('Зардал')">Ерөнхий зардал</button></li>
+                    <li><button class="dropdown-item text-danger" onclick="dlExp('Ажлын хөлс')">Ажлын хөлс</button></li>
+                    <li><hr class="dropdown-divider"></li>
+                    <li><a class="dropdown-item fw-bold text-success" href="{{ url_for('export_balance') }}">Үлдэгдэл татах</a></li>
+                </ul>
+            </div>
+            
+            <a href="{{ url_for('logout') }}" class="btn btn-outline-light btn-sm">Гарах</a>
+        </div>
+    </div>
+</nav>
+
+<div class="container mt-4">
+    {% with messages = get_flashed_messages() %}
+        {% if messages %}
+            {% for m in messages %}<div class="alert alert-info">{{ m }}</div>{% endfor %}
+        {% endif %}
+    {% endwith %}
+    {% block content %}{% endblock %}
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    function updateBadge() {
+        let cart = JSON.parse(localStorage.getItem('myCart')) || [];
+        const badge = document.getElementById('cart-badge');
+        if(cart.length > 0) {
+            badge.innerText = cart.length;
+            badge.style.display = 'block';
+        } else {
+            badge.style.display = 'none';
+        }
+    }
+    window.onload = updateBadge;
+
+    function dl(type) {
+        const s = document.getElementById('rep_s').value;
+        const e = document.getElementById('rep_e').value;
+        window.location.href = `/export-transactions/${type}?start_date=${s}&end_date=${e}`;
+    }
+    function dlExp(cat) {
+        const s = document.getElementById('rep_s').value;
+        const e = document.getElementById('rep_e').value;
+        window.location.href = `/export-expense-report/${cat}?start_date=${s}&end_date=${e}`;
+    }
+</script>
+</body>
+</html>
