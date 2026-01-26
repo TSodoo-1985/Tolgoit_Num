@@ -1,0 +1,108 @@
+{% extends "layout.html" %}
+{% block content %}
+<div class="container">
+    <div class="card shadow-sm border-0 rounded-4 p-4">
+        <h4 class="fw-bold text-dark mb-4"><i class="bi bi-cart4 text-primary me-2"></i>Борлуулалтын сагс</h4>
+        
+        <div id="cart-table-container">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Барааны нэр</th>
+                            <th>Төрөл</th>
+                            <th>Тоо ширхэг</th>
+                            <th class="text-end">Үйлдэл</th>
+                        </tr>
+                    </thead>
+                    <tbody id="cart-tbody">
+                        </tbody>
+                </table>
+            </div>
+            
+            <div class="d-flex justify-content-between align-items-center mt-4 border-top pt-3">
+                <button onclick="clearCartFull()" class="btn btn-outline-danger px-4">Сагс цэвэрлэх</button>
+                <button onclick="submitCartFull()" class="btn btn-success btn-lg px-5 fw-bold shadow">ГҮЙЛГЭЭ БАТЛАХ</button>
+            </div>
+        </div>
+        
+        <div id="cart-empty-msg" style="display:none;" class="text-center py-5">
+            <i class="bi bi-cart-x display-1 text-muted"></i>
+            <h5 class="mt-3 text-muted">Таны сагс одоогоор хоосон байна.</h5>
+            <a href="{{ url_for('dashboard') }}" class="btn btn-primary mt-3">Барааны жагсаалт руу буцах</a>
+        </div>
+    </div>
+</div>
+
+<script>
+    function renderCartPage() {
+        let cart = JSON.parse(localStorage.getItem('myCart')) || [];
+        const tbody = document.getElementById('cart-tbody');
+        const container = document.getElementById('cart-table-container');
+        const emptyMsg = document.getElementById('cart-empty-msg');
+
+        if (cart.length === 0) {
+            container.style.display = 'none';
+            emptyMsg.style.display = 'block';
+            return;
+        }
+
+        container.style.display = 'block';
+        emptyMsg.style.display = 'none';
+        tbody.innerHTML = cart.map((item, index) => `
+            <tr>
+                <td><div class="fw-bold text-dark">${item.name}</div></td>
+                <td><span class="badge bg-soft-primary text-primary px-3">${item.type}</span></td>
+                <td><input type="number" class="form-control form-control-sm w-50 fw-bold" value="${item.quantity}" onchange="updateQty(${index}, this.value)"></td>
+                <td class="text-end">
+                    <button class="btn btn-sm btn-outline-danger border-0" onclick="removeCartItem(${index})"><i class="bi bi-trash3"></i></button>
+                </td>
+            </tr>
+        `).join('');
+    }
+
+    function updateQty(index, val) {
+        let cart = JSON.parse(localStorage.getItem('myCart')) || [];
+        cart[index].quantity = parseFloat(val);
+        localStorage.setItem('myCart', JSON.stringify(cart));
+    }
+
+    function removeCartItem(index) {
+        let cart = JSON.parse(localStorage.getItem('myCart')) || [];
+        cart.splice(index, 1);
+        localStorage.setItem('myCart', JSON.stringify(cart));
+        renderCartPage();
+        updateLayoutBadge(); // layout-ийн тоог шинэчлэх
+    }
+
+    function clearCartFull() {
+        if(confirm("Сагсыг цэвэрлэх үү?")) {
+            localStorage.removeItem('myCart');
+            renderCartPage();
+            updateLayoutBadge();
+        }
+    }
+
+    async function submitCartFull() {
+        let cart = JSON.parse(localStorage.getItem('myCart')) || [];
+        if (cart.length === 0) return;
+        
+        if(!confirm("Бүх гүйлгээг хадгалах уу?")) return;
+
+        const response = await fetch('/add_transaction_bulk', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ items: cart })
+        });
+
+        if (response.ok) {
+            localStorage.removeItem('myCart');
+            window.location.href = "{{ url_for('dashboard') }}";
+        } else {
+            alert("Алдаа гарлаа!");
+        }
+    }
+
+    renderCartPage();
+</script>
+{% endblock %}
