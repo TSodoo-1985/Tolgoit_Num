@@ -275,7 +275,14 @@ def add_transaction_bulk():
                 product.stock += qty
             else:
                 product.stock -= qty
-            db.session.add(Transaction(product_id=product.id, type=item['type'], quantity=qty, date=datetime.now(), user_id=current_user.id))
+            # 'date' гэснийг 'timestamp' болгож засав
+            db.session.add(Transaction(
+                product_id=product.id, 
+                type=item['type'], 
+                quantity=qty, 
+                timestamp=datetime.now(), 
+                user_id=current_user.id
+            ))
     db.session.commit()
     flash("Бүх гүйлгээ амжилттай хадгалагдлаа.")
     return {"status": "success"}, 200
