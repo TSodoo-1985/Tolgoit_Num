@@ -414,6 +414,82 @@ def export_inventory_report():
     output.seek(0)
     return send_file(output, as_attachment=True, download_name="Inventory_Report.xlsx")
 
+@app.route('/export-expense-report/<category>')
+@login_required
+def export_expense_report(category):
+    start_date_str = request.args.get('start_date')
+    end_date_str = request.args.get('end_date')
+    
+    if category == "Бүгд":
+        query = Expense.query
+    else:
+        query = Expense.query.filter(Expense.category == category)
+    
+    date_range_label = ""
+    if start_date_str:
+        start_date = datetime.strptime(start_date_str, '%Y-%m-%d')
+        query = query.filter(Expense.date >= start_date)
+        date_range_label += start_date_str
+    
+    if end_date_str:
+        end_date = datetime.strptime(end_date_str, '%Y-%m-%d')
+        query = query.filter(Expense.date < end_date + timedelta(days=1))
+        date_range_label += f"_аас_{end_date_str}"
+    
+    expenses = query.order_by(Expense.date.desc()).all()
+    
+    data = []
+    total_impact_expense = 0 # Ашгаас хасагдах зардал
+    total_monitoring_expense = 0 # Зөвхөн хянах зардал (Ажлын хөлс)
+
+    for e in expenses:
+        is_salary = "ажлын хөлс" in e.category.lower() or "цалин" in e.category.lower()
+        
+        if is_salary:
+            total_monitoring_expense += e.amount
+        else:
+            total_impact_expense += e.amount
+
+        data.append({
+            'Огноо': e.date.strftime('%Y-%m-%d'),
+            'Төрөл/Категори': e.category,
+            'Тайлбар': e.description,
+            'Зардлын дүн': e.amount,
+            'Ашгаас хасагдах эсэх': "Үгүй (Хяналт)" if is_salary else "Тийм",
+            'Бүртгэсэн': e.user.username if e.user else "-"
+        })
+        
+    df = pd.DataFrame(data)
+    
+    # НИЙТ ДҮНГҮҮДИЙГ НЭМЭХ
+    if not df.empty:
+        summary_rows = [
+            {'Огноо': 'НИЙТ ЗАРДАЛ (БҮГД):', 'Зардлын дүн': df['Зардлын дүн'].sum()},
+            {'Огноо': 'АШГААС ХАСАГДАХ ЗАРДАЛ:', 'Зардлын дүн': total_impact_expense},
+            {'Огноо': 'АЖЛЫН ХӨЛС (ХЯНАЛТ):', 'Зардлын дүн': total_monitoring_expense}
+        ]
+        df = pd.concat([df, pd.DataFrame(summary_rows)], ignore_index=True)
+
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+        df.to_excel(writer, index=False, sheet_name='Зардал')
+        workbook = writer.book
+        worksheet = writer.sheets['Зардал']
+        worksheet.freeze_panes(1, 0)
+        
+        # Форматууд
+        money_fmt = workbook.add_format({'num_format': '#,##0.00'})
+        total_fmt = workbook.add_format({'bold': True, 'bg_color': '#FCE4D6', 'num_format': '#,##0.00'})
+        
+        for i, col in enumerate(df.columns):
+            worksheet.set_column(i, i, 20, money_fmt if 'дүн' in col else None)
+
+    output.seek(0)
+    mgl_filename = f"Зардал_{category}_{date_range_label}.xlsx"
+    response = send_file(output, as_attachment=True, download_name=mgl_filename)
+    response.headers["Content-Disposition"] = f"attachment; filename*=UTF-8''{quote(mgl_filename)}"
+    return response
+
 # --- ХЭРЭГЛЭГЧИЙН УДИРДЛАГА ---
 
 @app.route('/users')
