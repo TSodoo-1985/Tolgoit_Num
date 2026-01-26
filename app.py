@@ -6,6 +6,7 @@ from flask import Flask, render_template, request, redirect, url_for, send_file,
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
+from urllib.parse import quote
 
 app = Flask(__name__)
 
@@ -236,16 +237,78 @@ def expenses():
 @login_required
 def export_balance():
     products = Product.query.filter_by(is_active=True).all()
-    df = pd.DataFrame([
-        {'Код': p.sku, 'Бараа': p.name, 'Үлдэгдэл': p.stock, 'Өртөг': p.cost_price, 'Жижиглэн': p.retail_price, 'Бөөний': p.wholesale_price} 
-        for p in products
-    ])
+    
+    data = []
+    for p in products:
+        total_cost = p.stock * (p.cost_price or 0)
+        potential_revenue = p.stock * (p.retail_price or 0)
+        total_potential_profit = potential_revenue - total_cost
+        
+        data.append({
+            'Код (SKU)': p.sku,
+            'Барааны нэр': p.name,
+            'Ангилал': p.category,
+            'Үлдэгдэл': p.stock,
+            'Өртөг үнэ': p.cost_price,
+            'Жижиглэн үнэ': p.retail_price,
+            'Нийт өртөг дүн': total_cost,
+            'Боломжит цэвэр ашиг': total_potential_profit
+        })
+    
+    df = pd.DataFrame(data)
+    
+    # Нийт дүнг тооцоолох
+    totals = {
+        'Код (SKU)': 'НИЙТ ДҮН:',
+        'Барааны нэр': '', 'Ангилал': '',
+        'Үлдэгдэл': df['Үлдэгдэл'].sum(),
+        'Өртөг үнэ': '', 'Жижиглэн үнэ': '',
+        'Нийт өртөг дүн': df['Нийт өртөг дүн'].sum(),
+        'Боломжит цэвэр ашиг': df['Боломжит цэвэр ашиг'].sum()
+    }
+    df = pd.concat([df, pd.DataFrame([totals])], ignore_index=True)
+
     output = BytesIO()
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-        df.to_excel(writer, index=False)
-    output.seek(0)
-    return send_file(output, as_attachment=True, download_name=f"Uldegdel_{datetime.now().strftime('%Y%m%d')}.xlsx")
+        df.to_excel(writer, index=False, sheet_name='Үлдэгдэл')
+        
+        workbook = writer.book
+        worksheet = writer.sheets['Үлдэгдэл']
+        
+        # Форматууд
+        header_fmt = workbook.add_format({'bold': True, 'bg_color': '#D7E4BC', 'border': 1})
+        money_fmt = workbook.add_format({'num_format': '#,##0.00'})
+        total_row_fmt = workbook.add_format({'bold': True, 'bg_color': '#FCE4D6', 'border': 1, 'num_format': '#,##0.00'})
 
+        # ЭХНИЙ МӨРИЙГ ЦАРЦААХ (1-р мөр хөдөлгөөнгүй)
+        worksheet.freeze_panes(1, 0)
+
+        # Баганын өргөн болон үнийн формат
+        for i, col in enumerate(df.columns):
+            column_len = max(df[col].astype(str).map(len).max(), len(col)) + 2
+            if i >= 4: # Үнийн баганууд
+                worksheet.set_column(i, i, column_len, money_fmt)
+            else:
+                worksheet.set_column(i, i, column_len)
+
+        # Хамгийн сүүлийн мөрийг (Нийт дүн) форматлах
+        last_row = len(df)
+        for col_num in range(len(df.columns)):
+            val = df.iloc[last_row-1, col_num]
+            worksheet.write(last_row, col_num, val, total_row_fmt)
+
+    output.seek(0)
+    
+    mgl_filename = f"Үлдэгдэл_Тайлан_{datetime.now().strftime('%Y%m%d')}.xlsx"
+    response = send_file(
+        output,
+        as_attachment=True,
+        download_name=mgl_filename,
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+    response.headers["Content-Disposition"] = f"attachment; filename*=UTF-8''{quote(mgl_filename)}"
+    return response
+    
 @app.route('/export-transactions/<type>')
 @login_required
 def export_transactions(type):
