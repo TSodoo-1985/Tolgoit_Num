@@ -219,9 +219,9 @@ def add_transaction():
         
     return redirect(request.referrer or url_for('dashboard'))
 
-@app.route('/do_inventory', methods=['POST'])
+@app.route('/inventory', methods=['GET', 'POST'])
 @login_required
-def do_inventory():
+def inventory():
     p_id = request.form.get('product_id')
     new_qty = float(request.form.get('quantity') or 0)
     product = Product.query.get(p_id)
