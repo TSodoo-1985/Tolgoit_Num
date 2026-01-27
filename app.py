@@ -852,20 +852,52 @@ def users_list():
 @app.route('/add_user', methods=['POST'])
 @login_required
 def add_user():
-    if current_user.role == 'admin':
-        hashed_pw = generate_password_hash(request.form.get('password'))
-        db.session.add(User(username=request.form.get('username'), password=hashed_pw, role=request.form.get('role')))
-        db.session.commit()
+    if current_user.role != 'admin':
+        flash("Зөвхөн админ хэрэглэгч нэмэх эрхтэй!")
+        return redirect(url_for('users_list'))
+
+    username = request.form.get('username')
+    password = request.form.get('password')
+    role = request.form.get('role')
+
+    # Хэрэглэгч байгаа эсэхийг шалгах
+    existing_user = User.query.filter_by(username=username).first()
+    if existing_user:
+        flash("Энэ хэрэглэгчийн нэр бүртгэлтэй байна!")
+        return redirect(url_for('users_list'))
+
+    new_user = User(username=username, password=password, role=role)
+    db.session.add(new_user)
+    db.session.commit()
+    flash(f"'{username}' хэрэглэгч амжилттай нэмэгдлээ.")
     return redirect(url_for('users_list'))
 
-@app.route('/delete_user/<int:id>')
+
+@app.route('/delete_user/<int:id>')  # HTML дээр id гэж дамжуулсан тул энд id байна
 @login_required
 def delete_user(id):
-    if current_user.role != 'admin': return redirect(url_for('users_list'))
-    user = User.query.get_or_404(id)
-    if user.username != 'admin':
-        db.session.delete(user)
+    if current_user.role != 'admin':
+        flash("Танд устгах эрх байхгүй!")
+        return redirect(url_for('dashboard'))
+
+    user_to_delete = User.query.get_or_404(id)
+
+    # Үндсэн админ 'Sodoo'-г устгахаас хамгаалах
+    if user_to_delete.username == 'Sodoo':
+        flash("Үндсэн админыг устгаж болохгүй!")
+        return redirect(url_for('users_list'))
+
+    try:
+        # Хэрэглэгч устах үед түүний хийсэн гүйлгээг 'Unknown' болгох
+        Transaction.query.filter_by(user_id=user_to_delete.id).update({"user_id": None})
+        
+        db.session.delete(user_to_delete)
         db.session.commit()
+        flash(f"'{user_to_delete.username}' амжилттай устлаа.")
+    except Exception as e:
+        db.session.rollback()
+        flash(f"Алдаа гарлаа: {str(e)}")
+
     return redirect(url_for('users_list'))
 
 @app.route('/change_password', methods=['GET', 'POST'])
