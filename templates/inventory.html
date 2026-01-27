@@ -7,13 +7,13 @@
     body { background-color: #f4f7f6; }
     .card { border: none; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
     /* Select2-ийг өндөр болгох */
-    .select2-container--bootstrap-5 .select2-selection { height: 45px; display: flex; align-items: center; }
+    .select2-container--bootstrap-5 .select2-selection { height: 45px; display: flex; align-items: center; border: 2px solid #dee2e6; border-radius: 8px; }
     
     /* Утсан дээрх харагдацыг сайжруулах */
     @media (max-width: 768px) {
         .container { padding-left: 8px; padding-right: 8px; }
         .card-body { padding: 15px !important; }
-        h4, .card-header { font-size: 1rem; }
+        h5, .card-header { font-size: 1rem; }
         .table { font-size: 0.85rem; }
         .btn-lg { font-size: 1rem; padding: 12px; }
     }
@@ -39,7 +39,7 @@
                                 <option value="" disabled selected>Барааны нэр эсвэл код бичнэ үү...</option>
                                 {% for p in products %}
                                 <option value="{{ p.id }}">
-                                    {{ p.sku }} - {{ p.name }} (Одоо: {{ p.stock or 0 }})
+                                    {{ p.sku }} - {{ p.name }} (Одоо: {{ p.stock|int }})
                                 </option>
                                 {% endfor %}
                             </select>
@@ -58,39 +58,48 @@
 
         <div class="col-md-7">
             <div class="card shadow-sm border-0">
-                <div class="card-header bg-white fw-bold py-3">Сүүлийн тооллогын түүх</div>
+                <div class="card-header bg-white fw-bold py-3 d-flex justify-content-between">
+                    <span>Сүүлийн тооллогын түүх</span>
+                    <i class="bi bi-clock-history text-muted"></i>
+                </div>
                 <div class="table-responsive">
-                    <table class="table table-hover align-middle mb-0">
+                    <table class="table table-hover align-middle mb-0 text-center">
                         <thead class="bg-light">
                             <tr style="font-size: 0.75rem;" class="text-uppercase text-muted">
-                                <th class="ps-3">Огноо</th>
-                                <th>Бараа</th>
+                                <th class="ps-3 text-start">Огноо</th>
+                                <th class="text-start">Бараа</th>
                                 <th>Зөрүү</th>
-                                <th class="pe-3">Тоолсон</th>
+                                <th class="pe-3 text-end">Тоолсон</th>
                             </tr>
                         </thead>
                         <tbody>
                             {% for h in history %}
                             <tr>
-                                <td class="ps-3">
+                                <td class="ps-3 text-start">
                                     <div class="small text-dark fw-semibold">{{ h.timestamp.strftime('%m/%d') }}</div>
                                     <div style="font-size: 10px;" class="text-muted">{{ h.timestamp.strftime('%H:%M') }}</div>
                                 </td>
-                                <td>
+                                <td class="text-start">
                                     <div class="fw-bold text-primary">{{ h.product.sku }}</div>
-                                    <div style="font-size: 11px;" class="text-truncate d-inline-block" style="max-width: 120px;">{{ h.product.name }}</div>
+                                    <div style="font-size: 11px; max-width: 150px;" class="text-truncate">{{ h.product.name }}</div>
                                 </td>
                                 <td>
-                                    <span class="small">{{ h.type }}</span>
+                                    <span class="badge {{ 'bg-success-subtle text-success' if '+' in h.type else 'bg-danger-subtle text-danger' }} small px-2">
+                                        {{ h.type }}
+                                    </span>
                                 </td>
                                 <td class="pe-3 text-end">
-                                    <span class="badge bg-light text-dark border fw-normal">{{ h.user.username }}</span>
+                                    <div class="fw-bold text-dark">{{ h.quantity|int }} ш</div>
+                                    <span class="badge bg-light text-dark border fw-normal" style="font-size: 10px;">{{ h.user.username }}</span>
                                 </td>
                             </tr>
                             {% endfor %}
                             {% if not history %}
                             <tr>
-                                <td colspan="4" class="text-center py-4 text-muted small">Одоогоор тооллогын түүх байхгүй байна.</td>
+                                <td colspan="4" class="text-center py-5 text-muted small">
+                                    <i class="bi bi-inbox d-block fs-2 mb-2"></i>
+                                    Одоогоор тооллогын түүх байхгүй байна.
+                                </td>
                             </tr>
                             {% endif %}
                         </tbody>
@@ -106,13 +115,13 @@
 
 <script>
     $(document).ready(function() {
-        // Dropdown-ийг хайлттай болгох идэвхжүүлэлт
+        // Select2 идэвхжүүлэх
         $('#productSelect').select2({
             theme: 'bootstrap-5',
             width: '100%',
             placeholder: 'Барааны нэр эсвэл код бичнэ үү...',
             allowClear: true,
-            dropdownParent: $('.card-body') // Утсан дээр хайлт зөв ажиллахад тусална
+            dropdownParent: $('.card-body')
         });
     });
 </script>
