@@ -900,6 +900,51 @@ def export_expense_report(category):
     
     return response
 
+@app.route('/export-labor-report')
+@login_required
+def export_labor_report():
+    if current_user.role != 'admin':
+        return "Хандах эрхгүй", 403
+
+    start_date = request.args.get('start_date')
+    end_date = request.args.get('end_date')
+
+    # Огноо сонгоогүй бол бүх өгөгдлийг шүүнэ
+    query = LaborFee.query
+    if start_date and end_date:
+        query = query.filter(
+            LaborFee.timestamp >= start_date,
+            LaborFee.timestamp <= end_date + " 23:59:59"
+        )
+    
+    fees = query.order_by(LaborFee.timestamp.desc()).all()
+
+    data = []
+    total_sum = 0
+    for f in fees:
+        data.append({
+            'Огноо': f.timestamp.strftime('%Y-%m-%d %H:%M'),
+            'Ажлын тайлбар': f.description,
+            'Ажилтан': f.staff_name,
+            'Дүн': f.amount
+        })
+        total_sum += f.amount
+
+    df = pd.DataFrame(data)
+    
+    # Хамгийн доор нь нийт дүнг нэмэх
+    if not df.empty:
+        summary = pd.DataFrame([{'Огноо': 'НИЙТ ДҮН:', 'Дүн': total_sum}])
+        df = pd.concat([df, summary], ignore_index=True)
+
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        df.to_excel(writer, index=False, sheet_name='Salary')
+    
+    output.seek(0)
+    filename = f"Labor_Report_{start_date if start_date else 'All'}.xlsx"
+    return send_file(output, download_name=filename, as_attachment=True)
+
 # --- ХЭРЭГЛЭГЧИЙН УДИРДЛАГА ---
 
 @app.route('/users')
