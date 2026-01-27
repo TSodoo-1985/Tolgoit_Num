@@ -276,45 +276,54 @@ def do_inventory():
 @login_required
 def expenses():
     if request.method == 'POST':
-        # ... (Бүртгэх хэсэг хэвээрээ) ...
         category = request.form.get('category')
         description = request.form.get('description')
         amount = float(request.form.get('amount'))
 
         if category == 'Ажлын хөлс':
-            new_item = LaborFee(description=description, amount=amount, staff_name=current_user.username)
+            new_item = LaborFee(
+                description=description, 
+                amount=amount, 
+                staff_name=current_user.username
+            )
         else:
-            new_item = Expense(category=category, description=description, amount=amount)
+            new_item = Expense(
+                category=category, 
+                description=description, 
+                amount=amount
+            )
         
         db.session.add(new_item)
         db.session.commit()
         return redirect(url_for('expenses'))
 
-    # ГҮЙЛГЭЭГ НЭГТГЭЖ ХАРУУЛАХ ХЭСЭГ (ЭНД АЛДАА БАЙСАН)
+    # ХОЁР ХҮСНЭГТИЙГ НЭГТГЭХДЭЭ ЗӨВ БАГАНЫ НЭРИЙГ АШИГЛАХ:
     expenses_list = Expense.query.all()
     labor_list = LaborFee.query.all()
 
     items = []
 
+    # 1. Expense хүснэгт 'date' баганатай тул e.date гэж авна
     for e in expenses_list:
         items.append({
-            'date': e.timestamp,  # Энд e.timestamp-г 'date' гэж нэрлэж байна
+            'date': e.date,  
             'category': e.category,
             'description': e.description,
             'amount': e.amount,
             'staff': 'Систем'
         })
 
+    # 2. LaborFee хүснэгт 'timestamp' баганатай тул l.timestamp гэж авна
     for l in labor_list:
         items.append({
-            'date': l.timestamp,  # Энд l.timestamp-г 'date' гэж нэрлэж байна
+            'date': l.timestamp, 
             'category': 'Ажлын хөлс',
             'description': l.description,
             'amount': l.amount,
             'staff': l.staff_name
         })
 
-    # Сүүлийн 20 гүйлгээг огноогоор эрэмбэлж харуулах
+    # Огноогоор нь сүүлийнхээс нь эхэлж жагсаах
     items.sort(key=lambda x: x['date'], reverse=True)
     items = items[:20]
 
