@@ -325,18 +325,16 @@ def special_transfer():
 @app.route('/statistics')
 @login_required
 def statistics():
-    # Огнооны шүүлтүүр авах
+    # 1. Огнооны шүүлтүүр авах (Хуучин хэвээрээ)
     start_date_str = request.args.get('start_date')
     end_date_str = request.args.get('end_date')
     
     if start_date_str and end_date_str:
         start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
         end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
-        # Сонгосон хоногуудын жагсаалт
         delta = end_date - start_date
         dates = [(start_date + timedelta(days=i)).strftime('%Y-%m-%d') for i in range(delta.days + 1)]
     else:
-        # Анхдагчаар сүүлийн 7 хоног
         today = datetime.now().date()
         dates = [(today - timedelta(days=i)).strftime('%Y-%m-%d') for i in range(6, -1, -1)]
 
@@ -344,45 +342,67 @@ def statistics():
     profit_data = []
     expense_data = []
     
+    # 2. Графикийн өгөгдөл боловсруулах (Хуучин хэвээрээ)
     for date_str in dates:
-        # 1. Борлуулалт (Бөөний болон Жижиглэн зарлага)
+        # Борлуулалт
         sales = db.session.query(db.func.sum(Transaction.quantity * db.case(
                 (Transaction.type == 'Бөөний зарлага', Product.wholesale_price),
                 (Transaction.type == 'Жижиглэн зарлага', Product.retail_price),
                 else_=0
             ))).join(Product).filter(db.func.date(Transaction.timestamp) == date_str).scalar() or 0
         
-        # 2. Өртөг (Зарсан барааны өртөг - Ашиг бодоход хэрэгтэй)
+        # Өртөг
         cost_sum = db.session.query(db.func.sum(Transaction.quantity * Product.cost_price)).\
             join(Product).filter(Transaction.type.like('%зарлага%'), 
             db.func.date(Transaction.timestamp) == date_str).scalar() or 0
         
-        # 3. Зардал (Ажлын хөлс ороогүй цэвэр зардал)
+        # Зардал
         daily_expense = db.session.query(db.func.sum(Expense.amount)).\
             filter(Expense.category != "Ажлын хөлс", db.func.date(Expense.date) == date_str).scalar() or 0
 
         sales_data.append(float(sales))
         expense_data.append(float(daily_expense))
-        # Цэвэр ашиг = (Борлуулалт - Өртөг) - Зардал
         profit_data.append(float(sales - cost_sum - daily_expense))
 
-    # 4. Топ 5 бараа (Ширхэгээр)
-    top_products = db.session.query(Product.name, db.func.sum(Transaction.quantity)).\
+    # 3. Нийт ТОП 5 бараа (Ширхэгээр - Хуучин хэвээрээ)
+    top_products_all = db.session.query(Product.name, db.func.sum(Transaction.quantity)).\
         join(Transaction).filter(Transaction.type.like('%зарлага%')).\
         group_by(Product.name).order_by(db.func.sum(Transaction.quantity).desc()).limit(5).all()
     
-    top_labels = [p[0] for p in top_products]
-    top_values = [int(p[1]) for p in top_products]
+    top_labels = [p[0] for p in top_products_all]
+    top_values = [int(p[1]) for p in top_products_all]
+
+    # ================= ШИНЭ ХЭСЭГ: АНГИЛАЛ БҮРИЙН ТОП 5 =================
+    # Бүх өвөрмөц ангиллуудыг авах
+    categories = db.session.query(Product.category).distinct().all()
+    stats_data = {}
+
+    for cat in categories:
+        category_name = cat[0] if cat[0] else "Ангилалгүй"
+        
+        # Тухайн ангиллын хамгийн их борлуулагдсан 5 бараа
+        category_top = db.session.query(
+            Product.name, 
+            db.func.sum(Transaction.quantity).label('total')
+        ).join(Transaction).filter(
+            Product.category == category_name,
+            Transaction.type.like('%зарлага%')
+        ).group_by(Product.name).order_by(db.desc('total')).limit(5).all()
+        
+        if category_top:
+            stats_data[category_name] = category_top
+    # =================================================================
 
     return render_template('statistics.html', 
-                         dates=dates, 
-                         sales=sales_data, 
-                         profit=profit_data, 
-                         expenses=expense_data,
-                         top_labels=top_labels,
-                         top_values=top_values,
-                         start_date=start_date_str or "",
-                         end_date=end_date_str or "")
+                           dates=dates, 
+                           sales=sales_data, 
+                           profit=profit_data, 
+                           expenses=expense_data,
+                           top_labels=top_labels,
+                           top_values=top_values,
+                           stats_data=stats_data,  # Шинэ дата
+                           start_date=start_date_str or "",
+                           end_date=end_date_str or "")
 
 @app.route('/export-balance')
 @login_required
