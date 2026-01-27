@@ -1070,11 +1070,17 @@ def add_user():
         flash("Энэ хэрэглэгчийн нэр бүртгэлтэй байна!")
         return redirect(url_for('users_list'))
 
-    new_user = User(username=username, password=password, role=role)
+    # ЧУХАЛ: Нууц үгийг шифрлэж байна
+    hashed_password = generate_password_hash(password)
+    
+    # password=password биш password=hashed_password болгож засав
+    new_user = User(username=username, password=hashed_password, role=role)
+    
     db.session.add(new_user)
     db.session.commit()
     flash(f"'{username}' хэрэглэгч амжилттай нэмэгдлээ.")
     return redirect(url_for('users_list'))
+
 
 
 @app.route('/delete_user/<int:id>')  # HTML дээр id гэж дамжуулсан тул энд id байна
