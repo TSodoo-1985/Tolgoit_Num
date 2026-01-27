@@ -17,27 +17,58 @@
     {% for p in products %}
     <div class="col-12 col-md-6 col-lg-4 item-to-filter" data-category="{{ p.category }}">
         <div class="card border-0 shadow-sm rounded-4 p-3 mb-3">
+            
             <div class="d-flex justify-content-between align-items-start mb-2">
                 <div>
-                    <span class="badge bg-dark small">{{ p.sku }}</span>
+                    <div class="mb-1">
+                        <span class="badge bg-dark small">{{ p.sku }}</span>
+                        {% if p.category %}
+                        <span class="badge bg-light text-secondary border ms-1">{{ p.category }}</span>
+                        {% endif %}
+                    </div>
+                    
                     <h6 class="fw-bold mt-2 mb-0 text-dark">{{ p.name }}</h6>
+                    
+                    <a href="{{ url_for('edit_product', id=p.id) }}" class="text-secondary small text-decoration-none mt-1 d-inline-block">
+                        <i class="bi bi-pencil-square"></i> Засах
+                    </a>
                 </div>
+                
                 <div class="badge {% if p.stock <= 5 %}bg-danger{% else %}bg-success{% endif %} p-2">
                     {{ p.stock|int }} ш
                 </div>
             </div>
 
-            <div class="d-flex gap-2 mt-3">
-                <input type="number" step="0.1" id="qty-{{ p.id }}" class="form-control text-center fw-bold border-2" style="width: 80px;" placeholder="Тоо">
-                <select id="type-{{ p.id }}" class="form-select fw-bold border-2">
+            <div class="bg-light p-2 rounded small text-muted mb-3 d-flex justify-content-between">
+                <span>Бөөний: {{ "{:,.0f}".format(p.wholesale_price) }}</span>
+                <span class="text-primary fw-bold">Жижиглэн: {{ "{:,.0f}".format(p.retail_price) }}</span>
+            </div>
+
+            <div class="d-flex gap-2">
+                <input type="number" id="qty-{{ p.id }}" class="form-control fw-bold text-center" placeholder="Тоо" style="width: 70px;">
+                
+                <select id="type-{{ p.id }}" class="form-select border-1" style="font-size: 0.9rem;">
                     <option value="Жижиглэн зарлага">Жижиглэн</option>
                     <option value="Бөөний зарлага">Бөөний</option>
-                    <option value="Орлого">Орлого</option>
+                    <option value="Өртгөөр зарлага" class="text-danger">Өртгөөр</option>
+                    <option value="Орлого" class="text-success">Орлого</option>
                 </select>
-                <button type="button" onclick="addToCartLocal('{{ p.id }}', '{{ p.name }}')" class="btn btn-primary px-3 shadow-sm">
+                
+                <button type="button" onclick="addToCartLocal('{{ p.id }}', '{{ p.name }}')" class="btn btn-primary shadow-sm">
                     <i class="bi bi-cart-plus"></i>
                 </button>
             </div>
+
+            {% if current_user.role == 'admin' %}
+            <div class="text-end mt-2">
+                <form action="{{ url_for('delete_product', id=p.id) }}" method="POST" onsubmit="return confirm('Энэ барааг бүр мөсөн устгах уу?');">
+                    <button type="submit" class="btn btn-link text-danger p-0 small text-decoration-none" style="font-size: 12px;">
+                        <i class="bi bi-trash"></i> Устгах
+                    </button>
+                </form>
+            </div>
+            {% endif %}
+            
         </div>
     </div>
     {% endfor %}
@@ -53,11 +84,16 @@
         cart.push({ product_id: id, name: name, quantity: parseFloat(qty), type: type });
         localStorage.setItem('myCart', JSON.stringify(cart));
         
-        updateBadge(); // layout.html-ийн тоог шинэчлэх
+        updateBadge(); 
         document.getElementById(`qty-${id}`).value = '';
         
-        // Жижиг мэдэгдэл (Toast байдлаар)
-        alert(`${name} сагсанд нэмэгдлээ`);
+        // Жижиг мэдэгдэл
+        let alertBox = document.createElement('div');
+        alertBox.className = 'position-fixed top-0 start-50 translate-middle-x mt-4 badge bg-success p-3 shadow';
+        alertBox.style.zIndex = 9999;
+        alertBox.innerText = `${name} сагсанд нэмэгдлээ!`;
+        document.body.appendChild(alertBox);
+        setTimeout(() => alertBox.remove(), 1500);
     }
 
     function filterProducts() {
