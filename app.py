@@ -373,7 +373,6 @@ def download_template():
                      as_attachment=True,
                      mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
 
-# 2. Excel-ээс импортлох (Монгол баганаар унших)
 @app.route('/import_products_action', methods=['POST'])
 @login_required
 def import_products_action():
@@ -386,19 +385,23 @@ def import_products_action():
         return redirect(url_for('import_products_page'))
 
     try:
-        df = pd.read_excel(file)
+        # engine='openpyxl' нэмж өгвөл .xlsx файлыг алдаагүй уншина
+        df = pd.read_excel(file, engine='openpyxl') 
         count = 0
         for _, row in df.iterrows():
-            # Код (SKU) хоосон бол алгасах
             sku_val = row['Код (SKU)']
-            if pd.isna(sku_str := str(int(sku_val)) if isinstance(sku_val, (int, float)) else str(sku_val)):
+            if pd.isna(sku_val):
                 continue
+            
+            # SKU-г текст хэлбэрт оруулах (0-ээр эхэлсэн код байж болзошгүй тул)
+            sku_str = str(int(sku_val)) if isinstance(sku_val, (int, float)) else str(sku_val)
             
             product = Product.query.filter_by(sku=sku_str).first()
             
             if product:
-                # Бараа байвал үлдэгдлийг нэмнэ
-                product.stock += float(row['Үлдэгдэл'] or 0)
+                # Бараа байвал үлдэгдлийг нэмнэ (Хоосон бол 0 гэж үзнэ)
+                stock_val = row['Үлдэгдэл'] if pd.notna(row['Үлдэгдэл']) else 0
+                product.stock += float(stock_val)
             else:
                 # Байхгүй бол шинээр үүсгэнэ
                 new_p = Product(
@@ -417,9 +420,18 @@ def import_products_action():
         flash(f"Амжилттай! Нийт {count} бараа бүртгэгдлээ.")
     except Exception as e:
         db.session.rollback()
-        flash(f"Алдаа: Файл буруу эсвэл баганын нэр зөрүүтэй байна! {str(e)}")
+        flash(f"Алдаа: Файлын бүтэц эсвэл баганын нэр зөрүүтэй байна! {str(e)}")
         
     return redirect(url_for('import_products_page'))
+
+# Энэ функц нь import_products.html хуудсыг нээж харуулна
+@app.route('/import_products_page')
+@login_required
+def import_products_page():
+    if current_user.role != 'admin':
+        flash("Уучлаарай, зөвхөн Админ нэвтрэх боломжтой!")
+        return redirect(url_for('dashboard'))
+    return render_template('import_products.html')
     
 # --- ТАЙЛАН, СТАТИСТИК ---
 
