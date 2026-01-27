@@ -10,11 +10,13 @@
         body { background-color: #f8fafc; font-family: 'Segoe UI', sans-serif; }
         .card { border: none; border-radius: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
         .navbar { background-color: #1a202c !important; }
+        .badge-expense { background-color: #ef4444; color: white; } /* Улаан - Зардал */
+        .badge-labor { background-color: #3b82f6; color: white; }   /* Цэнхэр - Хөлс */
     </style>
 </head>
 <body>
 
-<nav class="navbar navbar-dark mb-4">
+<nav class="navbar navbar-dark mb-4 shadow-sm">
     <div class="container-fluid">
         <a class="navbar-brand fw-bold" href="{{ url_for('dashboard') }}">
             <i class="bi bi-arrow-left me-2"></i> БУЦАХ
@@ -25,7 +27,7 @@
 <div class="container">
     <div class="row">
         <div class="col-md-4 mb-4">
-            <div class="card p-4 h-100">
+            <div class="card p-4 h-100 shadow-sm border-0">
                 <h4 class="fw-bold text-primary mb-4"><i class="bi bi-plus-circle me-2"></i>Шинэ бүртгэл</h4>
                 <form action="{{ url_for('expenses') }}" method="POST">
                     <div class="mb-3">
@@ -36,31 +38,34 @@
                         </select>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label fw-bold">Тайлбар / Хэнд</label>
-                        <input type="text" name="description" class="form-control border-2" placeholder="Жишээ: Түрээс..." required>
+                        <label class="form-label fw-bold">Тайлбар / Хийсэн ажил</label>
+                        <input type="text" name="description" class="form-control border-2" placeholder="Жишээ: Түрээс, Дугуй нөхөөс..." required>
                     </div>
                     <div class="mb-3">
                         <label class="form-label fw-bold">Дүн (₮)</label>
                         <input type="number" name="amount" class="form-control border-2" placeholder="0" required>
                     </div>
-                    <button type="submit" class="btn btn-primary w-100 fw-bold py-2">ХАДГАЛАХ</button>
+                    <button type="submit" class="btn btn-primary w-100 fw-bold py-2 shadow-sm">
+                        <i class="bi bi-save me-2"></i>ХАДГАЛАХ
+                    </button>
                 </form>
             </div>
         </div>
 
         <div class="col-md-8 mb-4">
-            <div class="card p-4 h-100">
+            <div class="card p-4 h-100 shadow-sm border-0">
                 <div class="d-flex justify-content-between align-items-center mb-4">
                     <h4 class="fw-bold mb-0">Сүүлийн гүйлгээнүүд</h4>
                     <div class="d-flex gap-2">
-                        <a href="{{ url_for('export_expense_report', category='Зардал') }}" class="btn btn-outline-danger btn-sm">
-                            <i class="bi bi-file-earmark-excel me-1"></i> Зардал (Excel)
+                        <a href="{{ url_for('export_expense_report', category='Зардал') }}" class="btn btn-outline-danger btn-sm rounded-pill px-3">
+                            <i class="bi bi-file-earmark-excel me-1"></i> Зардал
                         </a>
-                        <a href="{{ url_for('export_expense_report', category='Ажлын хөлс') }}" class="btn btn-outline-primary btn-sm">
-                            <i class="bi bi-file-earmark-excel me-1"></i> Хөлс (Excel)
+                        <a href="{{ url_for('export_labor_report') }}" class="btn btn-outline-primary btn-sm rounded-pill px-3">
+                            <i class="bi bi-file-earmark-excel me-1"></i> Цалин (Хөлс)
                         </a>
                     </div>
                 </div>
+                
                 <div class="table-responsive">
                     <table class="table table-hover align-middle">
                         <thead class="table-light">
@@ -74,10 +79,32 @@
                         <tbody>
                             {% for item in items %}
                             <tr>
-                                <td class="small text-muted">{{ item.date.strftime('%m/%d %H:%M') }}</td>
-                                <td><span class="badge {% if item.category == 'Зардал' %}bg-danger{% else %}bg-primary{% endif %}">{{ item.category }}</span></td>
-                                <td>{{ item.description }}</td>
-                                <td class="text-end fw-bold">{{ "{:,.0f}".format(item.amount) }}₮</td>
+                                <td class="small text-muted" style="white-space: nowrap;">
+                                    {{ item.date.strftime('%m/%d %H:%M') }}
+                                </td>
+                                <td>
+                                    <span class="badge {% if item.category == 'Ажлын хөлс' %}badge-labor{% else %}badge-expense{% endif %} rounded-pill">
+                                        {{ item.category }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <div class="fw-medium text-dark">{{ item.description }}</div>
+                                    {% if item.category == 'Ажлын хөлс' %}
+                                    <small class="text-muted" style="font-size: 11px;">
+                                        <i class="bi bi-person me-1"></i>Ажилтан: {{ item.staff }}
+                                    </small>
+                                    {% endif %}
+                                </td>
+                                <td class="text-end fw-bold text-dark">
+                                    {{ "{:,.0f}".format(item.amount) }}₮
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="4" class="text-center py-5 text-muted">
+                                    <i class="bi bi-inbox fs-2 d-block mb-2"></i>
+                                    Одоогоор бүртгэл байхгүй байна.
+                                </td>
                             </tr>
                             {% endfor %}
                         </tbody>
@@ -87,5 +114,7 @@
         </div>
     </div>
 </div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
