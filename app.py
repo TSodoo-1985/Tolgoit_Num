@@ -994,36 +994,56 @@ def export_labor_report():
     return send_file(output, download_name=filename, as_attachment=True)
 
 @app.route('/export-salary-report')
+@app.route('/export-salary-report')
 @login_required
 def export_salary_report():
-    start_date = request.args.get('start_date')
-    end_date = request.args.get('end_date')
+    start_date_str = request.args.get('start_date')
+    end_date_str = request.args.get('end_date')
 
-    # Зөвхөн 'Цалин' төрөлтэй зардлуудыг шүүнэ
+    # 1. Цалин төрөлтэй зардлуудыг шүүх
     query = Expense.query.filter_by(category='Цалин')
 
-    if start_date and end_date:
-        query = query.filter(Expense.date >= start_date, Expense.date <= end_date)
+    # 2. Огнооны шүүлтүүрийг засах (Text-ээс Date формат руу)
+    if start_date_str and end_date_str:
+        try:
+            # Өдрийн эхлэл 00:00:00-аас өдрийн төгсгөл 23:59:59 хүртэл шүүх
+            start_date = datetime.strptime(start_date_str, '%Y-%m-%d')
+            end_date = datetime.strptime(end_date_str, '%Y-%m-%d').replace(hour=23, minute=59, second=59)
+            query = query.filter(Expense.date >= start_date, Expense.date <= end_date)
+        except ValueError:
+            pass 
 
     salaries = query.all()
 
-    data = []
-    for s in salaries:
-        data.append({
-            "Огноо": s.date.strftime('%Y-%m-%d %H:%M'),
-            "Төрөл": s.category,
-            "Тайлбар": s.description,
-            "Олгосон дүн": s.amount
-        })
+    # 3. Хэрэв өгөгдөл байхгүй бол хоосон файл гаргахгүйн тулд шалгах
+    if not salaries:
+        data = [{"Мэдээлэл": "Сонгосон хугацаанд цалингийн гүйлгээ олдсонгүй"}]
+    else:
+        data = []
+        for s in salaries:
+            data.append({
+                "Огноо": s.date.strftime('%Y-%m-%d %H:%M'),
+                "Төрөл": s.category,
+                "Тайлбар": s.description,
+                "Олгосон дүн": s.amount
+            })
 
+    # Excel үүсгэх
     df = pd.DataFrame(data)
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-        df.to_excel(writer, index=False, sheet_name='Salary_Report')
+        df.to_excel(writer, index=False, sheet_name='Цалингийн_Тайлан')
     output.seek(0)
 
-    return send_file(output, mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                     as_attachment=True, download_name=f'Salary_Report_{datetime.now().strftime("%Y%m%d")}.xlsx')
+    # 4. Файлын нэрийг Монгол болгох
+    filename = f"Tsalingiin_Tailan_{datetime.now().strftime('%Y%m%d')}.xlsx"
+
+    return send_file(
+        output, 
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        as_attachment=True, 
+        download_name=filename
+    )
 
 # --- ХЭРЭГЛЭГЧИЙН УДИРДЛАГА ---
 
