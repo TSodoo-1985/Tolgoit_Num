@@ -351,6 +351,75 @@ def special_transfer():
 
     products = Product.query.filter(Product.is_active == True).order_by(Product.name).all()
     return render_template('special_transfer.html', products=products)
+
+# 1. Excel бэлдэц татах (Монгол толгойтой)
+@app.route('/download_template')
+@login_required
+def download_template():
+    if current_user.role != 'admin':
+        return "Хандах эрхгүй", 403
+        
+    # Багануудын дараалал: Код түрүүлж орсон
+    columns = ['Код (SKU)', 'Барааны нэр', 'Ангилал', 'Өртөг', 'Бөөний үнэ', 'Жижиглэн үнэ', 'Үлдэгдэл']
+    df = pd.DataFrame(columns=columns)
+    
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        df.to_excel(writer, index=False)
+    output.seek(0)
+    
+    return send_file(output, 
+                     download_name="baraa_tatakh_beldetz.xlsx", 
+                     as_attachment=True,
+                     mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+
+# 2. Excel-ээс импортлох (Монгол баганаар унших)
+@app.route('/import_products_action', methods=['POST'])
+@login_required
+def import_products_action():
+    if current_user.role != 'admin':
+        return "Хандах эрхгүй", 403
+        
+    file = request.files.get('file')
+    if not file:
+        flash("Файл сонгоно уу!")
+        return redirect(url_for('import_products_page'))
+
+    try:
+        df = pd.read_excel(file)
+        count = 0
+        for _, row in df.iterrows():
+            # Код (SKU) хоосон бол алгасах
+            sku_val = row['Код (SKU)']
+            if pd.isna(sku_str := str(int(sku_val)) if isinstance(sku_val, (int, float)) else str(sku_val)):
+                continue
+            
+            product = Product.query.filter_by(sku=sku_str).first()
+            
+            if product:
+                # Бараа байвал үлдэгдлийг нэмнэ
+                product.stock += float(row['Үлдэгдэл'] or 0)
+            else:
+                # Байхгүй бол шинээр үүсгэнэ
+                new_p = Product(
+                    sku=sku_str,
+                    name=row['Барааны нэр'],
+                    category=row['Ангилал'],
+                    cost_price=float(row['Өртөг'] or 0),
+                    wholesale_price=float(row['Бөөний үнэ'] or 0),
+                    retail_price=float(row['Жижиглэн үнэ'] or 0),
+                    stock=float(row['Үлдэгдэл'] or 0)
+                )
+                db.session.add(new_p)
+            count += 1
+        
+        db.session.commit()
+        flash(f"Амжилттай! Нийт {count} бараа бүртгэгдлээ.")
+    except Exception as e:
+        db.session.rollback()
+        flash(f"Алдаа: Файл буруу эсвэл баганын нэр зөрүүтэй байна! {str(e)}")
+        
+    return redirect(url_for('import_products_page'))
     
 # --- ТАЙЛАН, СТАТИСТИК ---
 
