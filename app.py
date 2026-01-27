@@ -464,6 +464,7 @@ def export_transactions(type):
             sell_price = t.product.wholesale_price if t.product else 0
         elif "Жижиглэн" in t.type:
             sell_price = t.product.retail_price if t.product else 0
+        elif "Өртгөөр" in t.type: price = t.product.cost_price
             
         unit_profit = sell_price - cost_price
         total_profit = unit_profit * t.quantity
