@@ -992,6 +992,38 @@ def export_labor_report():
     filename = f"Labor_Report_{start_date if start_date else 'All'}.xlsx"
     return send_file(output, download_name=filename, as_attachment=True)
 
+@app.route('/export-salary-report')
+@login_required
+def export_salary_report():
+    start_date = request.args.get('start_date')
+    end_date = request.args.get('end_date')
+
+    # Зөвхөн 'Цалин' төрөлтэй зардлуудыг шүүнэ
+    query = Expense.query.filter_by(category='Цалин')
+
+    if start_date and end_date:
+        query = query.filter(Expense.date >= start_date, Expense.date <= end_date)
+
+    salaries = query.all()
+
+    data = []
+    for s in salaries:
+        data.append({
+            "Огноо": s.date.strftime('%Y-%m-%d %H:%M'),
+            "Төрөл": s.category,
+            "Тайлбар": s.description,
+            "Олгосон дүн": s.amount
+        })
+
+    df = pd.DataFrame(data)
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+        df.to_excel(writer, index=False, sheet_name='Salary_Report')
+    output.seek(0)
+
+    return send_file(output, mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                     as_attachment=True, download_name=f'Salary_Report_{datetime.now().strftime("%Y%m%d")}.xlsx')
+
 # --- ХЭРЭГЛЭГЧИЙН УДИРДЛАГА ---
 
 @app.route('/users')
