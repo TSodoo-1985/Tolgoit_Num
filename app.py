@@ -973,14 +973,5 @@ def change_password():
 
 if __name__ == '__main__':
     with app.app_context():
-        db.create_all()
-        # Админ хэрэглэгч үүсгэх/шинэчлэх (admin / 123456)
-        admin = User.query.filter_by(username='admin').first()
-        if not admin:
-            db.session.add(User(username='admin', password=generate_password_hash('123456'), role='admin'))
-        else:
-            admin.password = generate_password_hash('123456')
-        db.session.commit()
-        
-    port = int(os.environ.get("PORT", 10000))
-    app.run(host='0.0.0.0', port=port)
+    db.create_all()
+    print("Дата сангийн хүснэгтүүд амжилттай үүсгэгдлээ!")
