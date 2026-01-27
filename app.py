@@ -973,5 +973,8 @@ def change_password():
 
 if __name__ == '__main__':
     with app.app_context():
-    db.create_all()
-    print("Дата сангийн хүснэгтүүд амжилттай үүсгэгдлээ!")
+        db.create_all()  # 4 зай (эсвэл 1 Tab) дотогшоо
+        print("Дата сан үүсгэгдлээ!") # 4 зай (эсвэл 1 Tab) дотогшоо
+    
+    # Хэрэв та gunicorn ашиглахгүй локалоор ажиллуулж байгаа бол:
+    # app.run(debug=True)
