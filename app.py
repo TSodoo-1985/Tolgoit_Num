@@ -63,6 +63,13 @@ class Expense(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
     user = db.relationship('User', backref='expense_records')
 
+class LaborFee(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    description = db.Column(db.String(200), nullable=False) # Хийсэн ажил
+    amount = db.Column(db.Float, nullable=False)           # Хөлс
+    staff_name = db.Column(db.String(100))                 # Ажилтан
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+
 @login_manager.user_loader
 def load_user(user_id):
     return User.query.get(int(user_id))
