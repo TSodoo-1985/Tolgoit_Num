@@ -352,6 +352,42 @@ def special_transfer():
     products = Product.query.filter(Product.is_active == True).order_by(Product.name).all()
     return render_template('special_transfer.html', products=products)
 
+@app.route('/labor')
+@login_required
+def labor_page():
+    # Сүүлийн 100 бичилтийг харуулна
+    fees = LaborFee.query.order_by(LaborFee.timestamp.desc()).all()
+    total_labor = sum(f.amount for f in fees)
+    return render_template('labor.html', fees=fees, total_labor=total_labor)
+
+@app.route('/add_labor', methods=['POST'])
+@login_required
+def add_labor():
+    desc = request.form.get('description')
+    amt = request.form.get('amount')
+    staff = request.form.get('staff_name')
+    
+    if desc and amt:
+        new_fee = LaborFee(
+            description=desc, 
+            amount=float(amt), 
+            staff_name=staff or current_user.username
+        )
+        db.session.add(new_fee)
+        db.session.commit()
+        flash("Ажлын хөлс амжилттай бүртгэгдлээ.")
+    return redirect(url_for('labor_page'))
+
+@app.route('/delete_labor/<int:id>')
+@login_required
+def delete_labor(id):
+    if current_user.role != 'admin':
+        return "Эрх хүрэхгүй", 403
+    fee = LaborFee.query.get_or_404(id)
+    db.session.delete(fee)
+    db.session.commit()
+    return redirect(url_for('labor_page'))
+
 # 1. Excel бэлдэц татах (Монгол толгойтой)
 @app.route('/download_template')
 @login_required
