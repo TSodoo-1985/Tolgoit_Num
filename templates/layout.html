@@ -14,15 +14,6 @@
         .nav-link-custom { color: rgba(255,255,255,0.8); transition: 0.3s; }
         .nav-link-custom:hover { color: #fff; }
         @media (max-width: 576px) { .nav-text { display: none; } }
-        
-        /* Submenu засалт */
-        .dropdown-submenu { position: relative; }
-        .dropdown-submenu .dropdown-menu { 
-            top: 0; 
-            right: 100%; /* Зүүн тийшээ дэлгэгдэнэ */
-            margin-top: -1px; 
-            margin-right: 10px;
-        }
     </style>
 </head>
 <body>
@@ -53,22 +44,10 @@
                     
                     <li><h6 class="dropdown-header text-dark fw-bold px-0 mb-1 small text-uppercase">🛠 Үйлдэл</h6></li>
                     <li><a class="dropdown-item py-2" href="{{ url_for('add_product_page') }}"><i class="bi bi-plus-circle text-success me-2"></i>Бараа нэмэх</a></li>
-                    
-                    <li><a class="dropdown-item py-2 fw-bold" href="{{ url_for('expenses') }}"><i class="bi bi-hammer text-warning me-2"></i>Ажлын хөлс бүртгэх</a></li>
-                    
                     <li><a class="dropdown-item py-2" href="{{ url_for('special_transfer') }}"><i class="bi bi-arrow-left-right text-warning me-2"></i>Шилжүүлэг</a></li>
                     <li><a class="dropdown-item py-2" href="{{ url_for('inventory') }}"><i class="bi bi-list-check me-2"></i>Тооллого</a></li>
                     
-                    <li class="dropdown-submenu">
-                        <a class="dropdown-item py-2 d-flex justify-content-between align-items-center" href="#" id="expenseSubmenu">
-                            <span><i class="bi bi-cash-coin text-danger me-2"></i>Зардал</span>
-                            <i class="bi bi-chevron-left small"></i>
-                        </a>
-                        <ul class="dropdown-menu shadow-lg">
-                            <li><a class="dropdown-item py-2" href="{{ url_for('expenses') }}"><i class="bi bi-wallet2 me-2"></i>Ерөнхий зардал</a></li>
-                            <li><a class="dropdown-item py-2" href="{{ url_for('expenses') }}"><i class="bi bi-person-badge me-2"></i>Цалин (Хөлс)</a></li>
-                        </ul>
-                    </li>
+                    <li><a class="dropdown-item py-2" href="{{ url_for('expenses') }}"><i class="bi bi-cash-coin text-danger me-2"></i>Зардал & Цалин</a></li>
                 </ul>
             </div>
 
@@ -97,9 +76,7 @@
                     <li><hr class="dropdown-divider"></li>
                     <li><h6 class="dropdown-header text-danger fw-bold px-0 small text-uppercase">💸 Зардал & Цалин</h6></li>
                     <li><button class="dropdown-item py-2" onclick="handleExpenseDownload('Зардал')"><i class="bi bi-cash-stack text-danger me-2"></i>Ерөнхий зардал татах</button></li>
-                    
                     <li><button class="dropdown-item py-2 fw-bold text-dark" onclick="handleLaborDownload()"><i class="bi bi-person-check text-info me-2"></i>Ажилчдын цалин татах</button></li>
-                    
                     <li><hr class="dropdown-divider"></li>
                     <li><h6 class="dropdown-header text-success fw-bold px-0 small text-uppercase">📋 Тооллого</h6></li>
                     <li><button class="dropdown-item py-2" onclick="handleInventoryDownload()"><i class="bi bi-clipboard-check text-warning me-2"></i>Тооллого татах</button></li>
@@ -180,19 +157,6 @@
         if(!s || !e) { alert("Огноо сонгоно уу!"); return; }
         window.location.href = `/export-labor-report?start_date=${s}&end_date=${e}`;
     }
-
-    // Submenu-г нээх хаах логик
-    document.addEventListener('DOMContentLoaded', function() {
-        var submenu = document.querySelector('.dropdown-submenu');
-        if(submenu) {
-            submenu.addEventListener('click', function(e) {
-                e.stopPropagation();
-                e.preventDefault();
-                var menu = this.querySelector('.dropdown-menu');
-                menu.classList.toggle('show');
-            });
-        }
-    });
 </script>
 </body>
 </html>
