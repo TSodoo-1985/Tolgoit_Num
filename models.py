@@ -30,5 +30,3 @@ class LaborFee(db.Model):
     amount = db.Column(db.Float, nullable=False)           # Хөлс
     staff_name = db.Column(db.String(100))                 # Ажилтан
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
-# Энэ кодыг нэмсний дараа нэг удаа db.create_all() ажиллуулах эсвэл 
-# Терминал дээр хүснэгтийг үүсгэх хэрэгтэй
