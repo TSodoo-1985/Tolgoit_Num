@@ -61,8 +61,10 @@
         let totalPrice = 0;
 
         list.innerHTML = cart.map((item, i) => {
+            // ШИНЭЧЛЭЛ: Үнийг олж авах (price эсвэл amount эсвэл unit_price)
             const qty = parseInt(item.quantity) || 0;
-            const price = parseFloat(item.price) || 0;
+            const price = parseFloat(item.price) || parseFloat(item.amount) || parseFloat(item.unit_price) || 0;
+            
             totalQty += qty;
             totalPrice += (qty * price);
 
@@ -76,11 +78,11 @@
                             <h6 class="mb-0 fw-bold text-truncate">${item.name}</h6>
                             <div class="d-flex gap-2 align-items-center mt-1">
                                 <small class="text-muted">
-                                    ${item.type === 'Орлого' ? '<span class="badge bg-success-subtle text-success">Орлого</span>' : 
-                                      item.type === 'Өртгөөр зарлага' ? '<span class="badge bg-danger-subtle text-danger">Өртгөөр</span>' : 
-                                      `<span class="badge bg-primary-subtle text-primary">${item.type}</span>`}
+                                    ${item.type === 'Орлого' ? '<span class="badge bg-success-subtle text-success border border-success-subtle">Орлого</span>' : 
+                                      item.type === 'Өртгөөр зарлага' ? '<span class="badge bg-danger-subtle text-danger border border-danger-subtle">Өртгөөр</span>' : 
+                                      `<span class="badge bg-primary-subtle text-primary border border-primary-subtle">${item.type}</span>`}
                                 </small>
-                                <small class="fw-bold text-dark">${(price).toLocaleString()}₮</small>
+                                <small class="fw-bold text-dark">${price.toLocaleString()}₮</small>
                             </div>
                         </div>
                     </div>
@@ -106,14 +108,14 @@
         cart.splice(i, 1);
         localStorage.setItem('myCart', JSON.stringify(cart));
         render(); 
-        if (typeof updateBadge === 'function') updateBadge();
+        if (window.updateBadge) window.updateBadge();
     }
 
     function clearAll() {
         if(confirm("Сагсыг бүрэн цэвэрлэх үү?")) {
             localStorage.removeItem('myCart');
             render(); 
-            if (typeof updateBadge === 'function') updateBadge();
+            if (window.updateBadge) window.updateBadge();
         }
     }
 
@@ -140,6 +142,7 @@
         }
     }
 
-    render();
+    // Хуудас ачаалагдахад ажиллах
+    document.addEventListener('DOMContentLoaded', render);
 </script>
 {% endblock %}
