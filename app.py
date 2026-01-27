@@ -277,24 +277,33 @@ def do_inventory():
 def expenses():
     if request.method == 'POST':
         category = request.form.get('category')
-        amount = float(request.form.get('amount') or 0)
         description = request.form.get('description')
+        amount = float(request.form.get('amount'))
+
+        # Хэрэв "Ажлын хөлс" гэж сонгосон бол LaborFee хүснэгт рүү хадгална
+        if category == 'Ажлын хөлс':
+            new_item = LaborFee(
+                description=description,
+                amount=amount,
+                staff_name=current_user.username # Нэвтэрсэн ажилтны нэр
+            )
+        else:
+            # Ерөнхий зардал бол хуучин Expense хүснэгт рүүгээ (хэрэв байгаа бол)
+            new_item = Expense(
+                category=category,
+                description=description,
+                amount=amount
+            )
         
-        new_expense = Expense(
-            category=category,
-            amount=amount,
-            description=description,
-            date=datetime.now(),
-            user_id=current_user.id
-        )
-        db.session.add(new_expense)
+        db.session.add(new_item)
         db.session.commit()
-        flash('Зардал амжилттай бүртгэгдлээ!')
+        flash("Амжилттай хадгалагдлаа!")
         return redirect(url_for('expenses'))
 
-    # Зардлын жагсаалтыг харуулах
-    expense_list = Expense.query.order_by(Expense.date.desc()).all()
-    return render_template('expenses.html', expenses=expense_list)
+    # Сүүлийн 20 гүйлгээг харуулахын тулд хоёр хүснэгтээсээ өгөгдлөө нэгтгэж авна
+    # Эсвэл зөвхөн LaborFee-г харуулахаар бол:
+    items = LaborFee.query.order_by(LaborFee.timestamp.desc()).limit(20).all()
+    return render_template('expenses.html', items=items)
     
 @app.route('/cart')
 @login_required
