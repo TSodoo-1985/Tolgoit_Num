@@ -276,33 +276,48 @@ def do_inventory():
 @login_required
 def expenses():
     if request.method == 'POST':
+        # ... (Бүртгэх хэсэг хэвээрээ) ...
         category = request.form.get('category')
         description = request.form.get('description')
         amount = float(request.form.get('amount'))
 
-        # Хэрэв "Ажлын хөлс" гэж сонгосон бол LaborFee хүснэгт рүү хадгална
         if category == 'Ажлын хөлс':
-            new_item = LaborFee(
-                description=description,
-                amount=amount,
-                staff_name=current_user.username # Нэвтэрсэн ажилтны нэр
-            )
+            new_item = LaborFee(description=description, amount=amount, staff_name=current_user.username)
         else:
-            # Ерөнхий зардал бол хуучин Expense хүснэгт рүүгээ (хэрэв байгаа бол)
-            new_item = Expense(
-                category=category,
-                description=description,
-                amount=amount
-            )
+            new_item = Expense(category=category, description=description, amount=amount)
         
         db.session.add(new_item)
         db.session.commit()
-        flash("Амжилттай хадгалагдлаа!")
         return redirect(url_for('expenses'))
 
-    # Сүүлийн 20 гүйлгээг харуулахын тулд хоёр хүснэгтээсээ өгөгдлөө нэгтгэж авна
-    # Эсвэл зөвхөн LaborFee-г харуулахаар бол:
-    items = LaborFee.query.order_by(LaborFee.timestamp.desc()).limit(20).all()
+    # ГҮЙЛГЭЭГ НЭГТГЭЖ ХАРУУЛАХ ХЭСЭГ (ЭНД АЛДАА БАЙСАН)
+    expenses_list = Expense.query.all()
+    labor_list = LaborFee.query.all()
+
+    items = []
+
+    for e in expenses_list:
+        items.append({
+            'date': e.timestamp,  # Энд e.timestamp-г 'date' гэж нэрлэж байна
+            'category': e.category,
+            'description': e.description,
+            'amount': e.amount,
+            'staff': 'Систем'
+        })
+
+    for l in labor_list:
+        items.append({
+            'date': l.timestamp,  # Энд l.timestamp-г 'date' гэж нэрлэж байна
+            'category': 'Ажлын хөлс',
+            'description': l.description,
+            'amount': l.amount,
+            'staff': l.staff_name
+        })
+
+    # Сүүлийн 20 гүйлгээг огноогоор эрэмбэлж харуулах
+    items.sort(key=lambda x: x['date'], reverse=True)
+    items = items[:20]
+
     return render_template('expenses.html', items=items)
     
 @app.route('/cart')
