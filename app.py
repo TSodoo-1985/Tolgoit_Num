@@ -291,6 +291,34 @@ def add_transaction_bulk():
     db.session.commit()
     flash(f"{len(items)} гүйлгээ амжилттай бүртгэгдлээ.")
     return jsonify({"status": "success"}), 200
+
+@app.route('/special_transfer', methods=['GET', 'POST'])
+@login_required
+def special_transfer():
+    if request.method == 'POST':
+        product_id = request.form.get('product_id')
+        quantity = float(request.form.get('quantity') or 0)
+        note = request.form.get('note') # Хаашаа шилжүүлж буй тайлбар
+
+        product = Product.query.get(product_id)
+        if product and quantity > 0:
+            product.stock -= quantity # Үлдэгдэл хасах
+            
+            # Гүйлгээг 'Өртгөөр зарлага' төрлөөр хадгалах
+            new_tx = Transaction(
+                product_id=product.id,
+                type='Өртгөөр зарлага',
+                quantity=quantity,
+                timestamp=datetime.now(),
+                user_id=current_user.id
+            )
+            db.session.add(new_tx)
+            db.session.commit()
+            flash(f'{product.name} - {quantity} ш өртгөөр амжилттай шилжлээ.')
+            return redirect(url_for('dashboard'))
+
+    products = Product.query.filter(Product.is_active == True).order_by(Product.name).all()
+    return render_template('special_transfer.html', products=products)
     
 # --- ТАЙЛАН, СТАТИСТИК ---
 
