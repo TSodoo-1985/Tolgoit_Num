@@ -1,44 +1,35 @@
-<!DOCTYPE html>
-<html lang="mn">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Өртгөөр шилжүүлэг - НУМ СЕРВИС</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
-    <style>
-        body { background-color: #f8f9fa; font-family: 'Segoe UI', sans-serif; }
-        .card { border-radius: 15px; border: none; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
-        .navbar { background-color: #1a202c !important; }
-        .form-select-lg, .form-control-lg { font-size: 1rem; }
-    </style>
-</head>
-<body>
+{% extends "layout.html" %}
+{% block content %}
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" />
 
-<nav class="navbar navbar-dark mb-4 shadow-sm">
-    <div class="container-fluid">
-        <a class="navbar-brand fw-bold d-flex align-items-center" href="{{ url_for('dashboard') }}">
-            <i class="bi bi-arrow-left-circle me-2"></i> БУЦАХ
-        </a>
-        <span class="navbar-text text-white fw-bold">ТОЛГОЙТ НУМ СЕРВИС</span>
-    </div>
-</nav>
+<style>
+    body { background-color: #f8f9fa; }
+    .card { border-radius: 15px; border: none; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+    /* Select2-ийг бусад оролтын талбартай адил өндөртэй болгох */
+    .select2-container--bootstrap-5 .select2-selection { height: calc(3.5rem + 2px); display: flex; align-items: center; border: 2px solid #dee2e6; }
+</style>
 
-<div class="container">
+<div class="container mt-2">
     <div class="row justify-content-center">
         <div class="col-md-8">
-            <div class="card p-4">
+            <div class="mb-3">
+                <a href="{{ url_for('dashboard') }}" class="btn btn-outline-secondary btn-sm rounded-pill px-3">
+                    <i class="bi bi-arrow-left me-1"></i>Буцах
+                </a>
+            </div>
+
+            <div class="card p-4 border-top border-warning border-4 shadow-sm">
                 <div class="text-center mb-4">
-                    <h3 class="fw-bold text-warning"><i class="bi bi-arrow-left-right me-2"></i>Өртгөөр шилжүүлэг бүртгэх</h3>
+                    <h3 class="fw-bold text-warning"><i class="bi bi-arrow-left-right me-2"></i>Шилжүүлэг бүртгэх</h3>
                     <p class="text-muted small">Барааг өртөг үнээр нь салбар хооронд эсвэл тусгай хэрэгцээнд гаргах</p>
                 </div>
                 
                 <form action="{{ url_for('special_transfer') }}" method="POST">
-                    
                     <div class="mb-4">
-                        <label class="form-label fw-bold"><i class="bi bi-box-seam me-1"></i> Шилжүүлэх бараа сонгох</label>
-                        <select name="product_id" class="form-select form-select-lg border-2 shadow-sm" required>
-                            <option value="">--- Бараа сонгоно уу ---</option>
+                        <label class="form-label fw-bold text-uppercase small text-muted"><i class="bi bi-box-seam me-1"></i> Шилжүүлэх бараа сонгох</label>
+                        <select name="product_id" id="transferProductSelect" class="form-select form-select-lg border-2 shadow-sm" required>
+                            <option value="">--- Бараа хайх (SKU эсвэл нэр) ---</option>
                             {% for p in products %}
                             <option value="{{ p.id }}">{{ p.sku }} | {{ p.name }} (Үлдэгдэл: {{ p.stock|int }} ш)</option>
                             {% endfor %}
@@ -47,25 +38,25 @@
 
                     <div class="row">
                         <div class="col-md-6 mb-4">
-                            <label class="form-label fw-bold"><i class="bi bi-plus-minus me-1"></i> Тоо ширхэг</label>
+                            <label class="form-label fw-bold text-uppercase small text-muted"><i class="bi bi-plus-minus me-1"></i> Тоо ширхэг</label>
                             <input type="number" step="0.1" name="quantity" class="form-control form-control-lg border-2 shadow-sm" placeholder="0.0" required>
                         </div>
                         <div class="col-md-6 mb-4">
-                            <label class="form-label fw-bold"><i class="bi bi-info-circle me-1"></i> Хаашаа / Тайлбар</label>
+                            <label class="form-label fw-bold text-uppercase small text-muted"><i class="bi bi-info-circle me-1"></i> Хаашаа / Тайлбар</label>
                             <input type="text" name="note" class="form-control form-control-lg border-2 shadow-sm" placeholder="Жишээ: Салбар 2 руу..." required>
                         </div>
                     </div>
 
-                    <div class="alert alert-warning border-0 bg-warning-subtle text-dark mb-4">
-                        <div class="d-flex">
+                    <div class="alert alert-warning border-0 bg-warning-subtle text-dark mb-4 rounded-4">
+                        <div class="d-flex align-items-center">
                             <i class="bi bi-exclamation-triangle-fill fs-4 me-3"></i>
-                            <div>
-                                <strong>Анхаар:</strong> Энэ гүйлгээ нь "Өртгөөр зарлага" гэж бүртгэгдэх бөгөөд барааны үлдэгдлээс шууд хасагдана.
+                            <div class="small">
+                                <strong>Санамж:</strong> Энэ гүйлгээ нь <strong>"Өртгөөр зарлага"</strong> гэж бүртгэгдэх бөгөөд барааны үлдэгдлээс шууд хасагдана.
                             </div>
                         </div>
                     </div>
 
-                    <button type="submit" class="btn btn-warning btn-lg w-100 fw-bold shadow mt-2 text-dark">
+                    <button type="submit" class="btn btn-warning btn-lg w-100 fw-bold shadow-sm py-3 text-dark">
                         <i class="bi bi-check-circle-fill me-2"></i> ШИЛЖҮҮЛЭГ БАТЛАХ
                     </button>
                 </form>
@@ -74,6 +65,19 @@
     </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-</body>
-</html>
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+
+<script>
+    $(document).ready(function() {
+        // Шилжүүлэг дээрх бараа сонголтыг хайлттай болгох
+        $('#transferProductSelect').select2({
+            theme: 'bootstrap-5',
+            width: '100%',
+            placeholder: 'Барааны нэр эсвэл SKU бичнэ үү...',
+            allowClear: true,
+            dropdownParent: $('.card') // Утсан дээр хайлт зөв ажиллахад тусална
+        });
+    });
+</script>
+{% endblock %}
