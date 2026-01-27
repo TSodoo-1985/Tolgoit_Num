@@ -359,20 +359,24 @@ def download_template():
     if current_user.role != 'admin':
         return "Хандах эрхгүй", 403
         
-    # Багануудын дараалал: Код түрүүлж орсон
+    # Багануудын нэр
     columns = ['Код (SKU)', 'Барааны нэр', 'Ангилал', 'Өртөг', 'Бөөний үнэ', 'Жижиглэн үнэ', 'Үлдэгдэл']
     df = pd.DataFrame(columns=columns)
     
     output = BytesIO()
+    # Энд engine='openpyxl' гэж зааж өгөхөд дээрх сан заавал хэрэгтэй
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
         df.to_excel(writer, index=False)
+    
     output.seek(0)
     
-    return send_file(output, 
-                     download_name="baraa_tatakh_beldetz.xlsx", 
-                     as_attachment=True,
-                     mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-
+    return send_file(
+        output, 
+        download_name="baraa_tatakh_beldetz.xlsx", 
+        as_attachment=True,
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    
 @app.route('/import_products_action', methods=['POST'])
 @login_required
 def import_products_action():
