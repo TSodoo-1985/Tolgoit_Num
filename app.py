@@ -281,28 +281,42 @@ def expenses():
         amount = float(request.form.get('amount'))
 
         if category == 'Ажлын хөлс':
-            new_item = LaborFee(
-                description=description, 
-                amount=amount, 
-                staff_name=current_user.username
-            )
+            # Үйлчлүүлэгчээс орж ирж буй, ажилчны нэр дээр хуримтлагдах мөнгө
+            new_item = LaborFee(description=description, amount=amount, staff_name=current_user.username)
         else:
-            new_item = Expense(
-                category=category, 
-                description=description, 
-                amount=amount
-            )
+            # Цалин олголт эсвэл Ерөнхий зардал (Кассаас гарч буй мөнгө)
+            new_item = Expense(category=category, description=description, amount=amount)
         
         db.session.add(new_item)
         db.session.commit()
         return redirect(url_for('expenses'))
 
-    # ХОЁР ХҮСНЭГТИЙГ НЭГТГЭХДЭЭ ЗӨВ БАГАНЫ НЭРИЙГ АШИГЛАХ:
+    # Жагсаалтыг нэгтгэж харуулах (Өмнөх Date-ийн алдааг зассан хувилбар)
     expenses_list = Expense.query.all()
     labor_list = LaborFee.query.all()
-
     items = []
 
+    for e in expenses_list:
+        items.append({
+            'date': e.date, # Expense хүснэгтийн багана
+            'category': e.category,
+            'description': e.description,
+            'amount': e.amount,
+            'staff': 'Систем'
+        })
+
+    for l in labor_list:
+        items.append({
+            'date': l.timestamp, # LaborFee хүснэгтийн багана
+            'category': 'Ажлын хөлс',
+            'description': l.description,
+            'amount': l.amount,
+            'staff': l.staff_name
+        })
+
+    items.sort(key=lambda x: x['date'], reverse=True)
+    return render_template('expenses.html', items=items[:20])
+    
     # 1. Expense хүснэгт 'date' баганатай тул e.date гэж авна
     for e in expenses_list:
         items.append({
