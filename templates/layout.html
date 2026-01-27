@@ -45,6 +45,8 @@
                     <li><h6 class="dropdown-header text-dark fw-bold px-0 mb-1 small text-uppercase">🛠 Үйлдэл</h6></li>
                     <li><a class="dropdown-item py-2" href="{{ url_for('add_product_page') }}"><i class="bi bi-plus-circle text-success me-2"></i>Бараа нэмэх</a></li>
                     
+                    <li><a class="dropdown-item py-2 fw-bold" href="{{ url_for('labor_page') }}"><i class="bi bi-hammer text-warning me-2"></i>Ажлын хөлс бүртгэх</a></li>
+                    
                     <li><a class="dropdown-item py-2" href="{{ url_for('special_transfer') }}"><i class="bi bi-arrow-left-right text-warning me-2"></i>Шилжүүлэг</a></li>
                     
                     <li><a class="dropdown-item py-2" href="{{ url_for('inventory') }}"><i class="bi bi-list-check me-2"></i>Тооллого</a></li>
@@ -77,7 +79,9 @@
                     <li><hr class="dropdown-divider"></li>
                     <li><h6 class="dropdown-header text-danger fw-bold px-0 small text-uppercase">💸 Зардал</h6></li>
                     <li><button class="dropdown-item py-2" onclick="handleExpenseDownload('Зардал')"><i class="bi bi-cash-stack text-danger me-2"></i>Ерөнхий зардал</button></li>
-                    <li><button class="dropdown-item py-2" onclick="handleExpenseDownload('Ажлын хөлс')"><i class="bi bi-person-badge text-warning me-2"></i>Ажлын хөлс</button></li>
+                    
+                    <li><button class="dropdown-item py-2 fw-bold text-dark" onclick="handleLaborDownload()"><i class="bi bi-person-check text-info me-2"></i>Ажилчдын цалин татах</button></li>
+                    
                     <li><hr class="dropdown-divider"></li>
                     <li><h6 class="dropdown-header text-success fw-bold px-0 small text-uppercase">📋 Тооллого</h6></li>
                     <li><button class="dropdown-item py-2" onclick="handleInventoryDownload()"><i class="bi bi-clipboard-check text-warning me-2"></i>Тооллого татах</button></li>
@@ -150,6 +154,14 @@
         const e = document.getElementById('end_date_input').value;
         if(!s || !e) { alert("Огноо сонгоно уу!"); return; }
         window.location.href = `/export-inventory-report?start_date=${s}&end_date=${e}`;
+    }
+
+    // ШИНЭ: Ажлын хөлсний тайлан татах функц
+    function handleLaborDownload() {
+        const s = document.getElementById('start_date_input').value;
+        const e = document.getElementById('end_date_input').value;
+        if(!s || !e) { alert("Огноо сонгоно уу!"); return; }
+        window.location.href = `/export-labor-report?start_date=${s}&end_date=${e}`;
     }
 </script>
 </body>
