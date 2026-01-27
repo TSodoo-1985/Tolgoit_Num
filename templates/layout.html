@@ -24,6 +24,10 @@
         </a>
 
         <div class="d-flex gap-2 align-items-center">
+            <a href="{{ url_for('special_transfer') }}" class="btn btn-outline-warning btn-sm rounded-3 mx-1">
+                <i class="bi bi-arrow-left-right"></i> <span class="nav-text ms-1">Өртгөөр</span>
+            </a>
+
             <a href="{{ url_for('cart_page') }}" class="btn btn-outline-primary btn-sm rounded-3 position-relative mx-1">
                 <i class="bi bi-cart3"></i>
                 <span id="cart-count-badge" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style="display: none;">0</span>
@@ -39,6 +43,7 @@
                     <li><hr class="dropdown-divider"></li>
                     <li><h6 class="dropdown-header text-dark fw-bold px-0 mb-1 small text-uppercase">🛠 Үйлдэл</h6></li>
                     <li><a class="dropdown-item py-2" href="{{ url_for('add_product_page') }}"><i class="bi bi-plus-circle text-success me-2"></i>Бараа нэмэх</a></li>
+                    <li><a class="dropdown-item py-2" href="{{ url_for('special_transfer') }}"><i class="bi bi-arrow-left-right text-warning me-2"></i>Өртгөөр шилжүүлэх</a></li>
                     <li><a class="dropdown-item py-2" href="{{ url_for('inventory') }}"><i class="bi bi-list-check me-2"></i>Тооллого</a></li>
                     <li><a class="dropdown-item py-2" href="{{ url_for('expenses') }}"><i class="bi bi-cash-coin text-danger me-2"></i>Зардал</a></li>
                 </ul>
@@ -64,6 +69,7 @@
                     <li><h6 class="dropdown-header text-primary fw-bold px-0 small text-uppercase">📦 Барааны гүйлгээ</h6></li>
                     <li><button class="dropdown-item py-2" onclick="handleDownload('Жижиглэн зарлага')"><i class="bi bi-cart-check text-primary me-2"></i>Жижиглэн</button></li>
                     <li><button class="dropdown-item py-2" onclick="handleDownload('Бөөний зарлага')"><i class="bi bi-truck text-info me-2"></i>Бөөний</button></li>
+                    <li><button class="dropdown-item py-2" onclick="handleDownload('Өртгөөр зарлага')"><i class="bi bi-arrow-left-right text-warning me-2"></i>Өртгөөр зарлага</button></li>
                     <li><button class="dropdown-item py-2" onclick="handleDownload('Орлого')"><i class="bi bi-box-arrow-in-down text-success me-2"></i>Орлого</button></li>
                     <li><hr class="dropdown-divider"></li>
                     <li><h6 class="dropdown-header text-danger fw-bold px-0 small text-uppercase">💸 Зардал</h6></li>
