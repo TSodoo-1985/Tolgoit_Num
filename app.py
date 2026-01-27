@@ -267,25 +267,30 @@ def cart_page():
 def add_transaction_bulk():
     data = request.json
     items = data.get('items', [])
+    if not items: return jsonify({"status": "error"}), 400
+    
     for item in items:
         product = Product.query.get(item['product_id'])
         if product:
             qty = float(item['quantity'])
+            
+            # Үлдэгдэл тооцох
             if item['type'] == 'Орлого':
                 product.stock += qty
-            else:
+            else: # Жижиглэн, Бөөний, Өртгөөр бүгд хасагдана
                 product.stock -= qty
-            # 'date' гэснийг 'timestamp' болгож засав
+            
+            # Гүйлгээ хадгалах (timestamp ашиглана)
             db.session.add(Transaction(
-                product_id=product.id, 
-                type=item['type'], 
-                quantity=qty, 
+                product_id=product.id,
+                type=item['type'],
+                quantity=qty,
                 timestamp=datetime.now(), 
                 user_id=current_user.id
             ))
     db.session.commit()
-    flash("Бүх гүйлгээ амжилттай хадгалагдлаа.")
-    return {"status": "success"}, 200
+    flash(f"{len(items)} гүйлгээ амжилттай бүртгэгдлээ.")
+    return jsonify({"status": "success"}), 200
     
 # --- ТАЙЛАН, СТАТИСТИК ---
 
