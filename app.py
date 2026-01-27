@@ -219,18 +219,50 @@ def add_transaction():
         
     return redirect(request.referrer or url_for('dashboard'))
 
-@app.route('/inventory', methods=['GET', 'POST'])
+@app.route('/inventory')
 @login_required
 def inventory():
-    p_id = request.form.get('product_id')
-    new_qty = float(request.form.get('quantity') or 0)
-    product = Product.query.get(p_id)
-    if product:
-        diff = new_qty - product.stock
-        product.stock = new_qty
-        diff_text = f"Зөрүү: {'+' if diff > 0 else ''}{diff}"
-        db.session.add(Transaction(product_id=p_id, type=f'Тооллого ({diff_text})', quantity=new_qty, user_id=current_user.id))
-        db.session.commit()
+    # Бүх барааг авах
+    products = Product.query.order_by(Product.name).all()
+    # Сүүлийн 10 тооллогын түүхийг авах
+    history = Transaction.query.filter(Transaction.type.like('%Тооллого%'))\
+              .order_by(Transaction.timestamp.desc()).limit(10).all()
+    return render_template('inventory.html', products=products, history=history)
+
+@app.route('/do_inventory', methods=['POST'])
+@login_required
+def do_inventory():
+    product_id = request.form.get('product_id')
+    new_quantity = request.form.get('quantity')
+
+    if not product_id or not new_quantity:
+        flash('Бараа болон тоо хэмжээг бүрэн бөглөнө үү!')
+        return redirect(url_for('inventory'))
+
+    product = Product.query.get_or_404(product_id)
+    old_stock = product.stock or 0
+    new_stock = float(new_quantity)
+    diff = new_stock - old_stock
+
+    # 1. Барааны үлдэгдлийг шинэчлэх
+    product.stock = new_stock
+
+    # 2. Гүйлгээний түүхэнд "Тооллого" гэж бүртгэх
+    # Таны HTML дээрх "Зөрүү" хэсэгт харагдах утга
+    transaction = Transaction(
+        product_id=product.id,
+        quantity=new_stock, # Тоолсон бодит тоог хадгалав
+        type=f"Тооллого ({'+' if diff >= 0 else ''}{diff})", # Зөрүүг хаалтанд харуулна
+        timestamp=datetime.now(),
+        user_id=current_user.id,
+        price=0,
+        note=f"Хуучин үлдэгдэл: {old_stock}"
+    )
+    
+    db.session.add(transaction)
+    db.session.commit()
+
+    flash(f'{product.name} амжилттай тоологдлоо. Шинэ үлдэгдэл: {new_stock}')
     return redirect(url_for('inventory'))
 
 @app.route('/expenses', methods=['GET', 'POST'])
