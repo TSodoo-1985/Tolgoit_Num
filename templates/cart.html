@@ -61,7 +61,6 @@
         let totalPrice = 0;
 
         list.innerHTML = cart.map((item, i) => {
-            // Тооцоолол хийх
             const qty = parseInt(item.quantity) || 0;
             const price = parseFloat(item.price) || 0;
             totalQty += qty;
@@ -98,7 +97,6 @@
             `;
         }).join('');
 
-        // Нийт дүнгүүдийг шинэчлэх
         document.getElementById('total-qty').innerText = totalQty.toLocaleString();
         document.getElementById('total-price').innerText = totalPrice.toLocaleString() + '₮';
     }
@@ -126,42 +124,6 @@
         let totalQty = cart.reduce((acc, item) => acc + (parseInt(item.quantity) || 0), 0);
 
         if(!confirm(`Нийт ${totalQty} ширхэг барааг хадгалах уу?`)) return;
-
-        const res = await fetch('/add_transaction_bulk', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ items: cart })
-        });
-
-        if(res.ok) {
-            localStorage.removeItem('myCart');
-            alert("Амжилттай хадгалагдлаа!");
-            window.location.href = "{{ url_for('dashboard') }}";
-        } else {
-            alert("Алдаа гарлаа!");
-        }
-    }
-
-    render();
-</script>
-{% endblock %}
-        cart.splice(i, 1);
-        localStorage.setItem('myCart', JSON.stringify(cart));
-        render(); updateBadge();
-    }
-
-    function clearAll() {
-        if(confirm("Сагсыг бүрэн цэвэрлэх үү?")) {
-            localStorage.removeItem('myCart');
-            render(); updateBadge();
-        }
-    }
-
-    async function save() {
-        let cart = JSON.parse(localStorage.getItem('myCart')) || [];
-        if (cart.length === 0) return;
-
-        if(!confirm(`${cart.length} гүйлгээг хадгалах уу?`)) return;
 
         const res = await fetch('/add_transaction_bulk', {
             method: 'POST',
