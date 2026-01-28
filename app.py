@@ -480,10 +480,9 @@ def import_products_action():
         return redirect(url_for('import_products_page'))
 
     try:
-        # engine='openpyxl' ашиглан файлыг уншина
         df = pd.read_excel(file, engine='openpyxl') 
 
-        # --- ШИНЭ: Хоосон (NaN) утгуудыг 0 болгох болон цэвэрлэх ---
+        # NaN утгуудыг 0 болгох (Таны хүссэнээр)
         df['Өртөг'] = pd.to_numeric(df['Өртөг'], errors='coerce').fillna(0)
         df['Бөөний үнэ'] = pd.to_numeric(df['Бөөний үнэ'], errors='coerce').fillna(0)
         df['Жижиглэн үнэ'] = pd.to_numeric(df['Жижиглэн үнэ'], errors='coerce').fillna(0)
@@ -492,19 +491,15 @@ def import_products_action():
         df['Барааны нэр'] = df['Барааны нэр'].fillna("Нэргүй")
 
         count = 0
-        # iterrows() нь Excel-ийн мөрийн дарааллыг яг барьдаг
         for index, row in df.iterrows():
             sku_val = row['Код (SKU)']
             if pd.isna(sku_val):
                 continue
             
-            # SKU-г текст хэлбэрт оруулах
             sku_str = str(int(sku_val)) if isinstance(sku_val, (int, float)) else str(sku_val)
-            
             product = Product.query.filter_by(sku=sku_str).first()
             
             if product:
-                # Бараа байвал үлдэгдлийг нь шинэчилнэ (Нэмэх биш, дарж бичих нь илүү аюулгүй)
                 product.name = row['Барааны нэр']
                 product.category = row['Ангилал']
                 product.cost_price = float(row['Өртөг'])
@@ -512,7 +507,6 @@ def import_products_action():
                 product.retail_price = float(row['Жижиглэн үнэ'])
                 product.stock = float(row['Үлдэгдэл'])
             else:
-                # Байхгүй бол шинээр үүсгэнэ
                 new_p = Product(
                     sku=sku_str,
                     name=row['Барааны нэр'],
@@ -524,11 +518,12 @@ def import_products_action():
                 )
                 db.session.add(new_p)
             
+            # Энэ нь мэдээллийн санд ID-г дарааллаар олгоход тусална
+            db.session.flush() 
             count += 1
-            # Хэрэв маш олон бараа (1000+) болж байвал 100 мөр тутамд flush хийж болно
         
         db.session.commit()
-        flash(f"Амжилттай! Нийт {count} бараа дарааллын дагуу бүртгэгдлээ.")
+        flash(f"Амжилттай! Нийт {count} бараа Excel-ийн дарааллаар бүртгэгдлээ.")
     except Exception as e:
         db.session.rollback()
         flash(f"Алдаа гарлаа: {str(e)}")
