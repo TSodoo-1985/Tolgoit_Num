@@ -1231,24 +1231,6 @@ def change_password():
         flash('Нууц үг зөрүүтэй байна!')
     return render_template('change_password.html')
 
-@app.route('/reset-database-secure-99')
-@login_required
-def reset_db():
-    if current_user.role == 'admin':
-        try:
-            # Дарааллаар нь устгах (Хамааралтай өгөгдлүүдээс эхэлнэ)
-            Transaction.query.delete()
-            Expense.query.delete()
-            LaborFee.query.delete()
-            Product.query.delete() # Хамгийн сүүлд бараагаа устгана
-            
-            db.session.commit()
-            return "Мэдээллийн сан амжилттай цэвэрлэгдлээ. Одоо шинээр бараагаа оруулна уу."
-        except Exception as e:
-            db.session.rollback()
-            return f"Алдаа гарлаа: {str(e)}"
-    return "Эрх хүрэхгүй байна", 403
-
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()  # 4 зай (эсвэл 1 Tab) дотогшоо
