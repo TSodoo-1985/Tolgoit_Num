@@ -783,18 +783,7 @@ def export_transactions(type):
             'Ажилтан': ''
         }
         df = pd.concat([df, pd.DataFrame([totals])], ignore_index=True)
-    
-    # Нийт дүн нэмэх (Орлогоос бусад тохиолдолд)
-    if not df.empty and type != 'Орлого':
-        totals = {
-            'Огноо': 'НИЙТ ДҮН:', 'Барааны код': '', 'Барааны нэр': '', 'Гүйлгээний төрөл': '',
-            'Тоо ширхэг': df['Тоо ширхэг'].sum(),
-            'Нэгж өртөг': '', 'Зарах үнэ': '', 
-            'Нийт ашиг': df['Нийт ашиг'].sum(),
-            'Ажилтан': ''
-        }
-        df = pd.concat([df, pd.DataFrame([totals])], ignore_index=True)
-
+        
     output = BytesIO()
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
         sheet_name = f"{type} Тайлан"
