@@ -838,7 +838,14 @@ def export_transactions(type):
 @login_required
 def export_inventory_report():
     transactions = Transaction.query.filter(Transaction.type.like('Тооллого%')).all()
-    data = [{"Огноо": t.timestamp, "Бараа": t.product.name, "Зөрүү": t.type, "Тоо": t.quantity} for t in transactions]
+    data = [{
+        "Огноо": t.timestamp.strftime('%Y-%m-%d %H:%M'), 
+        "Ангилал": t.product.category if t.product else "-", # НЭМЭГДЭВ
+        "Барааны код": t.product.sku if t.product else "-", # НЭМЭГДЭВ
+        "Бараа": t.product.name if t.product else "Устгагдсан", 
+        "Зөрүү": t.type, 
+        "Тоо": t.quantity
+    } for t in transactions]
     
     df = pd.DataFrame(data)
     output = BytesIO()
@@ -1103,6 +1110,7 @@ def export_return_report():
         
         data.append({
             "Огноо": t.date.strftime('%Y-%m-%d %H:%M'),
+            "Ангилал": t.product.category if t.product else "-", # НЭМЭГДЭВ
             "SKU / Код": t.product.sku if t.product else "",
             "Барааны нэр": t.product.name if t.product else "",
             "Төрөл": t.type,
@@ -1112,12 +1120,10 @@ def export_return_report():
             "Ажилтан": t.user.username if t.user else "Unknown"
         })
     
-    # 2. DataFrame үүсгэхдээ багануудын дарааллыг баталгаажуулна
     df = pd.DataFrame(data)
-    
-    # Хэрэв өгөгдөл байвал багануудыг шүүнэ (Өртөг, ашиг гэх мэт багана энд ороогүй тул харагдахгүй)
     if not df.empty:
-        column_order = ["Огноо", "SKU / Код", "Барааны нэр", "Төрөл", "Тоо ширхэг", "Буцаасан дүн", "Тайлбар", "Ажилтан"]
+        # Дарааллыг баталгаажуулах: Огноо -> Ангилал -> SKU
+        column_order = ["Огноо", "Ангилал", "SKU / Код", "Барааны нэр", "Төрөл", "Тоо ширхэг", "Буцаасан дүн", "Тайлбар", "Ажилтан"]
         df = df[column_order]
 
     output = BytesIO()
