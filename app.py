@@ -527,6 +527,41 @@ def import_products_page():
         flash("Уучлаарай, зөвхөн Админ нэвтрэх боломжтой!")
         return redirect(url_for('dashboard'))
     return render_template('import_products.html')
+
+@app.route('/returns', methods=['GET', 'POST'])
+@login_required
+def returns():
+    if request.method == 'POST':
+        product_id = request.form.get('product_id')
+        quantity = float(request.form.get('quantity'))
+        # Ямар үнээр буцааж байгааг нь авах (Жижиглэн эсвэл Бөөний)
+        return_price = float(request.form.get('price', 0)) 
+        reason = request.form.get('reason', 'Буцаалт')
+
+        product = Product.query.get_or_404(product_id)
+        
+        # 1. Барааны үлдэгдлийг нэмэгдүүлэх
+        product.stock += quantity
+        
+        # 2. Гүйлгээг ХАСАХ (-) дүнгээр бүртгэх (Орлогоноос хасагдана)
+        amount = quantity * return_price
+        new_transaction = Transaction(
+            product_id=product.id,
+            quantity=quantity,
+            type='Буцаалт',
+            amount=-amount,  # ЭНД ХАСАХ ТЭМДЭГ ТАВЬСНААР ОРЛОГОНООС ХАСАГДАНА
+            user_id=current_user.id,
+            date=datetime.now()
+        )
+        
+        db.session.add(new_transaction)
+        db.session.commit()
+        
+        flash(f"'{product.name}' барааны буцаалт амжилттай бүртгэгдэж, орлогоос {amount:,.0f}₮ хасагдлаа.")
+        return redirect(url_for('dashboard'))
+
+    products = Product.query.all()
+    return render_template('returns.html', products=products)
     
 # --- ТАЙЛАН, СТАТИСТИК ---
 
