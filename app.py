@@ -103,10 +103,10 @@ def logout():
 @app.route('/dashboard')
 @login_required
 def dashboard():
-    products = Product.query.filter_by(is_active=True).all()
+    # Бараануудыг ID-аар нь дарааллаар нь авах (Шинэ нь хамгийн сүүлд)
+    products = Product.query.filter_by(is_active=True).order_by(Product.id.asc()).all()
     cats = ["Шинэ нум", "Хуучин нум", "Амортизатор", "Стермэнь", "Центр боолт", "Дэр", "Зэс түлк", "Пальц", "Хар түлк", "Шар түлк", "Ээмэг", "Толгойн боолт", "Босоо пальц", "Сорочик", "Бусад"]
     return render_template('dashboard.html', products=products, categories=cats)
-
 # --- БАРАА БҮРТГЭЛ, ЗАСВАР ---
 
 @app.route('/add-product-page')
