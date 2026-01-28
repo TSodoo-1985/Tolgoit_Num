@@ -61,7 +61,6 @@
                 <select id="type-{{ p.id }}" class="form-select border-2 fw-bold" style="width: 55%;">
                     <option value="Жижиглэн зарлага">Жижиглэн</option>
                     <option value="Бөөний зарлага">Бөөний</option>
-                    <option value="Өртгөөр зарлага">Өртгөөр</option>
                     <option value="Орлого">Орлого</option>
                 </select>
                 <input type="number" id="qty-{{ p.id }}" class="form-control border-2 text-center fw-bold" placeholder="Тоо" style="width: 25%;">
@@ -91,7 +90,6 @@
         let selectedPrice = 0;
         if (type === "Жижиглэн зарлага") selectedPrice = retail;
         else if (type === "Бөөний зарлага") selectedPrice = wholesale;
-        else if (type === "Өртгөөр зарлага") selectedPrice = cost;
         else if (type === "Орлого") selectedPrice = 0;
 
         let cart = JSON.parse(localStorage.getItem('myCart')) || [];
