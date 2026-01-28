@@ -528,41 +528,41 @@ def import_products_page():
         return redirect(url_for('dashboard'))
     return render_template('import_products.html')
 
+# ... (бусад import-ууд хэвээрээ)
+
 @app.route('/returns', methods=['GET', 'POST'])
 @login_required
 def returns():
     if request.method == 'POST':
         product_id = request.form.get('product_id')
         quantity = float(request.form.get('quantity'))
-        # Ямар үнээр буцааж байгааг нь авах (Жижиглэн эсвэл Бөөний)
-        return_price = float(request.form.get('price', 0)) 
-        reason = request.form.get('reason', 'Буцаалт')
-
+        price = float(request.form.get('price'))
+        
         product = Product.query.get_or_404(product_id)
         
-        # 1. Барааны үлдэгдлийг нэмэгдүүлэх
+        # 1. Үлдэгдэл нэмэх
         product.stock += quantity
         
-        # 2. Гүйлгээг ХАСАХ (-) дүнгээр бүртгэх (Орлогоноос хасагдана)
-        amount = quantity * return_price
+        # 2. Гүйлгээг хасах дүнгээр бүртгэх (Орлогоос хасагдана)
+        amount = quantity * price
         new_transaction = Transaction(
             product_id=product.id,
             quantity=quantity,
             type='Буцаалт',
-            amount=-amount,  # ЭНД ХАСАХ ТЭМДЭГ ТАВЬСНААР ОРЛОГОНООС ХАСАГДАНА
+            amount=-amount, # Хасах утга
             user_id=current_user.id,
             date=datetime.now()
         )
         
         db.session.add(new_transaction)
         db.session.commit()
-        
-        flash(f"'{product.name}' барааны буцаалт амжилттай бүртгэгдэж, орлогоос {amount:,.0f}₮ хасагдлаа.")
+        flash(f"'{product.name}' барааны буцаалт амжилттай. Орлогоос {amount:,.0f}₮ хасагдлаа.")
         return redirect(url_for('dashboard'))
 
     products = Product.query.all()
     return render_template('returns.html', products=products)
-    
+
+# ... (бусад кодууд хэвээрээ)
 # --- ТАЙЛАН, СТАТИСТИК ---
 
 @app.route('/statistics')
@@ -1079,6 +1079,36 @@ def export_salary_report():
         as_attachment=True, 
         download_name=filename
     )
+
+@app.route('/export-return-report')
+@login_required
+def export_return_report():
+    start_date = request.args.get('start_date')
+    end_date = request.args.get('end_date')
+    
+    # Зөвхөн "Буцаалт" төрлийг шүүнэ
+    query = Transaction.query.filter(Transaction.type == 'Буцаалт')
+    
+    if start_date and end_date:
+        query = query.filter(Transaction.date.between(start_date, end_date))
+    
+    transactions = query.all()
+    
+    data = [{
+        "Огноо": t.date.strftime('%Y-%m-%d %H:%M'),
+        "Бараа": t.product.name,
+        "Ширхэг": t.quantity,
+        "Дүн": t.amount,  # Энэ нь хасах утгатай харагдана
+        "Ажилтан": t.user.username if t.user else "Unknown"
+    } for t in transactions]
+    
+    df = pd.DataFrame(data)
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+        df.to_excel(writer, index=False, sheet_name='Буцаалтын тайлан')
+    output.seek(0)
+    
+    return send_file(output, attachment_filename="Return_Report.xlsx", as_attachment=True)
 
 # --- ХЭРЭГЛЭГЧИЙН УДИРДЛАГА ---
 
