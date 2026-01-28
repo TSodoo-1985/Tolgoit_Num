@@ -1,37 +1,14 @@
-<!DOCTYPE html>
-<html lang="mn">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Бараа буцаалт - НУМ СЕРВИС</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
-    <style>
-        body { background-color: #f8f9fa; font-family: 'Segoe UI', sans-serif; }
-        .card { border-radius: 15px; border: none; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
-        .navbar { background-color: #1a202c !important; }
-    </style>
-</head>
-<body>
-
-<nav class="navbar navbar-dark mb-4">
-    <div class="container-fluid">
-        <a class="navbar-brand fw-bold" href="{{ url_for('dashboard') }}">
-            <i class="bi bi-arrow-left me-2"></i> БУЦАХ
-        </a>
-    </div>
-</nav>
-
-<div class="container">
-    <div class="row justify-content-center">
-        <div class="col-md-8">
-            <div class="card p-4">
-                <h3 class="fw-bold text-danger mb-4"><i class="bi bi-arrow-counterclockwise me-2"></i>Буцаалт бүртгэх</h3>
-                
-                <form action="{{ url_for('add_transaction') }}" method="POST">
-                    <input type="hidden" name="type" value="буцаалт">
-                    
-                    <div class="mb-3">
+{% extends "layout.html" %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+            <div class="card-header bg-danger py-3">
+                <h5 class="fw-bold mb-0 text-white"><i class="bi bi-arrow-return-left me-2"></i> Бараа буцаалт бүртгэх</h5>
+            </div>
+            <div class="card-body p-4">
+                <form action="{{ url_for('returns') }}" method="POST">
+                    <div class="mb-4">
                         <label class="form-label fw-bold">Бараа сонгох</label>
                         <select name="product_id" class="form-select form-select-lg border-2" required>
                             <option value="">--- Бараа сонгоно уу ---</option>
@@ -47,22 +24,32 @@
                             <input type="number" step="0.1" name="quantity" class="form-control form-control-lg border-2" placeholder="0.0" required>
                         </div>
                         <div class="col-md-6 mb-3">
-                            <label class="form-label fw-bold">Тайлбар (Заавал биш)</label>
-                            <input type="text" class="form-control form-control-lg border-2" placeholder="Яагаад буцаасан...">
+                            <label class="form-label fw-bold">Нэгж үнэ (Буцаах)</label>
+                            <input type="number" name="price" class="form-control form-control-lg border-2" placeholder="Зарагдсан үнэ" required>
                         </div>
                     </div>
 
-                    <div class="alert alert-info border-0 bg-light-subtle">
-                        <i class="bi bi-info-circle me-2"></i> Буцаалт бүртгэснээр барааны үлдэгдэл автоматаар нэмэгдэнэ.
+                    <div class="mb-4">
+                        <label class="form-label fw-bold">Тайлбар / Шалтгаан</label>
+                        <textarea name="reason" class="form-control border-2" rows="2" placeholder="Яагаад буцаав..."></textarea>
                     </div>
 
-                    <button type="submit" class="btn btn-danger btn-lg w-100 fw-bold mt-3">БУЦААЛТ ХАДГАЛАХ</button>
+                    <div class="alert alert-warning border-0 bg-warning-subtle py-3">
+                        <div class="d-flex">
+                            <i class="bi bi-exclamation-triangle-fill fs-4 me-3"></i>
+                            <div>
+                                <h6 class="fw-bold mb-1">АНХААРУУЛГА!</h6>
+                                <p class="small mb-0">Буцаалт хийснээр барааны үлдэгдэл **нэмэгдэж**, өнөөдрийн нийт орлогоос тухайн дүн **хасагдах** болно.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-danger btn-lg w-100 fw-bold py-3 shadow-sm rounded-3">
+                        <i class="bi bi-check-circle-fill me-2"></i> БУЦААЛТ ХАДГАЛАХ
+                    </button>
                 </form>
             </div>
         </div>
     </div>
 </div>
-
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-</body>
-</html>
+{% endblock %}
