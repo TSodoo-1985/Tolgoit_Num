@@ -1086,30 +1086,62 @@ def export_return_report():
     start_date = request.args.get('start_date')
     end_date = request.args.get('end_date')
     
-    # Зөвхөн "Буцаалт" төрлийг шүүнэ
-    query = Transaction.query.filter(Transaction.type == 'Буцаалт')
+    # Зөвхөн "буцаалт" төрлийг шүүнэ (Жижиг үсгээр бичигдсэн эсэхийг шалгаарай)
+    query = Transaction.query.filter(Transaction.type.ilike('буцаалт'))
     
     if start_date and end_date:
         query = query.filter(Transaction.date.between(start_date, end_date))
     
     transactions = query.all()
     
-    data = [{
-        "Огноо": t.date.strftime('%Y-%m-%d %H:%M'),
-        "Бараа": t.product.name,
-        "Ширхэг": t.quantity,
-        "Дүн": t.amount,  # Энэ нь хасах утгатай харагдана
-        "Ажилтан": t.user.username if t.user else "Unknown"
-    } for t in transactions]
+    data = []
+    total_refund_amount = 0 # Нийт мөнгийг тоолох хувьсагч
+
+    for t in transactions:
+        # Буцаасан мөнгөн дүнг тооцох (Хэрэв t.amount хасах утгатай бол abs() ашиглана)
+        # Хэрэв amount байхгүй бол тоо ширхэг * нэгж үнээр бодно
+        refund_val = abs(t.amount) if t.amount else (t.quantity * t.price)
+        total_refund_amount += refund_val
+
+        data.append({
+            "Огноо": t.date.strftime('%Y-%m-%d %H:%M'),
+            "SKU / Код": t.product.sku if t.product else "", # SKU-г салгасан
+            "Барааны нэр": t.product.name if t.product else "", # Нэрийг салгасан
+            "Тоо ширхэг": t.quantity,
+            "Буцаасан дүн": refund_val, # Эерэг утгаар харагдана
+            "Тайлбар": t.note if hasattr(t, 'note') else "", # Тайлбар багана
+            "Ажилтан": t.user.username if t.user else "Unknown"
+        })
     
     df = pd.DataFrame(data)
+    
+    # Excel файл үүсгэх
     output = BytesIO()
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
         df.to_excel(writer, index=False, sheet_name='Буцаалтын тайлан')
+        
+        # Excel-ийн формат тохируулах (Нийт дүнг доор нь нэмэх)
+        workbook  = writer.book
+        worksheet = writer.sheets['Буцаалтын тайлан']
+        
+        # Мөнгөн дүнгийн формат
+        money_format = workbook.add_format({'num_format': '#,##0₮', 'bold': True})
+        header_format = workbook.add_format({'bold': True, 'bg_color': '#D7E4BC', 'border': 1})
+
+        # Нийт дүнг хүснэгтийн төгсгөлд бичих
+        last_row = len(df) + 1
+        worksheet.write(last_row, 3, "НИЙТ БУЦААЛТ:", header_format)
+        worksheet.write(last_row, 4, total_refund_amount, money_format)
+
     output.seek(0)
     
-    return send_file(output, attachment_filename="Return_Report.xlsx", as_attachment=True)
-
+    # Render дээр 'attachment_filename' биш 'download_name' ашигладаг болсон (Flask 2.0+)
+    return send_file(
+        output, 
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        as_attachment=True, 
+        download_name=f"Return_Report_{start_date}.xlsx"
+    )
 # --- ХЭРЭГЛЭГЧИЙН УДИРДЛАГА ---
 
 @app.route('/users')
