@@ -480,45 +480,53 @@ def import_products_action():
         return redirect(url_for('import_products_page'))
 
     try:
+        # Excel файлыг унших
         df = pd.read_excel(file, engine='openpyxl') 
 
-        # NaN утгуудыг 0 болгох (Таны хүссэнээр)
-        df['Өртөг'] = pd.to_numeric(df['Өртөг'], errors='coerce').fillna(0)
-        df['Бөөний үнэ'] = pd.to_numeric(df['Бөөний үнэ'], errors='coerce').fillna(0)
-        df['Жижиглэн үнэ'] = pd.to_numeric(df['Жижиглэн үнэ'], errors='coerce').fillna(0)
-        df['Үлдэгдэл'] = pd.to_numeric(df['Үлдэгдэл'], errors='coerce').fillna(0)
+        # --- Хоосон (NaN) утгуудыг 0 болгож, бүхэл тоо руу хөрвүүлэх бэлтгэл ---
+        # pd.to_numeric ашиглаад fillna(0) хийж, дараа нь .astype(int) болгоно
+        cols_to_fix = ['Өртөг', 'Бөөний үнэ', 'Жижиглэн үнэ', 'Үлдэгдэл']
+        for col in cols_to_fix:
+            if col in df.columns:
+                df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0).astype(int)
+        
         df['Ангилал'] = df['Ангилал'].fillna("Бусад")
         df['Барааны нэр'] = df['Барааны нэр'].fillna("Нэргүй")
 
         count = 0
+        # iterrows() ашиглан Excel-ийн мөрийн дарааллыг ягштал баримтална
         for index, row in df.iterrows():
             sku_val = row['Код (SKU)']
             if pd.isna(sku_val):
                 continue
             
+            # SKU-г текст хэлбэрт оруулах (бутархай .0-ийг арилгах)
             sku_str = str(int(sku_val)) if isinstance(sku_val, (int, float)) else str(sku_val)
+            
             product = Product.query.filter_by(sku=sku_str).first()
             
             if product:
-                product.name = row['Барааны нэр']
-                product.category = row['Ангилал']
-                product.cost_price = float(row['Өртөг'])
-                product.wholesale_price = float(row['Бөөний үнэ'])
-                product.retail_price = float(row['Жижиглэн үнэ'])
-                product.stock = float(row['Үлдэгдэл'])
+                # Бараа байвал мэдээллийг шинэчлэх (int ашиглаж 0 болгоно)
+                product.name = str(row['Барааны нэр'])
+                product.category = str(row['Ангилал'])
+                product.cost_price = int(row['Өртөг'])
+                product.wholesale_price = int(row['Бөөний үнэ'])
+                product.retail_price = int(row['Жижиглэн үнэ'])
+                product.stock = int(row['Үлдэгдэл'])
             else:
+                # Шинэ бараа үүсгэх
                 new_p = Product(
                     sku=sku_str,
-                    name=row['Барааны нэр'],
-                    category=row['Ангилал'],
-                    cost_price=float(row['Өртөг']),
-                    wholesale_price=float(row['Бөөний үнэ']),
-                    retail_price=float(row['Жижиглэн үнэ']),
-                    stock=float(row['Үлдэгдэл'])
+                    name=str(row['Барааны нэр']),
+                    category=str(row['Ангилал']),
+                    cost_price=int(row['Өртөг']),
+                    wholesale_price=int(row['Бөөний үнэ']),
+                    retail_price=int(row['Жижиглэн үнэ']),
+                    stock=int(row['Үлдэгдэл'])
                 )
                 db.session.add(new_p)
             
-            # Энэ нь мэдээллийн санд ID-г дарааллаар олгоход тусална
+            # Мэдээллийн санд ID-г дарааллаар олгохын тулд flush хийнэ
             db.session.flush() 
             count += 1
         
