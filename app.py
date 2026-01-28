@@ -755,13 +755,13 @@ def export_transactions(type):
             sell_price = t.product.wholesale_price if t.product else 0
         elif "Жижиглэн" in t.type:
             sell_price = t.product.retail_price if t.product else 0
-        elif "Өртгөөр" in t.type: price = t.product.cost_price
-            
+        
         unit_profit = sell_price - cost_price
         total_profit = unit_profit * t.quantity
         
         data.append({
             'Огноо': t.timestamp.strftime('%Y-%m-%d'),
+            'Ангилал': t.product.category if t.product else "-", # НЭМЭГДЭВ
             'Барааны код': t.product.sku if t.product else "-",
             'Барааны нэр': t.product.name if t.product else "Устгагдсан",
             'Гүйлгээний төрөл': t.type,
@@ -773,6 +773,16 @@ def export_transactions(type):
         })
         
     df = pd.DataFrame(data)
+    # Нийт дүн нэмэх хэсэгт баганы нэрийг зөрүүлэхгүй тулд:
+    if not df.empty and type != 'Орлого':
+        totals = {
+            'Огноо': 'НИЙТ ДҮН:', 'Ангилал': '', 'Барааны код': '', 'Барааны нэр': '', 'Гүйлгээний төрөл': '',
+            'Тоо ширхэг': df['Тоо ширхэг'].sum(),
+            'Нэгж өртөг': '', 'Зарах үнэ': '', 
+            'Нийт ашиг': df['Нийт ашиг'].sum(),
+            'Ажилтан': ''
+        }
+        df = pd.concat([df, pd.DataFrame([totals])], ignore_index=True)
     
     # Нийт дүн нэмэх (Орлогоос бусад тохиолдолд)
     if not df.empty and type != 'Орлого':
