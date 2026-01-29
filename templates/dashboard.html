@@ -1,19 +1,20 @@
 {% extends "layout.html" %}
 {% block content %}
 
-<div class="row g-2 mb-3">
-    <div class="col-8">
-        <input type="text" id="mainSearch" class="form-control border-0 shadow-sm" placeholder="Бараа хайх..." onkeyup="filterProducts()">
-    </div>
-    <div class="col-4">
-        <select id="catFilter" class="form-select border-0 shadow-sm fw-bold" onchange="filterProducts()">
-            <option value="">Бүх төрөл</option>
-            {% for c in categories %}<option value="{{ c }}">{{ c }}</option>{% endfor %}
-        </select>
+<div class="sticky-top bg-white pt-3 pb-2 shadow-sm" style="z-index: 1020; margin-top: -1rem; margin-left: -1rem; margin-right: -1rem; padding-left: 1rem; padding-right: 1rem;">
+    <div class="row g-2 mb-0">
+        <div class="col-8">
+            <input type="text" id="mainSearch" class="form-control border-0 shadow-sm bg-light" placeholder="Бараа хайх..." onkeyup="filterProducts()">
+        </div>
+        <div class="col-4">
+            <select id="catFilter" class="form-select border-0 shadow-sm fw-bold bg-light" onchange="filterProducts()">
+                <option value="">Бүх төрөл</option>
+                {% for c in categories %}<option value="{{ c }}">{{ c }}</option>{% endfor %}
+            </select>
+        </div>
     </div>
 </div>
-
-<div class="row" id="productContainer">
+<div class="row mt-3" id="productContainer">
     {% for p in products %}
     <div class="col-12 col-md-6 col-lg-4 item-to-filter" data-category="{{ p.category }}">
         <div class="card border-0 shadow-sm rounded-4 p-3 mb-3">
@@ -131,6 +132,13 @@
     .card { transition: transform 0.2s; border-radius: 15px; }
     .card:active { transform: scale(0.98); }
     .bg-light { background-color: #f8f9fa !important; }
+    
+    /* Доошоо гүйлгэхэд наалддаг болгох нэмэлт CSS */
+    .sticky-top {
+        position: -webkit-sticky;
+        position: sticky;
+        top: 56px; /* Хэрэв Navbar байгаа бол түүний өндөр. Байхгүй бол 0 болгоорой */
+    }
 </style>
 
 {% endblock %}
