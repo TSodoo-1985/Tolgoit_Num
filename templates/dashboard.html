@@ -1,13 +1,36 @@
 {% extends "layout.html" %}
 {% block content %}
 
+<style>
+    .sticky-search-wrapper {
+        position: -webkit-sticky;
+        position: sticky;
+        top: 58px; /* Navbar-ын өндөрт тааруулсан зай */
+        z-index: 1010;
+        background-color: #f0f2f5; /* Body-ийн background-тай ижил өнгө */
+        margin: -1rem -1rem 1rem -1rem;
+        padding: 1rem 1rem;
+    }
+    
+    .small-label { font-size: 9px; font-weight: bold; letter-spacing: 0.5px; }
+    .card { transition: transform 0.2s; border-radius: 15px; }
+    .card:active { transform: scale(0.98); }
+    .bg-light { background-color: #f8f9fa !important; }
+
+    @media (max-width: 576px) {
+        .sticky-search-wrapper {
+            top: 50px; /* Мобайл дээр Navbar арай намхан болдог */
+        }
+    }
+</style>
+
 <div class="sticky-search-wrapper">
-    <div class="row g-2 mb-3 px-2 py-3 bg-white shadow-sm rounded-bottom-4">
+    <div class="row g-2">
         <div class="col-8">
-            <input type="text" id="mainSearch" class="form-control border-0 shadow-sm bg-light" placeholder="Бараа хайх..." onkeyup="filterProducts()">
+            <input type="text" id="mainSearch" class="form-control border-0 shadow-sm" placeholder="Бараа хайх..." onkeyup="filterProducts()">
         </div>
         <div class="col-4">
-            <select id="catFilter" class="form-select border-0 shadow-sm fw-bold bg-light" onchange="filterProducts()">
+            <select id="catFilter" class="form-select border-0 shadow-sm fw-bold" onchange="filterProducts()">
                 <option value="">Бүх төрөл</option>
                 {% for c in categories %}<option value="{{ c }}">{{ c }}</option>{% endfor %}
             </select>
@@ -43,7 +66,7 @@
                 <div class="text-end">
                     <small class="text-muted d-block small-label">ҮЛДЭГДЭЛ</small>
                     <span class="badge {{ 'bg-success' if p.stock > 10 else 'bg-danger' }} fs-6 rounded-pill">
-                        {{ p.stock }} {{ p.unit }}
+                        {{ "{:,.0f}".format(p.stock) }} {{ p.unit }}
                     </span>
                 </div>
             </div>
@@ -81,7 +104,9 @@
     function addToCartLocal(id, name, retail, wholesale, cost) {
         const qtyInp = document.getElementById(`qty-${id}`);
         const typeInp = document.getElementById(`type-${id}`);
-        const qty = parseFloat(qtyInp.value);
+        
+        // ЗАСВАР: Оруулсан тоог бүхэл (Integer) болгож авах
+        let qty = parseInt(qtyInp.value, 10);
         const type = typeInp.value;
 
         if (!qty || qty <= 0) { 
@@ -93,6 +118,9 @@
         if (type === "Жижиглэн зарлага") selectedPrice = retail;
         else if (type === "Бөөний зарлага") selectedPrice = wholesale;
         else if (type === "Орлого") selectedPrice = 0;
+
+        // Үнийг мөн бүхэл тоо болгох
+        selectedPrice = Math.round(selectedPrice);
 
         let cart = JSON.parse(localStorage.getItem('myCart')) || [];
         
@@ -127,32 +155,5 @@
         });
     }
 </script>
-
-<style>
-    .small-label { font-size: 9px; font-weight: bold; letter-spacing: 0.5px; }
-    .card { transition: transform 0.2s; border-radius: 15px; }
-    .card:active { transform: scale(0.98); }
-    .bg-light { background-color: #f8f9fa !important; }
-
-    /* STICKY SEARCH CSS */
-    .sticky-search-wrapper {
-        position: -webkit-sticky;
-        position: sticky;
-        top: 56px; /* Navbar-ын өндөр. Үүний ачаар Navbar-тай давхцахгүй */
-        z-index: 1010;
-        margin: -1rem -0.5rem 1rem -0.5rem; /* Layout-ын padding-ыг нөхөх */
-    }
-    
-    .sticky-search-wrapper > .row {
-        background-color: white !important;
-        border-bottom: 1px solid #eee;
-    }
-
-    @media (max-width: 991px) {
-        .sticky-search-wrapper {
-            top: 55px; /* Мобайл Navbar-ын өндөрт тааруулах */
-        }
-    }
-</style>
 
 {% endblock %}
