@@ -1,8 +1,8 @@
 {% extends "layout.html" %}
 {% block content %}
 
-<div class="sticky-top bg-white pt-3 pb-2 shadow-sm" style="z-index: 1020; margin-top: -1rem; margin-left: -1rem; margin-right: -1rem; padding-left: 1rem; padding-right: 1rem;">
-    <div class="row g-2 mb-0">
+<div class="sticky-search-wrapper">
+    <div class="row g-2 mb-3 px-2 py-3 bg-white shadow-sm rounded-bottom-4">
         <div class="col-8">
             <input type="text" id="mainSearch" class="form-control border-0 shadow-sm bg-light" placeholder="Бараа хайх..." onkeyup="filterProducts()">
         </div>
@@ -14,7 +14,8 @@
         </div>
     </div>
 </div>
-<div class="row mt-3" id="productContainer">
+
+<div class="row" id="productContainer">
     {% for p in products %}
     <div class="col-12 col-md-6 col-lg-4 item-to-filter" data-category="{{ p.category }}">
         <div class="card border-0 shadow-sm rounded-4 p-3 mb-3">
@@ -132,12 +133,25 @@
     .card { transition: transform 0.2s; border-radius: 15px; }
     .card:active { transform: scale(0.98); }
     .bg-light { background-color: #f8f9fa !important; }
-    
-    /* Доошоо гүйлгэхэд наалддаг болгох нэмэлт CSS */
-    .sticky-top {
+
+    /* STICKY SEARCH CSS */
+    .sticky-search-wrapper {
         position: -webkit-sticky;
         position: sticky;
-        top: 56px; /* Хэрэв Navbar байгаа бол түүний өндөр. Байхгүй бол 0 болгоорой */
+        top: 56px; /* Navbar-ын өндөр. Үүний ачаар Navbar-тай давхцахгүй */
+        z-index: 1010;
+        margin: -1rem -0.5rem 1rem -0.5rem; /* Layout-ын padding-ыг нөхөх */
+    }
+    
+    .sticky-search-wrapper > .row {
+        background-color: white !important;
+        border-bottom: 1px solid #eee;
+    }
+
+    @media (max-width: 991px) {
+        .sticky-search-wrapper {
+            top: 55px; /* Мобайл Navbar-ын өндөрт тааруулах */
+        }
     }
 </style>
 
