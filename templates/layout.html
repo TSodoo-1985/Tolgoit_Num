@@ -8,7 +8,8 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
     <style>
         body { background-color: #f0f2f5; font-family: 'Segoe UI', sans-serif; }
-        .navbar { background-color: #1a202c !important; border-bottom: 2px solid #0d6efd; padding: 8px 0; }
+        /* Z-INDEX НЭМЭВ: Ингэснээр хайлтын хэсгийн дээгүүр header харагдана */
+        .navbar { background-color: #1a202c !important; border-bottom: 2px solid #0d6efd; padding: 8px 0; z-index: 1030; }
         .dropdown-menu { border-radius: 12px; border: none; box-shadow: 0 10px 30px rgba(0,0,0,0.15); padding: 12px; }
         .user-avatar { width: 32px; height: 32px; background: #0d6efd; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 12px; }
         .nav-link-custom { color: rgba(255,255,255,0.8); transition: 0.3s; }
