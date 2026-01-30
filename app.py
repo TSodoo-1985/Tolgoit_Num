@@ -609,32 +609,51 @@ def buy_old_bow():
         retail = float(request.form.get('retail_price'))
         qty = int(request.form.get('stock'))
 
-        # 1. Хуучин нумны хүснэгтэд хадгалах
-        new_old_bow = OldBow(
-            product_name=name,
-            sku=sku,
-            category="Хуучин нум", # АВТОМАТ АНГИЛАЛ
-            purchase_price=cost,
-            retail_price=retail,
-            quantity=qty,
-            date=datetime.utcnow()
-        )
-        
-        # 2. Зардал руу автоматаар бүртгэх (Кассаас хасах)
-        new_expense = Expense(
-            category="Хуучин нум авалт",
-            amount=cost * qty,
-            description=f"{name} худалдаж авсан",
-            date=datetime.utcnow()
-        )
+        try:
+            # 1. Хуучин нумны түүхэнд бүртгэх
+            new_old_bow = OldBow(
+                product_name=name,
+                sku=sku,
+                category="Хуучин нум",
+                purchase_price=cost,
+                retail_price=retail,
+                quantity=qty,
+                date=datetime.utcnow()
+            )
+            
+            # 2. Үндсэн барааны жагсаалт (Dashboard) руу нэмэх
+            # Ингэснээр дэлгэц дээр харагдаж эхэлнэ
+            new_product = Product(
+                name=f"[Хуучин] {name}", # Нэрний өмнө Хуучин гэж ялгаж өгнө
+                sku=sku if sku else f"OLD-{datetime.now().strftime('%m%d%H%M')}",
+                purchase_price=cost,
+                retail_price=retail,
+                wholesale_price=retail, # Хуучин нуманд бөөний үнэ ижил байхаар
+                stock=qty,
+                category="Хуучин нум"
+            )
 
-        db.session.add(new_old_bow)
-        db.session.add(new_expense)
-        db.session.commit()
-        
-        flash("Хуучин нум амжилттай бүртгэгдэж, кассаас зардал хасагдлаа.")
-        return redirect(url_for('dashboard'))
-    
+            # 3. Кассаас зардал хасах
+            new_expense = Expense(
+                category="Хуучин нум авалт",
+                amount=cost * qty,
+                description=f"{name} худалдаж авсан",
+                date=datetime.utcnow()
+            )
+
+            db.session.add(new_old_bow)
+            db.session.add(new_product)
+            db.session.add(new_expense)
+            db.session.commit()
+            
+            flash(f"'{name}' амжилттай бүртгэгдэж, зарах бараанд нэмэгдлээ.")
+            return redirect(url_for('dashboard'))
+            
+        except Exception as e:
+            db.session.rollback()
+            flash(f"Алдаа гарлаа: {str(e)}")
+            return redirect(url_for('buy_old_bow'))
+
     return render_template('buy_old_bow.html')
     
 # --- 2. ХУУЧИН БАРААНЫ ТАЙЛАН ---
