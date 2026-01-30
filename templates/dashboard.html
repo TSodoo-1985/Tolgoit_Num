@@ -54,6 +54,7 @@
                     
                     <h6 class="fw-bold mt-2 mb-0 text-dark">{{ p.name }}</h6>
                     
+                    {% if current_user.role != 'viewer' %}
                     <div class="mt-2 d-flex gap-3">
                         <a href="{{ url_for('edit_product', id=p.id) }}" class="text-decoration-none small text-primary">
                             <i class="bi bi-pencil-square"></i> Засах
@@ -62,6 +63,7 @@
                             <i class="bi bi-trash"></i> Устгах
                         </a>
                     </div>
+                    {% endif %}
                 </div>
                 <div class="text-end">
                     <small class="text-muted d-block small-label">ҮЛДЭГДЭЛ</small>
@@ -82,6 +84,7 @@
                 </div>
             </div>
 
+            {% if current_user.role != 'viewer' %}
             <div class="input-group input-group-sm mb-1">
                 <select id="type-{{ p.id }}" class="form-select border-2 fw-bold" style="width: 55%;">
                     <option value="Жижиглэн зарлага">Жижиглэн</option>
@@ -94,6 +97,11 @@
                     <i class="bi bi-cart-plus"></i>
                 </button>
             </div>
+            {% else %}
+            <div class="text-center p-2 bg-white border rounded-3 small text-muted italic">
+                <i class="bi bi-eye"></i> Зөвхөн харах эрхтэй
+            </div>
+            {% endif %}
             
         </div>
     </div>
@@ -105,7 +113,7 @@
         const qtyInp = document.getElementById(`qty-${id}`);
         const typeInp = document.getElementById(`type-${id}`);
         
-        // ЗАСВАР: Оруулсан тоог бүхэл (Integer) болгож авах
+        // Оруулсан тоог бүхэл (Integer) болгож авах
         let qty = parseInt(qtyInp.value, 10);
         const type = typeInp.value;
 
@@ -119,7 +127,6 @@
         else if (type === "Бөөний зарлага") selectedPrice = wholesale;
         else if (type === "Орлого") selectedPrice = 0;
 
-        // Үнийг мөн бүхэл тоо болгох
         selectedPrice = Math.round(selectedPrice);
 
         let cart = JSON.parse(localStorage.getItem('myCart')) || [];
