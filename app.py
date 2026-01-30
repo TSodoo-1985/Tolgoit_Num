@@ -598,7 +598,6 @@ def returns():
     products = Product.query.all()
     return render_template('returns.html', products=products)
 
-# --- 2. ФУНКЦИЙГ ИНГЭЖ СОЛИХ ---
 @app.route('/buy-old-bow', methods=['GET', 'POST'])
 @login_required
 def buy_old_bow():
@@ -610,7 +609,7 @@ def buy_old_bow():
         qty = int(request.form.get('stock'))
 
         try:
-            # 1. Хуучин нумны түүхэнд бүртгэх
+            # 1. Хуучин нумны бүртгэлд (түүх) хадгалах
             new_old_bow = OldBow(
                 product_name=name,
                 sku=sku,
@@ -621,14 +620,13 @@ def buy_old_bow():
                 date=datetime.utcnow()
             )
             
-            # 2. Үндсэн барааны жагсаалт (Dashboard) руу нэмэх
-            # Ингэснээр дэлгэц дээр харагдаж эхэлнэ
+            # 2. ҮНДСЭН БАРААНЫ ЖАГСААЛТ (Dashboard) руу нэмэх
             new_product = Product(
-                name=f"[Хуучин] {name}", # Нэрний өмнө Хуучин гэж ялгаж өгнө
+                name=f"[Хуучин] {name}",
                 sku=sku if sku else f"OLD-{datetime.now().strftime('%m%d%H%M')}",
                 purchase_price=cost,
                 retail_price=retail,
-                wholesale_price=retail, # Хуучин нуманд бөөний үнэ ижил байхаар
+                wholesale_price=retail, # Хуучин бараанд бөөний үнэ ижил байхаар тохируулав
                 stock=qty,
                 category="Хуучин нум"
             )
@@ -646,7 +644,7 @@ def buy_old_bow():
             db.session.add(new_expense)
             db.session.commit()
             
-            flash(f"'{name}' амжилттай бүртгэгдэж, зарах бараанд нэмэгдлээ.")
+            flash(f"'{name}' амжилттай бүртгэгдэж, зарах барааны жагсаалтад нэмэгдлээ.")
             return redirect(url_for('dashboard'))
             
         except Exception as e:
