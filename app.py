@@ -593,44 +593,53 @@ def returns():
 @app.route('/buy-old-bow', methods=['GET', 'POST'])
 @login_required
 def buy_old_bow():
-    if current_user.role == 'viewer':
-        flash('Танд энэ үйлдлийг хийх эрх байхгүй.')
-        return redirect(url_for('dashboard'))
-
     if request.method == 'POST':
         try:
+            # Формоос мэдээллийг авах
             name = request.form.get('name')
             sku = request.form.get('sku')
-            cost_price = int(float(request.form.get('cost_price', 0)))
-            retail_price = int(float(request.form.get('retail_price', 0)))
-            stock = int(float(request.form.get('stock', 1)))
+            purchase_price = request.form.get('purchase_price')
+            retail_price = request.form.get('retail_price')
+            quantity = request.form.get('quantity', 1)
 
-            # Бараа нэмэх
-            new_p = Product(
-                name=f"{name} (Хуучин)",
+            # Алдаа шалгах: Хоосон утга байгаа эсэх
+            if not name or not purchase_price:
+                flash("Нэр болон авах үнэ заавал байх ёстой!")
+                return redirect(url_for('buy_old_bow'))
+
+            # 1. Өгөгдлийн сангийн ОБЪЕКТ үүсгэх (Энд текст биш OldBow класс ашиглана)
+            # ТАНЫ АЛДАА: db.session.add("текст") гэж хийсэн байж магадгүй
+            new_item = OldBow(
+                product_name=name,
                 sku=sku,
-                category="Хуучин нум",
-                cost_price=cost_price,
-                retail_price=retail_price,
-                stock=stock
+                purchase_price=float(purchase_price),
+                retail_price=float(retail_price) if retail_price else 0,
+                quantity=int(quantity),
+                date=datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             )
-            db.session.add(new_p)
-            db.session.flush()
 
-            # Кассаас мөнгө гаргах (Зардал)
-            exp = Expense(
+            # 2. ОБЪЕКТ-ийг нэмэх (Энэ нь SQLAlchemy-д танигдах объект байна)
+            db.session.add(new_item)
+            
+            # 3. Зардлын бүртгэлд автоматаар бүртгэх (Сонголтоор)
+            expense = Expense(
                 category="Хуучин нум авалт",
-                description=f"{name} худалдаж авсан",
-                amount=cost_price * stock,
-                user=current_user.username
+                amount=float(purchase_price) * int(quantity),
+                description=f"{name} ({sku}) худалдаж авсан",
+                date=datetime.now().strftime('%Y-%m-%d'),
+                user_id=current_user.id
             )
-            db.session.add(exp)
+            db.session.add(expense)
+
             db.session.commit()
-            flash('Хуучин нум амжилттай бүртгэгдэж, зардал хасагдлаа.')
+            flash(f"'{name}' амжилттай бүртгэгдэж, зардал хасагдлаа.")
             return redirect(url_for('dashboard'))
+
         except Exception as e:
             db.session.rollback()
-            flash(f'Алдаа: {str(e)}')
+            flash(f"Алдаа гарлаа: {str(e)}")
+            return redirect(url_for('buy_old_bow'))
+
     return render_template('buy_old_bow.html')
 
 # --- 2. ХУУЧИН БАРААНЫ ТАЙЛАН ---
