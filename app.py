@@ -77,14 +77,15 @@ class LaborFee(db.Model):
     staff_name = db.Column(db.String(100))                 # Ажилтан
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
 
+# --- 1. MODEL ХЭСЭГТ НЭМЭХ ---
 class OldBow(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    product_name = db.Column(db.String(200), nullable=False) # Нумны нэр
-    sku = db.Column(db.String(50))                           # Код
-    purchase_price = db.Column(db.Float, nullable=False)    # Авсан үнэ
-    retail_price = db.Column(db.Float)                       # Зарах үнэ
-    quantity = db.Column(db.Integer, default=1)              # Ширхэг
-    date = db.Column(db.String(50))                          # Огноо
+    product_name = db.Column(db.String(200), nullable=False)
+    sku = db.Column(db.String(50))
+    purchase_price = db.Column(db.Float, nullable=False)
+    retail_price = db.Column(db.Float)
+    quantity = db.Column(db.Integer, default=1)
+    date = db.Column(db.String(50))
 
 @login_manager.user_loader
 def load_user(user_id):
@@ -596,21 +597,21 @@ def returns():
     products = Product.query.all()
     return render_template('returns.html', products=products)
 
+# --- 2. ФУНКЦИЙГ ИНГЭЖ СОЛИХ ---
 @app.route('/buy-old-bow', methods=['GET', 'POST'])
 @login_required
 def buy_old_bow():
     if request.method == 'POST':
         try:
-            # 1. Формоос өгөгдөл хүлээн авах
             name = request.form.get('name')
             sku = request.form.get('sku')
-            p_price = float(request.form.get('purchase_price') or 0)
+            # Формын нэрсийг buy_old_bow.html-тэй тааруулав
+            p_price = float(request.form.get('cost_price') or 0) 
             r_price = float(request.form.get('retail_price') or 0)
-            qty = int(request.form.get('quantity') or 1)
+            qty = int(request.form.get('stock') or 1)
 
-            # 2. Объект үүсгэх (Алдааг зассан хэлбэр)
-            # Текст биш OldBow моделийн объектыг үүсгэж байна
-            new_purchase = OldBow(
+            # Алдааг зассан хэсэг: Текст биш ОБЪЕКТ дамжуулна
+            new_item = OldBow(
                 product_name=name,
                 sku=sku,
                 purchase_price=p_price,
@@ -618,35 +619,25 @@ def buy_old_bow():
                 quantity=qty,
                 date=datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             )
+            db.session.add(new_item)
 
-            # 3. Баазад нэмэх
-            db.session.add(new_purchase)
-
-            # 4. Зардлын хүснэгтэд (Expense) автоматаар бичилт хийх
-            # Ингэснээр кассаас мөнгө автоматаар хасагдана
+            # Кассаас зардал хасах
             new_expense = Expense(
                 category="Хуучин нум авалт",
                 amount=p_price * qty,
-                description=f"{name} ({sku}) худалдаж авсан",
+                description=f"{name} ({sku}) авсан",
                 date=datetime.now().strftime('%Y-%m-%d'),
                 user_id=current_user.id
             )
             db.session.add(new_expense)
-
-            # 5. Өөрчлөлтийг баталгаажуулах
             db.session.commit()
             
-            flash(f"'{name}' амжилттай бүртгэгдэж, кассаас зардал хасагдлаа.")
+            flash(f"'{name}' амжилттай бүртгэгдлээ.")
             return redirect(url_for('dashboard'))
-
         except Exception as e:
             db.session.rollback()
-            flash(f"Алдаа гарлаа: {str(e)}")
-            return redirect(url_for('buy_old_bow'))
-
+            flash(f"Алдаа: {str(e)}")
     return render_template('buy_old_bow.html')
-
-
 # --- 2. ХУУЧИН БАРААНЫ ТАЙЛАН ---
 @app.route('/old-bow-report')
 @login_required
