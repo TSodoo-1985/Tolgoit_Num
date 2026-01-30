@@ -40,13 +40,9 @@
                 <ul class="dropdown-menu dropdown-menu-end shadow-lg" style="min-width: 220px;">
                     <li><h6 class="dropdown-header text-primary fw-bold px-0 mb-1 small text-uppercase">📊 Шинжилгээ</h6></li>
                     <li><a class="dropdown-item py-2" href="{{ url_for('statistics') }}"><i class="bi bi-graph-up-arrow text-danger me-2"></i>Статистик</a></li>
-                    
                     <li><hr class="dropdown-divider"></li>
-                    
                     <li><h6 class="dropdown-header text-dark fw-bold px-0 mb-1 small text-uppercase">🛠 Үйлдэл</h6></li>
-                    {# ХУУЧИН НУМ АВАХ - БУЦААЖ НЭМЭВ #}
                     <li><a class="dropdown-item py-2 fw-bold text-danger" href="{{ url_for('buy_old_bow') }}"><i class="bi bi-arrow-left-right me-2"></i>Хуучин нум авах</a></li>
-                    
                     <li><a class="dropdown-item py-2" href="{{ url_for('add_product_page') }}"><i class="bi bi-plus-circle text-success me-2"></i>Бараа нэмэх</a></li>
                     <li><a class="dropdown-item py-2" href="{{ url_for('returns') }}"><i class="bi bi-arrow-counterclockwise text-danger me-2"></i>Бараа буцаалт</a></li>
                     <li><a class="dropdown-item py-2" href="{{ url_for('special_transfer') }}"><i class="bi bi-arrow-left-right text-warning me-2"></i>Шилжүүлэг</a></li>
@@ -73,9 +69,10 @@
                     </div>
                     <li><hr class="dropdown-divider"></li>
                     <li><h6 class="dropdown-header text-primary fw-bold px-0 small text-uppercase">📦 Барааны гүйлгээ</h6></li>
-                    {# ХУУЧИН НУМ REPORT - БУЦААЖ НЭМЭВ #}
-                    <li><a class="dropdown-item py-2 fw-bold text-danger" href="{{ url_for('old_bow_report') }}"><i class="bi bi-clock-history me-2"></i>Хуучин нум авалтын түүх</a></li>
                     
+                    <li><a class="dropdown-item py-2 fw-bold text-danger" href="{{ url_for('old_bow_report') }}"><i class="bi bi-clock-history me-2"></i>Хуучин нум түүх (Web)</a></li>
+                    <li><button class="dropdown-item py-2 fw-bold text-success" onclick="handleOldBowExcel()"><i class="bi bi-file-earmark-excel me-2"></i>Хуучин нум татах (Excel)</button></li>
+
                     <li><button class="dropdown-item py-2" onclick="handleDownload('Жижиглэн зарлага')"><i class="bi bi-cart-check text-primary me-2"></i>Жижиглэн</button></li>
                     <li><button class="dropdown-item py-2" onclick="handleDownload('Бөөний зарлага')"><i class="bi bi-truck text-info me-2"></i>Бөөний</button></li>
                     <li><button class="dropdown-item py-2" onclick="handleDownload('Өртгөөр зарлага')"><i class="bi bi-arrow-left-right text-warning me-2"></i>Шилжүүлэг тайлан</button></li>
@@ -183,6 +180,13 @@
         const e = document.getElementById('end_date_input').value;
         if(!s || !e) { alert("Огноо сонгоно уу!"); return; }
         window.location.href = `/export-salary-report?start_date=${s}&end_date=${e}`;
+    }
+    // ШИНЭ EXCEL ТАТАХ ФУНКЦ
+    function handleOldBowExcel() {
+        const s = document.getElementById('start_date_input').value;
+        const e = document.getElementById('end_date_input').value;
+        if(!s || !e) { alert("Огноо сонгоно уу!"); return; }
+        window.location.href = `/export-old-bow?start_date=${s}&end_date=${e}`;
     }
 </script>
 </body>
