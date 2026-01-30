@@ -13,6 +13,9 @@
         .user-avatar { width: 32px; height: 32px; background: #0d6efd; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 12px; }
         .nav-link-custom { color: rgba(255,255,255,0.8); transition: 0.3s; }
         .nav-link-custom:hover { color: #fff; }
+        /* Эвхэгддэг цэсний загвар */
+        .submenu-container { background-color: #f8f9fa; border-radius: 8px; margin-top: 5px; margin-bottom: 5px; overflow: hidden; }
+        .submenu-item { font-size: 0.9rem; padding-left: 20px !important; }
         @media (max-width: 576px) { .nav-text { display: none; } }
     </style>
 </head>
@@ -52,10 +55,11 @@
             </div>
 
             <div class="dropdown">
-                <button class="btn btn-success btn-sm rounded-3 shadow-sm" type="button" data-bs-toggle="dropdown">
+                <button class="btn btn-success btn-sm rounded-3 shadow-sm" type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside">
                     <i class="bi bi-file-earmark-excel-fill"></i> <span class="nav-text ms-1">Тайлан</span>
                 </button>
                 <ul class="dropdown-menu dropdown-menu-end p-3 shadow-lg" style="min-width: 280px;">
+                    
                     <li><h6 class="dropdown-header text-dark fw-bold px-0 mb-2 small text-uppercase"><i class="bi bi-calendar3 me-2"></i>Огноо сонгох</h6></li>
                     <div class="row g-2 mb-3">
                         <div class="col-6">
@@ -68,25 +72,46 @@
                         </div>
                     </div>
                     <li><hr class="dropdown-divider"></li>
-                    <li><h6 class="dropdown-header text-primary fw-bold px-0 small text-uppercase">📦 Барааны гүйлгээ</h6></li>
-                    
-                    <li><a class="dropdown-item py-2 fw-bold text-danger" href="{{ url_for('old_bow_report') }}"><i class="bi bi-clock-history me-2"></i>Хуучин нум түүх (Web)</a></li>
-                    <li><button class="dropdown-item py-2 fw-bold text-success" onclick="handleOldBowExcel()"><i class="bi bi-file-earmark-excel me-2"></i>Хуучин нум татах (Excel)</button></li>
 
-                    <li><button class="dropdown-item py-2" onclick="handleDownload('Жижиглэн зарлага')"><i class="bi bi-cart-check text-primary me-2"></i>Жижиглэн</button></li>
-                    <li><button class="dropdown-item py-2" onclick="handleDownload('Бөөний зарлага')"><i class="bi bi-truck text-info me-2"></i>Бөөний</button></li>
-                    <li><button class="dropdown-item py-2" onclick="handleDownload('Өртгөөр зарлага')"><i class="bi bi-arrow-left-right text-warning me-2"></i>Шилжүүлэг тайлан</button></li>
-                    <li><button class="dropdown-item py-2" onclick="handleDownload('Орлого')"><i class="bi bi-box-arrow-in-down text-success me-2"></i>Орлого</button></li>
-                    <li><button class="dropdown-item py-2" onclick="handleDownload('буцаалт')"><i class="bi bi-arrow-return-left text-danger me-2"></i>Буцаалтын тайлан</button></li>
-                    <li><hr class="dropdown-divider"></li>
-                    <li><h6 class="dropdown-header text-danger fw-bold px-0 small text-uppercase">💸 Зардал & Цалин</h6></li>
-                    <li><button class="dropdown-item py-2" onclick="handleExpenseDownload('Зардал')"><i class="bi bi-cash-stack text-danger me-2"></i>Ерөнхий зардал татах</button></li>
-                    <li><button class="dropdown-item py-2" onclick="handleLaborDownload()"><i class="bi bi-tools text-primary me-2"></i>Ажлын хөлс татах</button></li>
-                    <li><button class="dropdown-item py-2 fw-bold text-dark" onclick="handleSalaryDownload()"><i class="bi bi-person-check text-info me-2"></i>Ажилчдын цалин татах</button></li>
-                    <li><hr class="dropdown-divider"></li>
-                    <li><h6 class="dropdown-header text-success fw-bold px-0 small text-uppercase">📋 Тооллого</h6></li>
-                    <li><button class="dropdown-item py-2" onclick="handleInventoryDownload()"><i class="bi bi-clipboard-check text-warning me-2"></i>Тооллого татах</button></li>
-                    <li><a class="dropdown-item py-2 fw-bold text-success bg-light rounded" href="{{ url_for('export_balance') }}"><i class="bi bi-file-earmark-spreadsheet-fill me-2"></i>Үлдэгдэл татах</a></li>
+                    <li>
+                        <button class="dropdown-item d-flex justify-content-between align-items-center fw-bold py-2" type="button" onclick="toggleSubMenu('sub-trans')">
+                            <span class="text-primary small text-uppercase">📦 Барааны гүйлгээ</span>
+                            <i class="bi bi-chevron-down" style="font-size: 0.8rem;"></i>
+                        </button>
+                    </li>
+                    <div id="sub-trans" class="submenu-container" style="display: none;">
+                        <li><a class="dropdown-item submenu-item text-danger fw-bold" href="{{ url_for('old_bow_report') }}"><i class="bi bi-clock-history me-2"></i>Хуучин нум түүх (Web)</a></li>
+                        <li><button class="dropdown-item submenu-item text-success fw-bold" onclick="handleOldBowExcel()"><i class="bi bi-file-earmark-excel me-2"></i>Хуучин нум (Excel)</button></li>
+                        <li><button class="dropdown-item submenu-item" onclick="handleDownload('Жижиглэн зарлага')">Жижиглэн зарлага</button></li>
+                        <li><button class="dropdown-item submenu-item" onclick="handleDownload('Бөөний зарлага')">Бөөний зарлага</button></li>
+                        <li><button class="dropdown-item submenu-item" onclick="handleDownload('Өртгөөр зарлага')">Шилжүүлэг тайлан</button></li>
+                        <li><button class="dropdown-item submenu-item" onclick="handleDownload('Орлого')">Орлого</button></li>
+                        <li><button class="dropdown-item submenu-item" onclick="handleDownload('буцаалт')">Буцаалтын тайлан</button></li>
+                    </div>
+
+                    <li>
+                        <button class="dropdown-item d-flex justify-content-between align-items-center fw-bold py-2 mt-1" type="button" onclick="toggleSubMenu('sub-exp')">
+                            <span class="text-danger small text-uppercase">💸 Зардал & Цалин</span>
+                            <i class="bi bi-chevron-down" style="font-size: 0.8rem;"></i>
+                        </button>
+                    </li>
+                    <div id="sub-exp" class="submenu-container" style="display: none;">
+                        <li><button class="dropdown-item submenu-item" onclick="handleExpenseDownload('Зардал')">Ерөнхий зардал</button></li>
+                        <li><button class="dropdown-item submenu-item" onclick="handleLaborDownload()">Ажлын хөлс</button></li>
+                        <li><button class="dropdown-item submenu-item fw-bold" onclick="handleSalaryDownload()">Ажилчдын цалин</button></li>
+                    </div>
+
+                    <li>
+                        <button class="dropdown-item d-flex justify-content-between align-items-center fw-bold py-2 mt-1" type="button" onclick="toggleSubMenu('sub-inv')">
+                            <span class="text-success small text-uppercase">📋 Тооллого</span>
+                            <i class="bi bi-chevron-down" style="font-size: 0.8rem;"></i>
+                        </button>
+                    </li>
+                    <div id="sub-inv" class="submenu-container" style="display: none;">
+                        <li><button class="dropdown-item submenu-item" onclick="handleInventoryDownload()">Тооллого татах</button></li>
+                        <li><a class="dropdown-item submenu-item fw-bold" href="{{ url_for('export_balance') }}">Үлдэгдэл татах</a></li>
+                    </div>
+
                 </ul>
             </div>
             {% endif %}
@@ -137,6 +162,21 @@
             badge.style.display = cart.length > 0 ? 'block' : 'none';
         }
     }
+    
+    // ЭВХЭГДДЭГ ЦЭСНИЙ СКРИПТ (ШИНЭЭР НЭМСЭН)
+    function toggleSubMenu(id) {
+        // Dropdown-г хаахгүй байхын тулд event propagation зогсоох шаардлагатай байдаг ч
+        // bootstrap-ийн data-bs-auto-close="outside" тохиргоог ашигласан тул энгийн toggle хангалттай.
+        const el = document.getElementById(id);
+        if (el.style.display === 'none') {
+            el.style.display = 'block';
+        } else {
+            el.style.display = 'none';
+        }
+        event.stopPropagation(); // Цэсийг хаалгахгүй байх
+        event.preventDefault();
+    }
+
     document.addEventListener('DOMContentLoaded', function() {
         updateBadge();
         const sInput = document.getElementById('start_date_input');
@@ -181,7 +221,6 @@
         if(!s || !e) { alert("Огноо сонгоно уу!"); return; }
         window.location.href = `/export-salary-report?start_date=${s}&end_date=${e}`;
     }
-    // ШИНЭ EXCEL ТАТАХ ФУНКЦ
     function handleOldBowExcel() {
         const s = document.getElementById('start_date_input').value;
         const e = document.getElementById('end_date_input').value;
