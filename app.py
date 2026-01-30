@@ -76,7 +76,7 @@ class LaborFee(db.Model):
     amount = db.Column(db.Float, nullable=False)           # Хөлс
     staff_name = db.Column(db.String(100))                 # Ажилтан
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
-# Хуучин нум бүртгэх хүснэгт
+
 class OldBow(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     product_name = db.Column(db.String(200), nullable=False) # Нумны нэр
@@ -596,23 +596,21 @@ def returns():
     products = Product.query.all()
     return render_template('returns.html', products=products)
 
-# ... (Өмнөх import-ууд хэвээрээ)
-
-# --- 1. ХУУЧИН НУМ ХУДАЛДАЖ АВАХ ROUTE ---
 @app.route('/buy-old-bow', methods=['GET', 'POST'])
 @login_required
 def buy_old_bow():
     if request.method == 'POST':
         try:
-            # Формоос мэдээлэл авах
+            # 1. Формоос өгөгдөл хүлээн авах
             name = request.form.get('name')
             sku = request.form.get('sku')
             p_price = float(request.form.get('purchase_price') or 0)
             r_price = float(request.form.get('retail_price') or 0)
             qty = int(request.form.get('quantity') or 1)
 
-            # 1. Өгөгдлийн сангийн ОБЪЕКТ үүсгэх (Алдааг зассан хэсэг)
-            new_item = OldBow(
+            # 2. Объект үүсгэх (Алдааг зассан хэлбэр)
+            # Текст биш OldBow моделийн объектыг үүсгэж байна
+            new_purchase = OldBow(
                 product_name=name,
                 sku=sku,
                 purchase_price=p_price,
@@ -621,20 +619,23 @@ def buy_old_bow():
                 date=datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             )
 
-            # 2. Өгөгдлийн санд хадгалах
-            db.session.add(new_item)
-            
-            # 3. Кассаас зардал болгож хасах (Expense хүснэгт рүү нэмэх)
+            # 3. Баазад нэмэх
+            db.session.add(new_purchase)
+
+            # 4. Зардлын хүснэгтэд (Expense) автоматаар бичилт хийх
+            # Ингэснээр кассаас мөнгө автоматаар хасагдана
             new_expense = Expense(
                 category="Хуучин нум авалт",
                 amount=p_price * qty,
-                description=f"{name} ({sku}) авсан",
+                description=f"{name} ({sku}) худалдаж авсан",
                 date=datetime.now().strftime('%Y-%m-%d'),
                 user_id=current_user.id
             )
             db.session.add(new_expense)
 
+            # 5. Өөрчлөлтийг баталгаажуулах
             db.session.commit()
+            
             flash(f"'{name}' амжилттай бүртгэгдэж, кассаас зардал хасагдлаа.")
             return redirect(url_for('dashboard'))
 
@@ -644,6 +645,7 @@ def buy_old_bow():
             return redirect(url_for('buy_old_bow'))
 
     return render_template('buy_old_bow.html')
+
 
 # --- 2. ХУУЧИН БАРААНЫ ТАЙЛАН ---
 @app.route('/old-bow-report')
