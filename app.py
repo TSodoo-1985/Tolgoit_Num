@@ -76,6 +76,15 @@ class LaborFee(db.Model):
     amount = db.Column(db.Float, nullable=False)           # Хөлс
     staff_name = db.Column(db.String(100))                 # Ажилтан
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+# Хуучин нум бүртгэх хүснэгт
+class OldBow(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    product_name = db.Column(db.String(200), nullable=False) # Нумны нэр
+    sku = db.Column(db.String(50))                           # Код
+    purchase_price = db.Column(db.Float, nullable=False)    # Авсан үнэ
+    retail_price = db.Column(db.Float)                       # Зарах үнэ
+    quantity = db.Column(db.Integer, default=1)              # Ширхэг
+    date = db.Column(db.String(50))                          # Огноо
 
 @login_manager.user_loader
 def load_user(user_id):
@@ -595,44 +604,38 @@ def returns():
 def buy_old_bow():
     if request.method == 'POST':
         try:
-            # Формоос мэдээллийг авах
+            # Формоос мэдээлэл авах
             name = request.form.get('name')
             sku = request.form.get('sku')
-            purchase_price = request.form.get('purchase_price')
-            retail_price = request.form.get('retail_price')
-            quantity = request.form.get('quantity', 1)
+            p_price = float(request.form.get('purchase_price') or 0)
+            r_price = float(request.form.get('retail_price') or 0)
+            qty = int(request.form.get('quantity') or 1)
 
-            # Алдаа шалгах: Хоосон утга байгаа эсэх
-            if not name or not purchase_price:
-                flash("Нэр болон авах үнэ заавал байх ёстой!")
-                return redirect(url_for('buy_old_bow'))
-
-            # 1. Өгөгдлийн сангийн ОБЪЕКТ үүсгэх (Энд текст биш OldBow класс ашиглана)
-            # ТАНЫ АЛДАА: db.session.add("текст") гэж хийсэн байж магадгүй
+            # 1. Өгөгдлийн сангийн ОБЪЕКТ үүсгэх (Алдааг зассан хэсэг)
             new_item = OldBow(
                 product_name=name,
                 sku=sku,
-                purchase_price=float(purchase_price),
-                retail_price=float(retail_price) if retail_price else 0,
-                quantity=int(quantity),
+                purchase_price=p_price,
+                retail_price=r_price,
+                quantity=qty,
                 date=datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             )
 
-            # 2. ОБЪЕКТ-ийг нэмэх (Энэ нь SQLAlchemy-д танигдах объект байна)
+            # 2. Өгөгдлийн санд хадгалах
             db.session.add(new_item)
             
-            # 3. Зардлын бүртгэлд автоматаар бүртгэх (Сонголтоор)
-            expense = Expense(
+            # 3. Кассаас зардал болгож хасах (Expense хүснэгт рүү нэмэх)
+            new_expense = Expense(
                 category="Хуучин нум авалт",
-                amount=float(purchase_price) * int(quantity),
-                description=f"{name} ({sku}) худалдаж авсан",
+                amount=p_price * qty,
+                description=f"{name} ({sku}) авсан",
                 date=datetime.now().strftime('%Y-%m-%d'),
                 user_id=current_user.id
             )
-            db.session.add(expense)
+            db.session.add(new_expense)
 
             db.session.commit()
-            flash(f"'{name}' амжилттай бүртгэгдэж, зардал хасагдлаа.")
+            flash(f"'{name}' амжилттай бүртгэгдэж, кассаас зардал хасагдлаа.")
             return redirect(url_for('dashboard'))
 
         except Exception as e:
