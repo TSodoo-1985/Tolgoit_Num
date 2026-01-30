@@ -82,6 +82,7 @@ class OldBow(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     product_name = db.Column(db.String(200), nullable=False)
     sku = db.Column(db.String(50))
+    category = db.Column(db.String(50), default="Хуучин нум")
     purchase_price = db.Column(db.Float, nullable=False)
     retail_price = db.Column(db.Float)
     quantity = db.Column(db.Integer, default=1)
