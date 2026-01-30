@@ -602,42 +602,40 @@ def returns():
 @login_required
 def buy_old_bow():
     if request.method == 'POST':
-        try:
-            name = request.form.get('name')
-            sku = request.form.get('sku')
-            # Формын нэрсийг buy_old_bow.html-тэй тааруулав
-            p_price = float(request.form.get('cost_price') or 0) 
-            r_price = float(request.form.get('retail_price') or 0)
-            qty = int(request.form.get('stock') or 1)
+        name = request.form.get('name')
+        sku = request.form.get('sku')
+        cost = float(request.form.get('cost_price'))
+        retail = float(request.form.get('retail_price'))
+        qty = int(request.form.get('stock'))
 
-            # Алдааг зассан хэсэг: Текст биш ОБЪЕКТ дамжуулна
-            new_item = OldBow(
-                product_name=name,
-                sku=sku,
-                purchase_price=p_price,
-                retail_price=r_price,
-                quantity=qty,
-                date=datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-            )
-            db.session.add(new_item)
+        # 1. Хуучин нумны хүснэгтэд хадгалах
+        new_old_bow = OldBow(
+            product_name=name,
+            sku=sku,
+            category="Хуучин нум", # АВТОМАТ АНГИЛАЛ
+            purchase_price=cost,
+            retail_price=retail,
+            quantity=qty,
+            date=datetime.utcnow()
+        )
+        
+        # 2. Зардал руу автоматаар бүртгэх (Кассаас хасах)
+        new_expense = Expense(
+            category="Хуучин нум авалт",
+            amount=cost * qty,
+            description=f"{name} худалдаж авсан",
+            date=datetime.utcnow()
+        )
 
-            # Кассаас зардал хасах
-            new_expense = Expense(
-                category="Хуучин нум авалт",
-                amount=p_price * qty,
-                description=f"{name} ({sku}) авсан",
-                date=datetime.now().strftime('%Y-%m-%d'),
-                user_id=current_user.id
-            )
-            db.session.add(new_expense)
-            db.session.commit()
-            
-            flash(f"'{name}' амжилттай бүртгэгдлээ.")
-            return redirect(url_for('dashboard'))
-        except Exception as e:
-            db.session.rollback()
-            flash(f"Алдаа: {str(e)}")
+        db.session.add(new_old_bow)
+        db.session.add(new_expense)
+        db.session.commit()
+        
+        flash("Хуучин нум амжилттай бүртгэгдэж, кассаас зардал хасагдлаа.")
+        return redirect(url_for('dashboard'))
+    
     return render_template('buy_old_bow.html')
+    
 # --- 2. ХУУЧИН БАРААНЫ ТАЙЛАН ---
 @app.route('/old-bow-report')
 @login_required
