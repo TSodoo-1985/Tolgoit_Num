@@ -587,7 +587,67 @@ def returns():
     products = Product.query.all()
     return render_template('returns.html', products=products)
 
-# ... (бусад кодууд хэвээрээ)
+# ... (Өмнөх import-ууд хэвээрээ)
+
+# --- 1. ХУУЧИН НУМ ХУДАЛДАЖ АВАХ ROUTE ---
+@app.route('/buy-old-bow', methods=['GET', 'POST'])
+@login_required
+def buy_old_bow():
+    if current_user.role == 'viewer':
+        flash('Танд энэ үйлдлийг хийх эрх байхгүй.')
+        return redirect(url_for('dashboard'))
+
+    if request.method == 'POST':
+        try:
+            name = request.form.get('name')
+            sku = request.form.get('sku')
+            cost_price = int(float(request.form.get('cost_price', 0)))
+            retail_price = int(float(request.form.get('retail_price', 0)))
+            stock = int(float(request.form.get('stock', 1)))
+
+            # Бараа нэмэх
+            new_p = Product(
+                name=f"{name} (Хуучин)",
+                sku=sku,
+                category="Хуучин нум",
+                cost_price=cost_price,
+                retail_price=retail_price,
+                stock=stock
+            )
+            db.session.add(new_p)
+            db.session.flush()
+
+            # Кассаас мөнгө гаргах (Зардал)
+            exp = Expense(
+                category="Хуучин нум авалт",
+                description=f"{name} худалдаж авсан",
+                amount=cost_price * stock,
+                user=current_user.username
+            )
+            db.session.add(exp)
+            db.session.commit()
+            flash('Хуучин нум амжилттай бүртгэгдэж, зардал хасагдлаа.')
+            return redirect(url_for('dashboard'))
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Алдаа: {str(e)}')
+    return render_template('buy_old_bow.html')
+
+# --- 2. ХУУЧИН БАРААНЫ ТАЙЛАН ---
+@app.route('/old-bow-report')
+@login_required
+def old_bow_report():
+    # Зөвхөн "Хуучин нум авалт" төрөлтэй зардлуудыг харах
+    reports = Expense.query.filter_by(category="Хуучин нум авалт").order_by(Expense.date.desc()).all()
+    return render_template('old_bow_report.html', reports=reports)
+
+# --- CHECKOUT ХЭСЭГТ VIEWER ЭРХИЙГ ХЯЗГААРЛАХ ---
+@app.route('/checkout', methods=['POST'])
+@login_required
+def checkout():
+    if current_user.role == 'viewer':
+        return jsonify({'success': False, 'message': 'Танд зарлага гаргах эрх байхгүй!'})
+
 # --- ТАЙЛАН, СТАТИСТИК ---
 
 @app.route('/statistics')
