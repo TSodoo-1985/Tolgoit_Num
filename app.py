@@ -1394,11 +1394,8 @@ def reset_db():
             db.session.rollback()
             return f"Алдаа гарлаа: {str(e)}"
     return "Эрх хүрэхгүй байна", 403
-
-if __name__ == '__main__':
-    with app.app_context():
-        db.create_all()  # 4 зай (эсвэл 1 Tab) дотогшоо
-        print("Дата сан үүсгэгдлээ!") # 4 зай (эсвэл 1 Tab) дотогшоо
     
-    # Хэрэв та gunicorn ашиглахгүй локалоор ажиллуулж байгаа бол:
-    # app.run(debug=True)
+if __name__ == "__main__":
+    with app.app_context():
+        db.create_all()  # Энэ мөр нь байхгүй байгаа бүх хүснэгтийг (old_bow) үүсгэнэ
+    app.run(debug=True)
