@@ -134,6 +134,8 @@
                     <li class="px-3 py-2 bg-light rounded-top small fw-bold text-dark border-bottom mb-2 text-center">
                          {{ current_user.username }}
                     </li>
+                    <li><a class="dropdown-item py-2" href="{{ url_for('change_password') }}"><i class="bi bi-key-fill text-warning me-2"></i>Нууц үг солих</a></li>
+                    
                     {% if current_user.role == 'admin' %}
                     <li><a class="dropdown-item py-2" href="{{ url_for('users_list') }}"><i class="bi bi-people-fill text-primary me-2"></i>Хэрэглэгчид</a></li>
                     <li><a class="dropdown-item py-2 fw-bold text-primary" href="{{ url_for('import_products_page') }}">Бараа бөөнөөр оруулах</a></li>
