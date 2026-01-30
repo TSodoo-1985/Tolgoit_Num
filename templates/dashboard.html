@@ -12,8 +12,13 @@
         padding: 1rem 1rem;
     }
     .small-label { font-size: 9px; font-weight: bold; letter-spacing: 0.5px; }
-    .card { transition: transform 0.2s; border-radius: 15px; border: none !important; }
-    .bg-light-custom { background-color: #f8f9fa !important; border-radius: 12px; }
+    .card { transition: transform 0.2s; border-radius: 15px; }
+    .card:active { transform: scale(0.98); }
+    .bg-light { background-color: #f8f9fa !important; }
+
+    @media (max-width: 576px) {
+        .sticky-search-wrapper { top: 50px; }
+    }
 </style>
 
 <div class="sticky-search-wrapper">
@@ -33,10 +38,10 @@
 <div class="row" id="productContainer">
     {% for p in products %}
     <div class="col-12 col-md-6 col-lg-4 item-to-filter" data-category="{{ p.category }}">
-        <div class="card shadow-sm p-3 mb-3">
+        <div class="card border-0 shadow-sm rounded-4 p-3 mb-3">
             
             <div class="d-flex justify-content-between align-items-start mb-2">
-                <div style="flex: 1;">
+                <div>
                     <div class="mb-1">
                         <span class="badge bg-dark small">{{ p.sku }}</span>
                         {% if p.category %}
@@ -46,18 +51,18 @@
                     
                     <h6 class="fw-bold mt-2 mb-0 text-dark">{{ p.name }}</h6>
                     
+                    {# ЗАСАХ/УСТГАХ: Viewer биш бол харагдана #}
                     {% if current_user.role != 'viewer' %}
                     <div class="mt-2 d-flex gap-3">
                         <a href="{{ url_for('edit_product', id=p.id) }}" class="text-decoration-none small text-primary">
                             <i class="bi bi-pencil-square"></i> Засах
                         </a>
-                        <a href="{{ url_for('delete_product', id=p.id) }}" class="text-decoration-none small text-danger" onclick="return confirm('Устгах уу?')">
+                        <a href="{{ url_for('delete_product', id=p.id) }}" class="text-decoration-none small text-danger" onclick="return confirm('Энэ барааг бүрмөсөн устгах уу?')">
                             <i class="bi bi-trash"></i> Устгах
                         </a>
                     </div>
                     {% endif %}
                 </div>
-
                 <div class="text-end">
                     <small class="text-muted d-block small-label">ҮЛДЭГДЭЛ</small>
                     <span class="badge {{ 'bg-success' if p.stock > 10 else 'bg-danger' }} fs-6 rounded-pill">
@@ -66,31 +71,39 @@
                 </div>
             </div>
 
-            <div class="row g-1 mb-2 bg-light-custom p-2">
-                <div class="col-12 text-center">
+            <div class="row g-1 mb-3 bg-light rounded-3 p-2">
+                {# ЖИЖИГЛЭН ҮНЭ: Viewer-т харагдах ганц үнэ #}
+                <div class="{% if current_user.role == 'viewer' %}col-12{% else %}col-6 border-end{% endif %} text-center">
                     <small class="d-block text-muted" style="font-size: 10px;">ЖИЖИГЛЭН ҮНЭ</small>
-                    <div class="fw-bold text-primary fs-5">{{ "{:,.0f}".format(p.retail_price) }}₮</div>
+                    <div class="fw-bold text-dark fs-5">{{ "{:,.0f}".format(p.retail_price) }}₮</div>
                 </div>
                 
+                {# БӨӨНИЙ ҮНЭ: Viewer биш бол харагдана #}
                 {% if current_user.role != 'viewer' %}
-                <div class="col-12 border-top mt-1 pt-1 text-center">
-                    <small class="d-block text-muted" style="font-size: 10px;">БӨӨНИЙ ҮНЭ</small>
+                <div class="col-6 text-center">
+                    <small class="d-block text-muted" style="font-size: 10px;">БӨӨНИЙ</small>
                     <div class="fw-bold text-dark">{{ "{:,.0f}".format(p.wholesale_price) }}₮</div>
                 </div>
                 {% endif %}
             </div>
 
+            {# ЗАРЛАГА ГАРГАХ: Viewer биш бол харагдана #}
             {% if current_user.role != 'viewer' %}
-            <div class="input-group input-group-sm mt-2">
-                <select id="type-{{ p.id }}" class="form-select border-2 fw-bold">
+            <div class="input-group input-group-sm mb-1">
+                <select id="type-{{ p.id }}" class="form-select border-2 fw-bold" style="width: 55%;">
                     <option value="Жижиглэн зарлага">Жижиглэн</option>
                     <option value="Бөөний зарлага">Бөөний</option>
                     <option value="Орлого">Орлого</option>
                 </select>
-                <input type="number" id="qty-{{ p.id }}" class="form-control border-2 text-center fw-bold" placeholder="Тоо">
-                <button type="button" onclick="addToCartLocal('{{ p.id }}', '{{ p.name }}', {{ p.retail_price }}, {{ p.wholesale_price }})" class="btn btn-primary">
+                <input type="number" id="qty-{{ p.id }}" class="form-control border-2 text-center fw-bold" placeholder="Тоо" style="width: 25%;">
+                
+                <button type="button" onclick="addToCartLocal('{{ p.id }}', '{{ p.name }}', {{ p.retail_price }}, {{ p.wholesale_price }}, {{ p.cost_price }})" class="btn btn-primary shadow-sm">
                     <i class="bi bi-cart-plus"></i>
                 </button>
+            </div>
+            {% else %}
+            <div class="text-center p-2 bg-white border rounded-3 small text-muted fst-italic">
+                <i class="bi bi-eye"></i> Зөвхөн харах эрхтэй
             </div>
             {% endif %}
             
@@ -100,6 +113,30 @@
 </div>
 
 <script>
+    function addToCartLocal(id, name, retail, wholesale, cost) {
+        const qtyInp = document.getElementById(`qty-${id}`);
+        const typeInp = document.getElementById(`type-${id}`);
+        let qty = parseInt(qtyInp.value, 10);
+        const type = typeInp.value;
+        if (!qty || qty <= 0) { alert("Тоо оруулна уу!"); return; }
+        let selectedPrice = 0;
+        if (type === "Жижиглэн зарлага") selectedPrice = retail;
+        else if (type === "Бөөний зарлага") selectedPrice = wholesale;
+        else if (type === "Орлого") selectedPrice = 0;
+        selectedPrice = Math.round(selectedPrice);
+        let cart = JSON.parse(localStorage.getItem('myCart')) || [];
+        cart.push({ product_id: id, name: name, quantity: qty, type: type, price: selectedPrice });
+        localStorage.setItem('myCart', JSON.stringify(cart));
+        if (window.updateBadge) window.updateBadge(); 
+        qtyInp.value = '';
+        let alertBox = document.createElement('div');
+        alertBox.className = 'position-fixed top-0 start-50 translate-middle-x mt-4 badge bg-success p-3 shadow';
+        alertBox.style.zIndex = 9999;
+        alertBox.innerText = `${name} сагсанд нэмэгдлээ!`;
+        document.body.appendChild(alertBox);
+        setTimeout(() => alertBox.remove(), 1500);
+    }
+
     function filterProducts() {
         let s = document.getElementById('mainSearch').value.toLowerCase();
         let c = document.getElementById('catFilter').value;
@@ -109,23 +146,6 @@
             item.style.display = matches ? 'block' : 'none';
         });
     }
-
-    function addToCartLocal(id, name, retail, wholesale) {
-        const qtyInp = document.getElementById(`qty-${id}`);
-        const typeInp = document.getElementById(`type-${id}`);
-        let qty = parseInt(qtyInp.value, 10);
-        if (!qty || qty <= 0) { alert("Тоо оруулна уу!"); return; }
-
-        let price = (typeInp.value === "Бөөний зарлага") ? wholesale : retail;
-        if (typeInp.value === "Орлого") price = 0;
-
-        let cart = JSON.parse(localStorage.getItem('myCart')) || [];
-        cart.push({ product_id: id, name: name, quantity: qty, type: typeInp.value, price: price });
-        localStorage.setItem('myCart', JSON.stringify(cart));
-        
-        if (window.updateBadge) window.updateBadge();
-        qtyInp.value = '';
-        alert(name + " сагсанд нэмэгдлээ!");
-    }
 </script>
+
 {% endblock %}
