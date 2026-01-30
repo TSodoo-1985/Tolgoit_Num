@@ -606,29 +606,30 @@ def buy_old_bow():
         sku = request.form.get('sku')
         cost = float(request.form.get('cost_price'))
         retail = float(request.form.get('retail_price'))
-        qty = int(request.form.get('stock'))
+        qty = float(request.form.get('stock')) # Product дээр stock нь Float байна
 
         try:
-            # 1. Хуучин нумны бүртгэлд (түүх) хадгалах
+            # 1. Хуучин нумны түүхэнд хадгалах (OldBow модель)
             new_old_bow = OldBow(
                 product_name=name,
                 sku=sku,
                 category="Хуучин нум",
                 purchase_price=cost,
                 retail_price=retail,
-                quantity=qty,
-                date=datetime.utcnow()
+                quantity=int(qty),
+                date=datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             )
             
-            # 2. ҮНДСЭН БАРААНЫ ЖАГСААЛТ (Dashboard) руу нэмэх
+            # 2. Үндсэн барааны жагсаалт руу нэмэх (Ингэснээр Dashboard дээр харагдана)
             new_product = Product(
                 name=f"[Хуучин] {name}",
                 sku=sku if sku else f"OLD-{datetime.now().strftime('%m%d%H%M')}",
-                purchase_price=cost,
+                category="Хуучин нум",
+                cost_price=cost,      # purchase_price биш cost_price гэж зассан
                 retail_price=retail,
-                wholesale_price=retail, # Хуучин бараанд бөөний үнэ ижил байхаар тохируулав
+                wholesale_price=retail, 
                 stock=qty,
-                category="Хуучин нум"
+                is_active=True
             )
 
             # 3. Кассаас зардал хасах
@@ -636,7 +637,8 @@ def buy_old_bow():
                 category="Хуучин нум авалт",
                 amount=cost * qty,
                 description=f"{name} худалдаж авсан",
-                date=datetime.utcnow()
+                date=datetime.utcnow(),
+                user_id=current_user.id
             )
 
             db.session.add(new_old_bow)
@@ -644,7 +646,7 @@ def buy_old_bow():
             db.session.add(new_expense)
             db.session.commit()
             
-            flash(f"'{name}' амжилттай бүртгэгдэж, зарах барааны жагсаалтад нэмэгдлээ.")
+            flash(f"'{name}' амжилттай бүртгэгдэж, Dashboard дээр нэмэгдлээ.")
             return redirect(url_for('dashboard'))
             
         except Exception as e:
