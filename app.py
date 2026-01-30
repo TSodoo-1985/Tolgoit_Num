@@ -1242,46 +1242,51 @@ def export_return_report():
 @app.route('/export-old-bow')
 @login_required
 def export_old_bow():
-    # 1. Огноог хүлээн авах
-    start_date = request.args.get('start_date')
-    end_date = request.args.get('end_date')
+    try:
+        start_date = request.args.get('start_date')
+        end_date = request.args.get('end_date')
 
-    # 2. Өгөгдлийн сангаас хуучин нумны гүйлгээг шүүх
-    # Таны DB-ийн бүтцээс хамаарч шүүлт хийнэ (жишээ нь 'OldBowPurchase' table)
-    purchases = OldBowPurchase.query.filter(
-        OldBowPurchase.date >= start_date,
-        OldBowPurchase.date <= end_date
-    ).all()
+        # Хэрэв таны хүснэгтийн нэр OldBowPurchase биш бол OldBow гэж шалгана уу
+        # Таны app.py-ийн дээр class OldBow(db.Model) гэж байгаа бол энд OldBow байна
+        purchases = OldBow.query.filter(
+            OldBow.date >= start_date,
+            OldBow.date <= end_date
+        ).all()
 
-    # 3. Өгөгдлийг жагсаалт болгох
-    data = []
-    for p in purchases:
-        data.append({
-            "Огноо": p.date,
-            "Барааны нэр": p.product_name,
-            "Тоо ширхэг": p.quantity,
-            "Авсан үнэ": p.purchase_price,
-            "Нийт": p.quantity * p.purchase_price,
-            "Тайлбар": p.description
-        })
+        data = []
+        for p in purchases:
+            data.append({
+                "Огноо": p.date,
+                "Барааны нэр": p.product_name,
+                "Тоо ширхэг": p.quantity,
+                "Авсан үнэ": p.purchase_price,
+                "Нийт": p.quantity * p.purchase_price,
+                "Тайлбар": p.description
+            })
 
-    # 4. Excel болгож хөрвүүлээд хэрэглэгч рүү илгээх
-    import pandas as pd
-    from io import BytesIO
+        if not data:
+            flash("Тухайн хугацаанд өгөгдөл олдсонгүй.")
+            return redirect(url_for('dashboard'))
 
-    df = pd.DataFrame(data)
-    output = BytesIO()
-    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-        df.to_excel(writer, index=False, sheet_name='Хуучин нум')
-    
-    output.seek(0)
-    
-    return send_file(
-        output,
-        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        as_attachment=True,
-        download_name=f"Old_Bow_Report_{start_date}_{end_date}.xlsx"
-    )
+        import pandas as pd
+        from io import BytesIO
+
+        df = pd.DataFrame(data)
+        output = BytesIO()
+        with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+            df.to_excel(writer, index=False, sheet_name='Хуучин нум')
+        
+        output.seek(0)
+        
+        return send_file(
+            output,
+            mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            as_attachment=True,
+            download_name=f"Old_Bow_Report_{start_date}_{end_date}.xlsx"
+        )
+    except Exception as e:
+        # Хэрэв OldBow бас биш бол алдааг дэлгэцэнд харуулна
+        return f"Алдаа гарлаа: {str(e)}. Хүснэгтийн нэрээ шалгана уу."
 
 # --- ХЭРЭГЛЭГЧИЙН УДИРДЛАГА ---
 
