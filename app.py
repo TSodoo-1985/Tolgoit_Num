@@ -88,6 +88,18 @@ class OldBow(db.Model):
     quantity = db.Column(db.Integer, default=1)
     date = db.Column(db.String(50))
 
+class EmployeeLoan(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    staff_name = db.Column(db.String(100), nullable=False)
+    loan_amount = db.Column(db.Float, default=0.0)      # Анх авсан зээл
+    total_paid = db.Column(db.Float, default=0.0)       # Буцааж төлсөн нийт дүн
+    description = db.Column(db.String(200))
+    date = db.Column(db.DateTime, default=datetime.utcnow)
+
+    @property
+    def remaining_balance(self):
+        return self.loan_amount - self.total_paid
+
 @login_manager.user_loader
 def load_user(user_id):
     return User.query.get(int(user_id))
@@ -670,6 +682,48 @@ def old_bow_report():
 def checkout():
     if current_user.role == 'viewer':
         return jsonify({'success': False, 'message': 'Танд зарлага гаргах эрх байхгүй!'})
+@app.route('/loans', methods=['GET', 'POST'])
+@login_required
+def manage_loans():
+    if request.method == 'POST':
+        staff_name = request.form.get('staff_name')
+        amount = float(request.form.get('amount'))
+        desc = request.form.get('description')
+        
+        # 1. Зээлийн бүртгэл үүсгэх
+        new_loan = EmployeeLoan(staff_name=staff_name, loan_amount=amount, description=desc)
+        
+        # 2. Кассаас зардал болгож хасах
+        new_expense = Expense(
+            category="Ажилчны зээл",
+            amount=amount,
+            description=f"{staff_name}-д зээл олгох: {desc}",
+            user_id=current_user.id
+        )
+        
+        db.session.add(new_loan)
+        db.session.add(new_expense)
+        db.session.commit()
+        flash("Зээл амжилттай бүртгэгдэж, кассаас хасагдлаа.")
+        return redirect(url_for('manage_loans'))
+
+    loans = EmployeeLoan.query.all()
+    return render_template('loans.html', loans=loans)
+
+@app.route('/pay-loan/<int:id>', methods=['POST'])
+@login_required
+def pay_loan(id):
+    loan = EmployeeLoan.query.get_or_404(id)
+    pay_amount = float(request.form.get('pay_amount'))
+    
+    if pay_amount > 0:
+        loan.total_paid += pay_amount
+        # Кассанд орлого болгож нэмэх (сонголтоор)
+        # Энэ нь цалингаас суутгаж байгаа бол цалингийн зардлыг багасгах байдлаар бүртгэж болно.
+        db.session.commit()
+        flash(f"{loan.staff_name}-ийн төлөлт бүртгэгдлээ.")
+    
+    return redirect(url_for('manage_loans'))
 
 # --- ТАЙЛАН, СТАТИСТИК ---
 
