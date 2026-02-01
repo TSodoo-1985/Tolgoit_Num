@@ -682,6 +682,7 @@ def old_bow_report():
 def checkout():
     if current_user.role == 'viewer':
         return jsonify({'success': False, 'message': 'Танд зарлага гаргах эрх байхгүй!'})
+        
 @app.route('/loans', methods=['GET', 'POST'])
 @login_required
 def manage_loans():
@@ -808,6 +809,39 @@ def statistics():
                            stats_data=stats_data,  # Шинэ дата
                            start_date=start_date_str or "",
                            end_date=end_date_str or "")
+
+@app.route('/export-loans')
+@login_required
+def export_loans():
+    # 1. Өгөгдлийн сангаас бүх зээлийн мэдээллийг авах
+    loans = EmployeeLoan.query.all()
+    
+    data = []
+    for l in loans:
+        data.append({
+            "Ажилтны нэр": l.staff_name,
+            "Олгосон огноо": l.date.strftime('%Y-%m-%d') if l.date else "",
+            "Олгосон дүн (₮)": l.loan_amount,
+            "Төлсөн дүн (₮)": l.total_paid,
+            "Үлдэгдэл (₮)": l.loan_amount - l.total_paid,
+            "Тайлбар": l.description
+        })
+
+    # 2. Pandas ашиглан DataFrame үүсгэх
+    df = pd.DataFrame(data)
+    
+    # 3. Санах ойд Excel файл үүсгэх
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+        df.to_excel(writer, index=False, sheet_name='Зээлийн тайлан')
+    output.seek(0)
+
+    filename = f"Loan_Report_{datetime.now().strftime('%Y%m%d')}.xlsx"
+    
+    return send_file(output, 
+                     download_name=filename, 
+                     as_attachment=True, 
+                     mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
 
 @app.route('/export-balance')
 @login_required
