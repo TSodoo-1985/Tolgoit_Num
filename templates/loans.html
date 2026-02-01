@@ -1,53 +1,116 @@
 {% extends "layout.html" %}
 {% block content %}
-<div class="container">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h4 class="fw-bold mb-0">Ажилчдын зээлийн хяналт</h4>
-        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#loanModal">Шинэ зээл олгох</button>
+<div class="container mt-4">
+    <div class="card border-0 shadow-sm rounded-4 p-4 mb-4" style="background: linear-gradient(135deg, #1e293b, #334155); color: white;">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+            <div>
+                <h3 class="fw-bold mb-1">Зээлийн хяналт</h3>
+                <p class="mb-0 opacity-75">Ажилчдын зээл болон эргэн төлөлтийн бүртгэл</p>
+            </div>
+            <div class="d-flex gap-2">
+                <a href="{{ url_for('export_loans') }}" class="btn btn-outline-light rounded-pill px-3 shadow-sm">
+                    <i class="bi bi-file-earmark-excel me-1"></i> Excel татах
+                </a>
+                <button class="btn btn-warning fw-bold rounded-pill px-4 shadow" data-bs-toggle="modal" data-bs-target="#loanModal">
+                    <i class="bi bi-plus-lg me-1"></i> Зээл олгох
+                </button>
+            </div>
+        </div>
     </div>
 
     <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
-        <table class="table table-hover align-middle mb-0">
-            <thead class="bg-light">
-                <tr>
-                    <th>Ажилтан</th>
-                    <th>Олгосон</th>
-                    <th>Төлсөн</th>
-                    <th>Үлдэгдэл</th>
-                    <th>Төлөлт нэмэх</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for l in loans %}
-                <tr>
-                    <td class="fw-bold">{{ l.staff_name }}</td>
-                    <td>{{ "{:,.0f}".format(l.loan_amount) }}₮</td>
-                    <td class="text-success">{{ "{:,.0f}".format(l.total_paid) }}₮</td>
-                    <td class="text-danger fw-bold">{{ "{:,.0f}".format(l.remaining_balance) }}₮</td>
-                    <td>
-                        <form action="{{ url_for('pay_loan', id=l.id) }}" method="POST" class="d-flex gap-1">
-                            <input type="number" name="pay_amount" class="form-control form-control-sm" style="width: 100px;" placeholder="Дүн">
-                            <button class="btn btn-sm btn-success text-white">Төлөх</button>
-                        </form>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="bg-light">
+                    <tr class="text-secondary small fw-bold text-uppercase">
+                        <th class="ps-4">Ажилтан / Огноо</th>
+                        <th>Олгосон дүн</th>
+                        <th>Төлсөн дүн</th>
+                        <th>Одоогийн үлдэгдэл</th>
+                        <th class="text-end pe-4">Үйлдэл</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for l in loans %}
+                    <tr>
+                        <td class="ps-4">
+                            <div class="fw-bold text-dark">{{ l.staff_name }}</div>
+                            <small class="text-muted">
+                                <i class="bi bi-calendar3 me-1"></i>{{ l.date.strftime('%Y-%m-%d') if l.date else '---' }}
+                            </small>
+                        </td>
+                        <td class="fw-bold">{{ "{:,.0f}".format(l.loan_amount) }}₮</td>
+                        <td class="text-success fw-bold">{{ "{:,.0f}".format(l.total_paid) }}₮</td>
+                        <td>
+                            <span class="badge {% if l.remaining_balance > 0 %}bg-danger{% else %}bg-success{% endif %} fs-6 px-3 rounded-pill">
+                                {{ "{:,.0f}".format(l.remaining_balance) }}₮
+                            </span>
+                        </td>
+                        <td class="text-end pe-4">
+                            {% if l.remaining_balance > 0 %}
+                            <form action="{{ url_for('pay_loan', id=l.id) }}" method="POST" class="d-flex justify-content-end gap-2">
+                                <div class="input-group input-group-sm" style="width: 160px;">
+                                    <input type="number" name="pay_amount" class="form-control" placeholder="Төлөх дүн" required>
+                                    <button class="btn btn-success fw-bold">Төлөх</button>
+                                </div>
+                            </form>
+                            {% else %}
+                            <span class="badge bg-soft-primary text-primary fw-bold p-2">
+                                <i class="bi bi-check-circle-fill me-1"></i>Төлөгдөж дууссан
+                            </span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="5" class="text-center py-5">
+                            <i class="bi bi-inbox text-muted fs-1 d-block mb-2"></i>
+                            <p class="text-muted">Одоогоор зээлийн бүртгэл байхгүй байна.</p>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
     </div>
 </div>
 
-<div class="modal fade" id="loanModal" tabindex="-1">
-    <div class="modal-dialog">
-        <form action="{{ url_for('manage_loans') }}" method="POST" class="modal-content">
-            <div class="modal-header"><h5>Шинэ зээл олгох</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
-            <div class="modal-body">
-                <div class="mb-3"><label>Ажилтны нэр</label><input type="text" name="staff_name" class="form-control" required></div>
-                <div class="mb-3"><label>Зээлийн дүн</label><input type="number" name="amount" class="form-control" required></div>
-                <div class="mb-3"><label>Тайлбар</label><input type="text" name="description" class="form-control"></div>
+<div class="modal fade" id="loanModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <form action="{{ url_for('manage_loans') }}" method="POST" class="modal-content border-0 shadow-lg rounded-4">
+            <div class="modal-header border-0 pb-0 pt-4 px-4">
+                <h5 class="fw-bold"><i class="bi bi-cash-stack text-warning me-2"></i>Шинэ зээл олгох</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <div class="modal-footer"><button type="submit" class="btn btn-primary">Зээл олгох</button></div>
+            <div class="modal-body p-4">
+                <div class="mb-3">
+                    <label class="form-label small fw-bold text-secondary text-uppercase">Ажилтны нэр</label>
+                    <input type="text" name="staff_name" class="form-control border-2 rounded-3" placeholder="Нэр бичих..." required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-bold text-secondary text-uppercase">Зээлэх дүн (₮)</label>
+                    <div class="input-group">
+                        <input type="number" name="amount" class="form-control border-2 rounded-3" placeholder="0" required>
+                        <span class="input-group-text bg-light border-2 fw-bold">₮</span>
+                    </div>
+                </div>
+                <div class="mb-0">
+                    <label class="form-label small fw-bold text-secondary text-uppercase">Тайлбар / Зориулалт</label>
+                    <textarea name="description" class="form-control border-2 rounded-3" rows="3" placeholder="Жишээ: Цалингаас суутгах нөхцөлтэй..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer border-0 p-4 pt-0">
+                <button type="button" class="btn btn-light rounded-3 fw-bold flex-grow-1" data-bs-dismiss="modal">Цуцлах</button>
+                <button type="submit" class="btn btn-primary rounded-3 fw-bold flex-grow-1 shadow">Бүртгэж хадгалах</button>
+            </div>
         </form>
     </div>
 </div>
+
+<style>
+    .bg-soft-primary { background-color: rgba(13, 110, 253, 0.1); }
+    .table-hover tbody tr:hover { background-color: #f8fafc; }
+    .btn-warning { background-color: #f59e0b; border-color: #f59e0b; color: #fff; }
+    .btn-warning:hover { background-color: #d97706; border-color: #d97706; color: #fff; }
+</style>
 {% endblock %}
