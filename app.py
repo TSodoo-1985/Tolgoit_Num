@@ -5,6 +5,7 @@ from io import BytesIO
 from datetime import datetime, timedelta
 from flask import Flask, render_template, request, redirect, url_for, send_file, flash, session
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy import func
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
 from urllib.parse import quote
@@ -51,13 +52,16 @@ class Product(db.Model):
 
 class Transaction(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    product_id = db.Column(db.Integer, db.ForeignKey('product.id'))
-    type = db.Column(db.String(100))
-    quantity = db.Column(db.Float)
+    product_id = db.Column(db.Integer, db.ForeignKey('product.id'), nullable=False)
+    type = db.Column(db.String(50), nullable=False)
+    quantity = db.Column(db.Float, nullable=False)
+    price = db.Column(db.Float, nullable=True, default=0.0)
     timestamp = db.Column(db.DateTime, default=datetime.now)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
     product = db.relationship('Product', backref='transactions')
     user = db.relationship('User', backref='transactions')
+    def __repr__(self):
+        return f'<Transaction {self.type} - {self.quantity}>'
 
 class Expense(db.Model):
     __tablename__ = 'expense'
@@ -100,6 +104,18 @@ class EmployeeLoan(db.Model):
     def remaining_balance(self):
         return self.loan_amount - self.total_paid
 
+# --- ШИНЭ ХҮСНЭГТ (БАРАА ЗАДЛАХ ЛОГИК) ---
+class ProductLink(db.Model):
+    __tablename__ = 'product_link'
+    id = db.Column(db.Integer, primary_key=True)
+    parent_sku = db.Column(db.String(50), nullable=False, index=True) # Комны SKU
+    child_sku = db.Column(db.String(50), nullable=False)              # Сэлбэгийн SKU
+    quantity = db.Column(db.Float, default=1.0)                       # Ширхэг
+
+login_manager = LoginManager(app)
+login_manager.login_view = 'login'
+
+    
 @login_manager.user_loader
 def load_user(user_id):
     return User.query.get(int(user_id))
@@ -259,14 +275,25 @@ def add_transaction():
 @app.route('/inventory')
 @login_required
 def inventory():
-    # Бүх барааг авах
-    products = Product.query.order_by(Product.name).all()
-    # Сүүлийн 10 тооллогын түүхийг авах
-    history = Transaction.query.filter(Transaction.type.like('%Тооллого%'))\
-              .order_by(Transaction.timestamp.desc()).limit(10).all()
-    return render_template('inventory.html', products=products, history=history)
+    # 1. Бүх барааг авах
+    products = Product.query.all()
+    
+    # 2. Түүх харуулах хэсэг (Алдаанаас сэргийлж түр хоосон жагсаалт болгов)
+    # Хэрэв таны түүх хадгалдаг модель 'Transaction' бол Transaction.query... гэж бичнэ
+    history = [] 
+    
+    # 3. Багц тохиргоонд орсон бараануудыг шүүж авах
+    try:
+        package_skus = [link.parent_sku for link in ProductLink.query.with_entities(ProductLink.parent_sku).distinct().all()]
+        package_products = [p for p in products if p.sku in package_skus]
+    except:
+        package_products = [] # Хэрэв ProductLink хүснэгт байхгүй бол алдаа заахгүй
+        
+    return render_template('inventory.html', 
+                           products=products, 
+                           package_products=package_products, 
+                           history=history)
 
-@app.route('/do_inventory', methods=['POST'])
 @app.route('/do_inventory', methods=['POST'])
 @login_required
 def do_inventory():
@@ -667,7 +694,84 @@ def buy_old_bow():
             return redirect(url_for('buy_old_bow'))
 
     return render_template('buy_old_bow.html')
+
+@app.route('/manage-packages', methods=['GET', 'POST'])
+@login_required
+def manage_packages():
+    if current_user.role not in ['admin', 'staff']:
+        flash("Хандах эрхгүй байна!")
+        return redirect(url_for('index'))
+
+    if request.method == 'POST':
+        parent_sku = request.form.get('parent_sku')
+        child_skus = request.form.get('child_skus').split(',') # Таслалаар заагласан SKU-нүүд
+
+        # Хуучин заавар байвал устгаад шинэчлэх (Update logic)
+        ProductLink.query.filter_by(parent_sku=parent_sku).delete()
+        
+        for sku in child_skus:
+            sku = sku.strip()
+            if sku:
+                new_link = ProductLink(parent_sku=parent_sku, child_sku=sku, quantity=1.0)
+                db.session.add(new_link)
+        
+        db.session.commit()
+        flash(f"{parent_sku} комын заавар амжилттай хадгалагдлаа.")
+        return redirect(url_for('manage_packages'))
+
+    # Бүх бүртгэлтэй багцуудыг харах
+    all_links = ProductLink.query.all()
+    # SKU-ээр нь бүлэглэж харуулах (Dictionary)
+    packages = {}
+    for link in all_links:
+        if link.parent_sku not in packages:
+            packages[link.parent_sku] = []
+        packages[link.parent_sku].append(link.child_sku)
+        
+    return render_template('manage_packages.html', packages=packages)
+
+@app.route('/disassemble_simple', methods=['POST'])
+@login_required
+def disassemble_simple():
+    if current_user.role not in ['admin', 'staff']:
+        flash("Танд энэ үйлдлийг хийх эрх байхгүй.")
+        return redirect(url_for('inventory'))
     
+    # ЭНЭ МӨР ЧУХАЛ: Формоос ирж буй product_id-г авч байна
+    product_id = request.form.get('product_id')
+    
+    if not product_id:
+        flash("Бараа сонгогдоогүй байна.")
+        return redirect(url_for('inventory'))
+        
+    # Одоо product_id тодорхойлогдсон тул алдаа заахгүй
+    main_product = Product.query.get_or_404(product_id)
+    
+    links = ProductLink.query.filter_by(parent_sku=main_product.sku).all()
+    
+    if not links:
+        flash(f"'{main_product.sku}' кодонд задлах заавар байхгүй.")
+        return redirect(url_for('inventory'))
+    
+    if main_product.stock < 1:
+        flash(f"'{main_product.sku}' үлдэгдэл хүрэлцээгүй.")
+        return redirect(url_for('inventory'))
+
+    try:
+        main_product.stock -= 1
+        for link in links:
+            child = Product.query.filter_by(sku=link.child_sku).first()
+            if child:
+                child.stock += link.quantity
+        
+        db.session.commit()
+        flash(f"{main_product.sku} амжилттай задарлаа.")
+    except Exception as e:
+        db.session.rollback()
+        flash(f"Алдаа: {str(e)}")
+        
+    return redirect(url_for('inventory'))
+
 # --- 2. ХУУЧИН БАРААНЫ ТАЙЛАН ---
 @app.route('/old-bow-report')
 @login_required
@@ -726,8 +830,38 @@ def pay_loan(id):
     
     return redirect(url_for('manage_loans'))
 
-# --- ТАЙЛАН, СТАТИСТИК ---
+@app.route('/complete_sale', methods=['POST'])
+@login_required
+def complete_sale():
+    product_ids = request.form.getlist('product_ids[]')
+    quantities = request.form.getlist('quantities[]')
+    sale_prices = request.form.getlist('sale_prices[]') # Сагсанд зассан үнүүд
 
+    for i in range(len(product_ids)):
+        p_id = product_ids[i]
+        qty = float(quantities[i])
+        actual_sale_price = float(sale_prices[i]) # Энэ бол нэмж бичсэн үнэ
+        
+        product = Product.query.get(p_id)
+        
+        # 1. Үндсэн барааны үлдэгдлийг хасна (ҮНЭ-г өөрчлөхгүй!)
+        product.stock -= qty
+        
+        # 2. Гүйлгээний түүхэнд "Нэмсэн үнэ"-ээр нь хадгална
+        new_log = Transaction(
+            product_id=p_id,
+            type='борлуулалт',
+            quantity=qty,
+            price=actual_sale_price, # <-- Энд нэмсэн үнэ хадгалагдана
+            user_id=current_user.id,
+            date=datetime.now()
+        )
+        db.session.add(new_log)
+    
+    db.session.commit()
+    return redirect(url_for('inventory'))
+
+# --- ТАЙЛАН, СТАТИСТИК ---
 @app.route('/statistics')
 @login_required
 def statistics():
@@ -1227,10 +1361,9 @@ def export_labor_report():
         df.to_excel(writer, index=False, sheet_name='Salary')
     
     output.seek(0)
-    filename = f"Labor_Report_{start_date if start_date else 'All'}.xlsx"
+    filename = f"Ажлын хөлсний тайлан_{start_date if start_date else 'All'}.xlsx"
     return send_file(output, download_name=filename, as_attachment=True)
 
-@app.route('/export-salary-report')
 @app.route('/export-salary-report')
 @login_required
 def export_salary_report():
@@ -1434,8 +1567,6 @@ def add_user():
     db.session.commit()
     flash(f"'{username}' хэрэглэгч амжилттай нэмэгдлээ.")
     return redirect(url_for('users_list'))
-
-
 
 @app.route('/delete_user/<int:id>')  # HTML дээр id гэж дамжуулсан тул энд id байна
 @login_required
