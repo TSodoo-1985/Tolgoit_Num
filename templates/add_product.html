@@ -1,0 +1,72 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<style>
+    /* Зөвхөн энэ хуудсанд зориулсан туслах стиль */
+    .form-card { 
+        max-width: 600px; 
+        margin: 20px auto; 
+        background: white; 
+        border-radius: 16px; 
+        box-shadow: 0 4px 20px rgba(0,0,0,0.05); 
+    }
+</style>
+
+<div class="container mt-2">
+    <div class="d-flex justify-content-between align-items-center mb-3" style="max-width: 600px; margin: 0 auto;">
+        <a href="{{ url_for('dashboard') }}" class="btn btn-outline-secondary btn-sm rounded-pill px-3">
+            <i class="bi bi-arrow-left me-1"></i>Буцах
+        </a>
+        <h5 class="fw-bold mb-0 text-dark"><i class="bi bi-box-seam me-2"></i>Бараа бүртгэл</h5>
+    </div>
+
+    <div class="card form-card border-0 p-4">
+        <form action="{{ url_for('add_product') }}" method="POST">
+            
+            <div class="mb-3">
+                <label class="form-label fw-bold text-secondary small">1. КОД (SKU)</label>
+                <input type="text" name="sku" class="form-control form-control-lg" placeholder="Жишээ: NUM-001" required>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label fw-bold text-secondary small">2. БАРААНЫ НЭР</label>
+                <input type="text" name="name" class="form-control form-control-lg" placeholder="Барааны нэр бичнэ үү" required>
+            </div>
+
+            <div class="row g-3 mb-3">
+                <div class="col-6">
+                    <label class="form-label fw-bold text-success small">3. ЖИЖИГЛЭН ҮНЭ</label>
+                    <input type="number" step="0.1" name="retail_price" class="form-control" placeholder="0₮">
+                </div>
+                <div class="col-6">
+                    <label class="form-label fw-bold text-primary small">4. БӨӨНИЙ ҮНЭ</label>
+                    <input type="number" step="0.1" name="wholesale_price" class="form-control" placeholder="0₮">
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label fw-bold text-secondary small">5. ӨРТӨГ (Авах үнэ)</label>
+                <input type="number" step="0.1" name="cost_price" class="form-control" placeholder="0₮">
+            </div>
+
+            <div class="mb-4">
+                <label class="form-label fw-bold text-secondary small">6. ТӨРӨЛ СОНГОХ</label>
+                <select name="category" class="form-select form-select-lg">
+                    {% for c in categories %}
+                    <option value="{{ c }}">{{ c }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="mb-4 p-3 bg-light rounded-3 border">
+                <label class="form-label fw-bold text-dark small text-uppercase">Анхны үлдэгдэл (Тоо)</label>
+                <input type="number" step="0.1" name="stock" class="form-control fw-bold text-center fs-4" value="0">
+            </div>
+
+            <button type="submit" class="btn btn-primary w-100 py-3 fw-bold rounded-3 text-uppercase shadow-sm">
+                <i class="bi bi-save me-2"></i> Хадгалах
+            </button>
+        </form>
+    </div>
+</div>
+{% endblock %}

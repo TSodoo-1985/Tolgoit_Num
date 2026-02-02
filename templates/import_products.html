@@ -1,0 +1,40 @@
+{% extends "layout.html" %}
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-7">
+            <div class="card shadow-sm border-0 rounded-4">
+                <div class="card-header bg-dark text-white py-3">
+                    <h5 class="mb-0 fw-bold"><i class="bi bi-file-earmark-excel me-2"></i>Бөөнөөр бараа нэмэх</h5>
+                </div>
+                <div class="card-body p-4 text-center">
+                    <p class="text-muted">Та доорх зааврын дагуу Excel файлаа бэлдэж оруулна уу.</p>
+                    
+                    <div class="d-grid gap-3">
+                        <a href="{{ url_for('download_template') }}" class="btn btn-outline-primary py-3 rounded-3">
+                            <i class="bi bi-download me-2"></i>1. Бэлдэц файл татах (Монгол)
+                        </a>
+
+                        <div class="py-2"><i class="bi bi-arrow-down fs-3 text-muted"></i></div>
+
+                        <form action="{{ url_for('import_products_action') }}" method="POST" enctype="multipart/form-data" class="text-start">
+                            <div class="mb-4">
+                                <label class="form-label fw-bold small">2. Бэлтгэсэн Excel файлаа сонгох</label>
+                                <input type="file" name="file" class="form-control border-2" accept=".xlsx" required>
+                            </div>
+                            <button type="submit" class="btn btn-success btn-lg w-100 fw-bold shadow-sm">
+                                <i class="bi bi-cloud-upload me-2"></i>МЭДЭЭЛЛИЙГ СИСТЕМД ХУУЛАХ
+                            </button>
+                        </form>
+                    </div>
+
+                    <div class="alert alert-warning mt-4 border-0 small text-start">
+                        <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                        <strong>Анхаар:</strong> Баганын нэрийг (Код, Нэр гм) өөрчилж болохгүй. Барааны код давхардвал үлдэгдэл дээр нь нэмэгдэхийг анхаарна уу.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

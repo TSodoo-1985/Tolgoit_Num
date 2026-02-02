@@ -1,0 +1,37 @@
+{% extends "layout.html" %}
+{% block content %}
+<div class="container mt-4">
+    <h3>📦 Багц / Ком задлах заавар бүртгэх</h3>
+    <div class="card p-4 mb-4">
+        <form method="POST">
+            <div class="mb-3">
+                <label>Үндсэн Комын SKU:</label>
+                <input type="text" name="parent_sku" class="form-control" placeholder="Жишээ: DW172501" required>
+            </div>
+            <div class="mb-3">
+                <label>Задрах сэлбэгүүдийн SKU (таслалаар зааглана уу):</label>
+                <textarea name="child_skus" class="form-control" rows="3" placeholder="DW172509, DW172510, DW172511..."></textarea>
+            </div>
+            <button type="submit" class="btn btn-primary">Хадгалах</button>
+        </form>
+    </div>
+
+    <h4>Одоо байгаа зааврууд:</h4>
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Комын SKU</th>
+                <th>Задрах сэлбэгүүд</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for parent, children in packages.items() %}
+            <tr>
+                <td><strong>{{ parent }}</strong></td>
+                <td>{{ children|join(', ') }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

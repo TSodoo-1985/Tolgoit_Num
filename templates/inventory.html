@@ -1,0 +1,172 @@
+{% extends "layout.html" %}
+{% block content %}
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" />
+
+<style>
+    body { background-color: #f4f7f6; }
+    .card { border: none; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
+    .select2-container--bootstrap-5 .select2-selection { height: 45px; display: flex; align-items: center; border: 2px solid #dee2e6; border-radius: 8px; }
+    
+    @media (max-width: 768px) {
+        .container { padding-left: 8px; padding-right: 8px; }
+        .card-body { padding: 15px !important; }
+        h5, .card-header { font-size: 1rem; }
+        .table { font-size: 0.85rem; }
+        .btn-lg { font-size: 1rem; padding: 12px; }
+    }
+</style>
+
+<div class="container mt-2">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <a href="{{ url_for('dashboard') }}" class="btn btn-outline-secondary btn-sm rounded-pill px-3">
+            <i class="bi bi-arrow-left me-1"></i>Буцах
+        </a>
+        <h5 class="fw-bold mb-0"><i class="bi bi-box-seam me-2 text-primary"></i>Агуулахын Тооллого</h5>
+    </div>
+
+    <div class="row g-3">
+        <div class="col-md-5">
+            <div class="card shadow-sm mb-4 border-top border-primary border-4">
+                <div class="card-header bg-white fw-bold py-3">Шинэ тооллого бүртгэх</div>
+                <div class="card-body p-4">
+                    <form action="/do_inventory" method="POST">
+                        <div class="mb-4">
+                            <label class="form-label small fw-bold text-muted text-uppercase">🔎 Бараа хайх (Код эсвэл нэр)</label>
+                            <select name="product_id" id="productSelect" class="form-select" required>
+                                <option value="" disabled selected>Барааны нэр эсвэл код бичнэ үү...</option>
+                                {% for p in products %}
+                                <option value="{{ p.id }}">
+                                    {{ p.sku }} - {{ p.name }} (Одоо: {{ p.stock|int }})
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="mb-4">
+                            <label class="form-label small fw-bold text-muted text-uppercase">🔢 Бодит тоолсон тоо</label>
+                            <input type="number" step="0.1" name="quantity" class="form-control form-control-lg border-2 border-primary shadow-sm" placeholder="0.0" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-lg w-100 fw-bold shadow">
+                            <i class="bi bi-check-circle me-2"></i>ХАДГАЛАХ
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <div class="card shadow-sm border-top border-warning border-4">
+                <div class="card-header bg-white fw-bold py-3">Багц / Ком задлах</div>
+                <div class="card-body">
+                    <p class="small text-muted mb-3">Ком барааг задлан сэлбэг болгох бол доорх товчийг ашиглана уу.</p>
+                    <button type="button" class="btn btn-warning w-100 fw-bold" data-bs-toggle="modal" data-bs-target="#disassembleModal">
+                        <i class="bi bi-tools me-2"></i>БАГЦ ЗАДЛАХ
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-7">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-white fw-bold py-3 d-flex justify-content-between">
+                    <span>Сүүлийн тооллогын түүх</span>
+                    <i class="bi bi-clock-history text-muted"></i>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0 text-center">
+                        <thead class="bg-light">
+                            <tr style="font-size: 0.75rem;" class="text-uppercase text-muted">
+                                <th class="ps-3 text-start">Огноо</th>
+                                <th class="text-start">Бараа</th>
+                                <th>Зөрүү</th>
+                                <th class="pe-3 text-end">Тоолсон</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for h in history %}
+                            <tr>
+                                <td class="ps-3 text-start">
+                                    <div class="small text-dark fw-semibold">{{ h.timestamp.strftime('%m/%d') }}</div>
+                                    <div style="font-size: 10px;" class="text-muted">{{ h.timestamp.strftime('%H:%M') }}</div>
+                                </td>
+                                <td class="text-start">
+                                    <div class="fw-bold text-primary">{{ h.product.sku }}</div>
+                                    <div style="font-size: 11px; max-width: 150px;" class="text-truncate">{{ h.product.name }}</div>
+                                </td>
+                                <td>
+                                    <span class="badge {{ 'bg-success-subtle text-success' if '+' in h.type else 'bg-danger-subtle text-danger' }} small px-2">
+                                        {{ h.type }}
+                                    </span>
+                                </td>
+                                <td class="pe-3 text-end">
+                                    <div class="fw-bold text-dark">{{ h.quantity|int }} ш</div>
+                                    <span class="badge bg-light text-dark border fw-normal" style="font-size: 10px;">{{ h.user.username }}</span>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                            {% if not history %}
+                            <tr>
+                                <td colspan="4" class="text-center py-5 text-muted small">
+                                    <i class="bi bi-inbox d-block fs-2 mb-2"></i>
+                                    Одоогоор тооллогын түүх байхгүй байна.
+                                </td>
+                            </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="disassembleModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-warning">
+                <h5 class="modal-title fw-bold text-dark"><i class="bi bi-tools me-2"></i>Багц / Ком задлах</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form action="{{ url_for('disassemble_simple') }}" method="POST">
+                <div class="modal-body p-4">
+                    <label class="form-label small fw-bold text-muted text-uppercase">Задлах Комын SKU сонгох</label>
+                    <select name="product_id" id="disassembleSelect" class="form-select" required>
+                        <option value="" disabled selected>Задлах заавартай ком бараа сонгох...</option>
+                        {% for p in package_products %}
+                            {% if p.stock > 0 %}
+                                <option value="{{ p.id }}">{{ p.sku }} - {{ p.name }} (Үлдэгдэл: {{ p.stock|int }})</option>
+                            {% endif %}
+                        {% endfor %}
+                    </select>
+                    <div class="alert alert-info mt-3 small mb-0">
+                        <i class="bi bi-info-circle me-1"></i> Сонгосон комноос 1 ш хасагдаж, тохируулсан зааврын дагуу сэлбэгүүд нэмэгдэнэ.
+                    </div>
+                </div>
+                <div class="modal-footer bg-light">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Цуцлах</button>
+                    <button type="submit" class="btn btn-warning fw-bold px-4" onclick="return confirm('Та итгэлтэй байна уу?')">ЗАДЛАХ</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+
+<script>
+    $(document).ready(function() {
+        $('#productSelect').select2({
+            theme: 'bootstrap-5',
+            width: '100%',
+            placeholder: 'Барааны нэр эсвэл код бичнэ үү...',
+            allowClear: true,
+            dropdownParent: $('#productSelect').parent()
+        });
+
+        $('#disassembleSelect').select2({
+            theme: 'bootstrap-5',
+            width: '100%',
+            dropdownParent: $('#disassembleModal')
+        });
+    });
+</script>
+{% endblock %}
