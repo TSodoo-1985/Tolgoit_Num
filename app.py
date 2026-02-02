@@ -267,6 +267,7 @@ def inventory():
     return render_template('inventory.html', products=products, history=history)
 
 @app.route('/do_inventory', methods=['POST'])
+@app.route('/do_inventory', methods=['POST'])
 @login_required
 def do_inventory():
     product_id = request.form.get('product_id')
@@ -284,16 +285,15 @@ def do_inventory():
     # 1. Барааны үлдэгдлийг шинэчлэх
     product.stock = new_stock
 
-    # 2. Гүйлгээний түүхэнд "Тооллого" гэж бүртгэх
-    # Таны HTML дээрх "Зөрүү" хэсэгт харагдах утга
+    # 2. Гүйлгээний түүхэнд бүртгэх
+    # Таны Transaction моделд 'price' болон 'note' байхгүй тул тэдгээрийг хаслаа.
+    # Хэрэв зөрүүг харахыг хүсвэл 'type' баганад нь тайлбар болгож хадгалж болно.
     transaction = Transaction(
         product_id=product.id,
-        quantity=new_stock, # Тоолсон бодит тоог хадгалав
-        type=f"Тооллого ({'+' if diff >= 0 else ''}{diff})", # Зөрүүг хаалтанд харуулна
+        quantity=new_stock, # Тоолсон бодит тоо
+        type=f"Тооллого (Зөрүү: {'+' if diff >= 0 else ''}{diff})", 
         timestamp=datetime.now(),
-        user_id=current_user.id,
-        price=0,
-        note=f"Хуучин үлдэгдэл: {old_stock}"
+        user_id=current_user.id
     )
     
     db.session.add(transaction)
