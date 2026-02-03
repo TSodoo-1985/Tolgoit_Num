@@ -1080,18 +1080,21 @@ def export_transactions(type):
     data = []
     for t in transactions:
         cost_price = t.product.cost_price if t.product else 0
-        sell_price = 0
-        if "Бөөний" in t.type:
-            sell_price = t.product.wholesale_price if t.product else 0
-        elif "Жижиглэн" in t.type:
-            sell_price = t.product.retail_price if t.product else 0
+        
+        # Тухайн үед ЗАРСАН үнийг t.price-аас авна (Байхгүй бол үндсэн үнийг авна)
+        sell_price = t.price if (t.price and t.price > 0) else 0
+        if sell_price == 0 and t.product:
+            if "Бөөний" in t.type:
+                sell_price = t.product.wholesale_price
+            elif "Жижиглэн" in t.type:
+                sell_price = t.product.retail_price
         
         unit_profit = sell_price - cost_price
         total_profit = unit_profit * t.quantity
         
         data.append({
             'Огноо': t.timestamp.strftime('%Y-%m-%d'),
-            'Ангилал': t.product.category if t.product else "-", # НЭМЭГДЭВ
+            'Ангилал': t.product.category if t.product else "-",
             'Барааны код': t.product.sku if t.product else "-",
             'Барааны нэр': t.product.name if t.product else "Устгагдсан",
             'Гүйлгээний төрөл': t.type,
@@ -1103,7 +1106,25 @@ def export_transactions(type):
         })
         
     df = pd.DataFrame(data)
-    # Нийт дүн нэмэх хэсэгт баганы нэрийг зөрүүлэхгүй тулд:
+
+    # --- НЭГТГЭХ (GROUPING) ЛОГИК ЭНД НЭМЭГДЭВ ---
+    if not df.empty:
+        df = df.fillna(0)
+        # Ижил барааг ижил үнээр зарсан бол нэгтгэнэ. Хэрэв үнэ өөр бол тусад нь харуулна.
+        group_cols = [
+            'Огноо', 'Ангилал', 'Барааны код', 'Барааны нэр', 
+            'Гүйлгээний төрөл', 'Нэгж өртөг', 'Зарах үнэ', 'Ажилтан'
+        ]
+        df = df.groupby(group_cols, as_index=False).agg({
+            'Тоо ширхэг': 'sum',
+            'Нийт ашиг': 'sum'
+        })
+        # Багануудын дарааллыг анхны хэвэнд нь оруулах
+        order = ['Огноо', 'Ангилал', 'Барааны код', 'Барааны нэр', 'Гүйлгээний төрөл', 
+                 'Тоо ширхэг', 'Нэгж өртөг', 'Зарах үнэ', 'Нийт ашиг', 'Ажилтан']
+        df = df[order]
+    # --------------------------------------------
+
     if not df.empty and type != 'Орлого':
         totals = {
             'Огноо': 'НИЙТ ДҮН:', 'Ангилал': '', 'Барааны код': '', 'Барааны нэр': '', 'Гүйлгээний төрөл': '',
@@ -1122,35 +1143,28 @@ def export_transactions(type):
         workbook = writer.book
         worksheet = writer.sheets[sheet_name[:31]]
         
-        # --- ФОРМАТУУД ТОХИРУУЛАХ ---
         border_fmt = workbook.add_format({'border': 1, 'align': 'left'})
         header_fmt = workbook.add_format({'bold': True, 'bg_color': '#D7E4BC', 'border': 1, 'align': 'center'})
         money_fmt = workbook.add_format({'num_format': '#,##0', 'border': 1, 'align': 'right'})
         total_row_fmt = workbook.add_format({'bold': True, 'bg_color': '#FCE4D6', 'border': 1, 'num_format': '#,##0'})
 
-        # Толгой мөрийг форматлах
         for col_num, value in enumerate(df.columns.values):
             worksheet.write(0, col_num, value, header_fmt)
 
-        # Бүх нүдэнд хүрээ болон мөнгөн дүнгийн форматлах
         for row_num in range(1, len(df)):
             for col_num in range(len(df.columns)):
                 val = df.iloc[row_num-1, col_num]
                 col_name = df.columns[col_num]
-                
-                # Хэрэв мөнгөн дүнтэй багана бол
                 if any(x in col_name for x in ['өртөг', 'үнэ', 'ашиг']):
                     worksheet.write(row_num, col_num, val, money_fmt)
                 else:
                     worksheet.write(row_num, col_num, val, border_fmt)
 
-        # Хамгийн сүүлийн мөрийг (Total) форматлах
         if not df.empty:
             last_row_idx = len(df)
             for col_num in range(len(df.columns)):
                 worksheet.write(last_row_idx, col_num, df.iloc[-1, col_num], total_row_fmt)
 
-        # Баганын өргөнийг автоматаар тохируулах
         for i, col in enumerate(df.columns):
             column_len = max(df[col].astype(str).map(len).max(), len(col)) + 4
             worksheet.set_column(i, i, column_len)
@@ -1158,7 +1172,6 @@ def export_transactions(type):
         worksheet.freeze_panes(1, 0)
 
     output.seek(0)
-    
     mgl_filename = f"{type}_Тайлан_{date_range_label}.xlsx"
     response = send_file(output, as_attachment=True, download_name=mgl_filename)
     response.headers["Content-Disposition"] = f"attachment; filename*=UTF-8''{quote(mgl_filename)}"
