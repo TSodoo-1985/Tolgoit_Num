@@ -3,10 +3,12 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
     body { background-color: #f1f5f9; font-family: 'Segoe UI', sans-serif; }
-    .card { border: none; border-radius: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+    .card { border: none; border-radius: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); transition: transform 0.2s; }
+    .card:hover { transform: translateY(-5px); }
     .stat-value { font-size: 1.5rem; font-weight: 800; }
     .filter-section { background: white; border-radius: 15px; padding: 20px; margin-bottom: 25px; }
     .chart-container { position: relative; height: 250px; width: 100%; }
+    .category-title { color: #4a5568; border-left: 4px solid #0d6efd; padding-left: 10px; margin-bottom: 15px; }
 </style>
 
 <div class="container pb-5 mt-3">
@@ -19,15 +21,23 @@
 
     <div class="filter-section shadow-sm border border-light">
         <form action="{{ url_for('statistics') }}" method="GET" class="row g-3 align-items-end">
-            <div class="col-6 col-md-4">
+            <div class="col-6 col-md-3">
                 <label class="form-label fw-bold small text-muted text-uppercase">Эхлэх огноо</label>
                 <input type="date" name="start_date" class="form-control border-2" value="{{ start_date }}">
             </div>
-            <div class="col-6 col-md-4">
+            <div class="col-6 col-md-3">
                 <label class="form-label fw-bold small text-muted text-uppercase">Дуусах огноо</label>
                 <input type="date" name="end_date" class="form-control border-2" value="{{ end_date }}">
             </div>
-            <div class="col-12 col-md-4">
+            <div class="col-12 col-md-3">
+                <label class="form-label fw-bold small text-muted text-uppercase">Төрөл</label>
+                <select name="sale_type" class="form-select border-2">
+                    <option value="Бүгд" {% if sale_type == 'Бүгд' %}selected{% endif %}>Бүгд (Бөөний+Жижиглэн)</option>
+                    <option value="Бөөний" {% if sale_type == 'Бөөний' %}selected{% endif %}>Зөвхөн Бөөний</option>
+                    <option value="Жижиглэн" {% if sale_type == 'Жижиглэн' %}selected{% endif %}>Зөвхөн Жижиглэн</option>
+                </select>
+            </div>
+            <div class="col-12 col-md-3">
                 <button type="submit" class="btn btn-primary w-100 fw-bold py-2 shadow-sm">
                     <i class="bi bi-search me-2"></i>ШҮҮЖ ХАРАХ
                 </button>
@@ -60,7 +70,7 @@
         </div>
     </div>
 
-    <div class="row g-4">
+    <div class="row g-4 mb-5">
         <div class="col-lg-6">
             <div class="card p-4">
                 <div class="d-flex justify-content-between align-items-center mb-3">
@@ -74,12 +84,40 @@
         </div>
         <div class="col-lg-6">
             <div class="card p-4">
-                <h6 class="fw-bold mb-3 text-uppercase text-muted">🔝 Топ 5 Бараа (Ширхэгээр)</h6>
+                <h6 class="fw-bold mb-3 text-uppercase text-muted">🔝 Нийт Топ 5 Бараа</h6>
                 <div class="chart-container">
                     <canvas id="pieChart"></canvas>
                 </div>
             </div>
         </div>
+    </div>
+
+    <hr class="my-5">
+    <h4 class="fw-bold mb-4 text-dark">
+        <i class="bi bi-collection-fill me-2 text-primary"></i>Ангилал бүрийн ТОП 5 бараа
+    </h4>
+    
+    <div class="row g-4">
+        {% for cat_name, items in stats_data.items() %}
+        <div class="col-12 col-md-6 col-lg-4">
+            <div class="card h-100 shadow-sm border-0">
+                <div class="card-body p-4">
+                    <h6 class="category-title fw-bold text-uppercase small">{{ cat_name }}</h6>
+                    <div class="mt-3">
+                        {% for item in items %}
+                        <div class="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom border-light">
+                            <div class="d-flex align-items-center">
+                                <span class="badge bg-light text-dark border me-2" style="width: 25px;">{{ loop.index }}</span>
+                                <span class="small fw-semibold text-dark">{{ item.name }}</span>
+                            </div>
+                            <span class="badge rounded-pill bg-info text-dark fw-bold">{{ item.total|int }} ш</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
     </div>
 </div>
 
@@ -123,7 +161,7 @@
 
     // 3. Зардлын график
     new Chart(document.getElementById('expenseChart'), {
-        type: 'bar', // Зардлыг баганан графикаар харуулбал илүү тодорхой
+        type: 'bar',
         data: {
             labels: lineLabels,
             datasets: [{
