@@ -1086,7 +1086,7 @@ def export_balance():
     )
     response.headers["Content-Disposition"] = f"attachment; filename*=UTF-8''{quote(mgl_filename)}"
     return response
-    
+
 @app.route('/export-transactions/<type>')
 @login_required
 def export_transactions(type):
@@ -1115,7 +1115,9 @@ def export_transactions(type):
     for t in transactions:
         cost_price = t.product.cost_price if t.product else 0
         
-        # Тухайн үед ЗАРСАН үнийг t.price-аас авна (Байхгүй бол үндсэн үнийг авна)
+        # --- ЗАСАРСАН ҮНЭ ТООЦОХ ЛОГИК ---
+        # 1. t.price (касс дээр бичсэн үнэ) байвал түүнийг авна.
+        # 2. Байхгүй бол (0 бол) Wholesale эсвэл Retail-ийг авна.
         sell_price = t.price if (t.price and t.price > 0) else 0
         if sell_price == 0 and t.product:
             if "Бөөний" in t.type:
@@ -1141,10 +1143,9 @@ def export_transactions(type):
         
     df = pd.DataFrame(data)
 
-    # --- НЭГТГЭХ (GROUPING) ЛОГИК ЭНД НЭМЭГДЭВ ---
+    # --- НЭГТГЭХ (GROUPING) ЛОГИК ---
     if not df.empty:
         df = df.fillna(0)
-        # Ижил барааг ижил үнээр зарсан бол нэгтгэнэ. Хэрэв үнэ өөр бол тусад нь харуулна.
         group_cols = [
             'Огноо', 'Ангилал', 'Барааны код', 'Барааны нэр', 
             'Гүйлгээний төрөл', 'Нэгж өртөг', 'Зарах үнэ', 'Ажилтан'
@@ -1153,12 +1154,11 @@ def export_transactions(type):
             'Тоо ширхэг': 'sum',
             'Нийт ашиг': 'sum'
         })
-        # Багануудын дарааллыг анхны хэвэнд нь оруулах
         order = ['Огноо', 'Ангилал', 'Барааны код', 'Барааны нэр', 'Гүйлгээний төрөл', 
                  'Тоо ширхэг', 'Нэгж өртөг', 'Зарах үнэ', 'Нийт ашиг', 'Ажилтан']
         df = df[order]
-    # --------------------------------------------
 
+    # --- НИЙТ ДҮН НЭМЭХ ---
     if not df.empty and type != 'Орлого':
         totals = {
             'Огноо': 'НИЙТ ДҮН:', 'Ангилал': '', 'Барааны код': '', 'Барааны нэр': '', 'Гүйлгээний төрөл': '',
@@ -1169,6 +1169,7 @@ def export_transactions(type):
         }
         df = pd.concat([df, pd.DataFrame([totals])], ignore_index=True)
         
+    # --- EXCEL БҮТЭЭХ БОЛОН ФОРМАТЛАХ ---
     output = BytesIO()
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
         sheet_name = f"{type} Тайлан"
@@ -1177,14 +1178,17 @@ def export_transactions(type):
         workbook = writer.book
         worksheet = writer.sheets[sheet_name[:31]]
         
+        # Форматууд
         border_fmt = workbook.add_format({'border': 1, 'align': 'left'})
         header_fmt = workbook.add_format({'bold': True, 'bg_color': '#D7E4BC', 'border': 1, 'align': 'center'})
         money_fmt = workbook.add_format({'num_format': '#,##0', 'border': 1, 'align': 'right'})
         total_row_fmt = workbook.add_format({'bold': True, 'bg_color': '#FCE4D6', 'border': 1, 'num_format': '#,##0'})
 
+        # Header бичих
         for col_num, value in enumerate(df.columns.values):
             worksheet.write(0, col_num, value, header_fmt)
 
+        # Дата бичих (Нийт дүнгээс бусад мөрүүд)
         for row_num in range(1, len(df)):
             for col_num in range(len(df.columns)):
                 val = df.iloc[row_num-1, col_num]
@@ -1194,11 +1198,13 @@ def export_transactions(type):
                 else:
                     worksheet.write(row_num, col_num, val, border_fmt)
 
+        # Хамгийн сүүлчийн "НИЙТ ДҮН" мөрийг тусгай форматаар бичих
         if not df.empty:
             last_row_idx = len(df)
             for col_num in range(len(df.columns)):
                 worksheet.write(last_row_idx, col_num, df.iloc[-1, col_num], total_row_fmt)
 
+        # Баганын өргөн тохируулах
         for i, col in enumerate(df.columns):
             column_len = max(df[col].astype(str).map(len).max(), len(col)) + 4
             worksheet.set_column(i, i, column_len)
@@ -1210,6 +1216,7 @@ def export_transactions(type):
     response = send_file(output, as_attachment=True, download_name=mgl_filename)
     response.headers["Content-Disposition"] = f"attachment; filename*=UTF-8''{quote(mgl_filename)}"
     return response
+    
     
 @app.route('/export-inventory-report')
 @login_required
