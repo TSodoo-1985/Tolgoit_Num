@@ -745,7 +745,7 @@ def buy_old_bow():
                 purchase_price=cost,
                 retail_price=retail,
                 quantity=int(qty),
-                date=datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                date=datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
                 user_id=current_user.id  # ЭНҮҮНИЙГ НЭМЭХ ХЭРЭГТЭЙ
             )
             
