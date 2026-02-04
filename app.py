@@ -56,6 +56,7 @@ class Transaction(db.Model):
     type = db.Column(db.String(50), nullable=False)
     quantity = db.Column(db.Float, nullable=False)
     price = db.Column(db.Float, nullable=True, default=0.0)
+    description = db.Column(db.Text, nullable=True) # ЭНЭ БАГАНЫГ НЭМЭХ (Багцын тайлбар хадгална)
     timestamp = db.Column(db.DateTime, default=datetime.now)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
     product = db.relationship('Product', backref='transactions')
@@ -110,7 +111,22 @@ class ProductLink(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     parent_sku = db.Column(db.String(50), nullable=False, index=True) # Комны SKU
     child_sku = db.Column(db.String(50), nullable=False)              # Сэлбэгийн SKU
-    quantity = db.Column(db.Float, default=1.0)                       # Ширхэг
+    quantity = db.Column(db.Float, default=1.0)
+    
+# Багцын ерөнхий мэдээлэл (Загвар)
+class Bundle(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False) # Багцын нэр (Жишээ нь: 'Өглөөний цай')
+    set_price = db.Column(db.Float, nullable=False) # Багцын зарах үнэ
+    items = db.relationship('BundleItem', backref='bundle', cascade="all, delete-orphan")
+
+# Багц дотор орж байгаа бараанууд
+class BundleItem(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    bundle_id = db.Column(db.Integer, db.ForeignKey('bundle.id'), nullable=False)
+    product_id = db.Column(db.Integer, db.ForeignKey('product.id'), nullable=False)
+    quantity = db.Column(db.Float, nullable=False) # Хэдэн ширхэг орох вэ
+    product = db.relationship('Product')# Ширхэг
 
 login_manager = LoginManager(app)
 login_manager.login_view = 'login'
@@ -904,6 +920,36 @@ def complete_sale():
     
     db.session.commit()
     return redirect(url_for('inventory'))
+
+@app.route('/create_bundle', methods=['POST'])
+@login_required
+def create_bundle():
+    data = request.json
+    name = data.get('name')
+    set_price = data.get('set_price')
+    items = data.get('items') # [{'product_id': 1, 'quantity': 2}, ...]
+
+    if not name or not items:
+        return jsonify({"status": "error", "message": "Мэдээлэл дутуу байна"}), 400
+
+    try:
+        new_bundle = Bundle(name=name, set_price=float(set_price))
+        db.session.add(new_bundle)
+        db.session.flush() # ID-г нь авахын тулд түр хадгална
+
+        for item in items:
+            bundle_item = BundleItem(
+                bundle_id=new_bundle.id,
+                product_id=item['product_id'],
+                quantity=float(item['quantity'])
+            )
+            db.session.add(bundle_item)
+
+        db.session.commit()
+        return jsonify({"status": "success", "message": "Багцын загвар хадгалагдлаа"})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 # --- ТАЙЛАН, СТАТИСТИК ---
 @app.route('/statistics')
