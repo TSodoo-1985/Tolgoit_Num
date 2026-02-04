@@ -1115,9 +1115,7 @@ def export_transactions(type):
     for t in transactions:
         cost_price = t.product.cost_price if t.product else 0
         
-        # --- ЗАСАРСАН ҮНЭ ТООЦОХ ЛОГИК ---
-        # 1. t.price (касс дээр бичсэн үнэ) байвал түүнийг авна.
-        # 2. Байхгүй бол (0 бол) Wholesale эсвэл Retail-ийг авна.
+        # --- ЧИНИЙ ГАРГАСАН САНАА: ЗАСАРСАН ҮНЭ ТООЦОХ ---
         sell_price = t.price if (t.price and t.price > 0) else 0
         if sell_price == 0 and t.product:
             if "Бөөний" in t.type:
@@ -1129,23 +1127,25 @@ def export_transactions(type):
         total_profit = unit_profit * t.quantity
         
         data.append({
-            'Огноо': t.timestamp.strftime('%Y-%m-%d'),
+            # Цаг минутыг нэмснээр гүйлгээ бүр ялгарч харагдахад тусална
+            'Огноо': t.timestamp.strftime('%Y-%m-%d %H:%M'), 
             'Ангилал': t.product.category if t.product else "-",
             'Барааны код': t.product.sku if t.product else "-",
             'Барааны нэр': t.product.name if t.product else "Устгагдсан",
             'Гүйлгээний төрөл': t.type,
             'Тоо ширхэг': t.quantity,
-            'Нэгж өртөг': cost_price,
-            'Зарах үнэ': sell_price,
-            'Нийт ашиг': total_profit if sell_price > 0 else 0,
+            'Нэгж өртөг': float(cost_price),
+            'Зарах үнэ': float(sell_price), # Энд зассан үнэ чинь орж ирнэ
+            'Нийт ашиг': float(total_profit) if sell_price > 0 else 0,
             'Ажилтан': t.user.username if t.user else "-"
         })
         
     df = pd.DataFrame(data)
 
-    # --- НЭГТГЭХ (GROUPING) ЛОГИК ---
+    # --- НЭГТГЭХ ЛОГИКИЙГ САЙЖРУУЛАХ ---
     if not df.empty:
         df = df.fillna(0)
+        # 'Зарах үнэ' болон 'Огноо'-гоор нэгтгэх тул зассан үнүүд ялгарч гарна
         group_cols = [
             'Огноо', 'Ангилал', 'Барааны код', 'Барааны нэр', 
             'Гүйлгээний төрөл', 'Нэгж өртөг', 'Зарах үнэ', 'Ажилтан'
@@ -1154,6 +1154,7 @@ def export_transactions(type):
             'Тоо ширхэг': 'sum',
             'Нийт ашиг': 'sum'
         })
+        
         order = ['Огноо', 'Ангилал', 'Барааны код', 'Барааны нэр', 'Гүйлгээний төрөл', 
                  'Тоо ширхэг', 'Нэгж өртөг', 'Зарах үнэ', 'Нийт ашиг', 'Ажилтан']
         df = df[order]
@@ -1169,7 +1170,7 @@ def export_transactions(type):
         }
         df = pd.concat([df, pd.DataFrame([totals])], ignore_index=True)
         
-    # --- EXCEL БҮТЭЭХ БОЛОН ФОРМАТЛАХ ---
+    # --- EXCEL ФОРМАТЛАХ ХЭСЭГ (Чиний хуучин кодтой яг ижил) ---
     output = BytesIO()
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
         sheet_name = f"{type} Тайлан"
@@ -1178,17 +1179,14 @@ def export_transactions(type):
         workbook = writer.book
         worksheet = writer.sheets[sheet_name[:31]]
         
-        # Форматууд
         border_fmt = workbook.add_format({'border': 1, 'align': 'left'})
         header_fmt = workbook.add_format({'bold': True, 'bg_color': '#D7E4BC', 'border': 1, 'align': 'center'})
         money_fmt = workbook.add_format({'num_format': '#,##0', 'border': 1, 'align': 'right'})
         total_row_fmt = workbook.add_format({'bold': True, 'bg_color': '#FCE4D6', 'border': 1, 'num_format': '#,##0'})
 
-        # Header бичих
         for col_num, value in enumerate(df.columns.values):
             worksheet.write(0, col_num, value, header_fmt)
 
-        # Дата бичих (Нийт дүнгээс бусад мөрүүд)
         for row_num in range(1, len(df)):
             for col_num in range(len(df.columns)):
                 val = df.iloc[row_num-1, col_num]
@@ -1198,13 +1196,11 @@ def export_transactions(type):
                 else:
                     worksheet.write(row_num, col_num, val, border_fmt)
 
-        # Хамгийн сүүлчийн "НИЙТ ДҮН" мөрийг тусгай форматаар бичих
         if not df.empty:
             last_row_idx = len(df)
             for col_num in range(len(df.columns)):
                 worksheet.write(last_row_idx, col_num, df.iloc[-1, col_num], total_row_fmt)
 
-        # Баганын өргөн тохируулах
         for i, col in enumerate(df.columns):
             column_len = max(df[col].astype(str).map(len).max(), len(col)) + 4
             worksheet.set_column(i, i, column_len)
@@ -1216,7 +1212,6 @@ def export_transactions(type):
     response = send_file(output, as_attachment=True, download_name=mgl_filename)
     response.headers["Content-Disposition"] = f"attachment; filename*=UTF-8''{quote(mgl_filename)}"
     return response
-    
     
 @app.route('/export-inventory-report')
 @login_required
