@@ -3,57 +3,110 @@
 <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" />
 
+<style>
+    body { background-color: #f8f9fa; }
+    .card { border-radius: 15px; border: none; }
+    
+    /* Select2-ийг илүү тод, өндөр, харагдахуйц болгох */
+    .select2-container--bootstrap-5 .select2-selection {
+        border: 2px solid #0d6efd !important; /* Тод цэнхэр хүрээ */
+        min-height: 48px !important;
+        background-color: #ffffff !important;
+        border-radius: 10px !important;
+        display: flex !important;
+        align-items: center !important;
+    }
+    
+    .select2-container--bootstrap-5 .select2-selection--single .select2-selection__rendered {
+        color: #0d6efd !important;
+        font-weight: 600 !important;
+        padding-left: 15px !important;
+    }
+
+    .select2-container--bootstrap-5 .select2-selection__arrow {
+        height: 46px !important;
+    }
+
+    /* Хайлтын хэсгийн арын дэвсгэр */
+    .search-box-highlight {
+        background-color: #e7f1ff; 
+        border: 1px dashed #0d6efd;
+    }
+
+    .table-custom thead {
+        background-color: #212529;
+        color: white;
+    }
+</style>
+
 <div class="container mt-2">
     <div class="row justify-content-center">
         <div class="col-md-10">
+            <div class="mb-3">
+                <a href="{{ url_for('dashboard') }}" class="btn btn-outline-secondary btn-sm rounded-pill px-3">
+                    <i class="bi bi-arrow-left me-1"></i> Буцах
+                </a>
+            </div>
+
             <div class="card p-4 shadow-sm border-top border-warning border-4">
-                <h3 class="fw-bold text-warning text-center mb-4"><i class="bi bi-arrow-left-right me-2"></i>Олон бараа шилжүүлэх</h3>
-                
-                <div class="row g-2 mb-4 p-3 bg-light rounded-4">
-                    <div class="col-md-6">
-                        <label class="small fw-bold text-muted">Бараа сонгох</label>
+                <div class="text-center mb-4">
+                    <h3 class="fw-bold text-dark"><i class="bi bi-arrow-left-right text-warning me-2"></i>Олон бараа шилжүүлэх</h3>
+                    <p class="text-muted small">Бараануудаа сонгож жагсаалтад нэмсний дараа нэг дор батлаарай.</p>
+                </div>
+
+                <div class="row g-2 mb-4 p-4 rounded-4 search-box-highlight">
+                    <div class="col-md-7">
+                        <label class="form-label fw-bold text-primary small text-uppercase">
+                            <i class="bi bi-search me-1"></i> 1. Бараа хайх (SKU эсвэл Нэр)
+                        </label>
                         <select id="productSelect" class="form-select">
-                            <option value="">--- Хайх ---</option>
+                            <option value="">Бараа бичиж хайх...</option>
                             {% for p in products %}
                             <option value="{{ p.id }}" data-name="{{ p.name }}" data-sku="{{ p.sku }}" data-stock="{{ p.stock|int }}">
-                                {{ p.sku }} | {{ p.name }} ({{ p.stock|int }}ш)
+                                {{ p.sku }} | {{ p.name }} (Үлдэгдэл: {{ p.stock|int }} ш)
                             </option>
                             {% endfor %}
                         </select>
                     </div>
                     <div class="col-md-2">
-                        <label class="small fw-bold text-muted">Тоо</label>
-                        <input type="number" id="tempQty" class="form-control" value="1" min="0.1" step="0.1">
+                        <label class="form-label fw-bold text-primary small text-uppercase">2. Тоо</label>
+                        <input type="number" id="tempQty" class="form-control border-primary border-2 fw-bold" value="1" min="0.1" step="0.1" style="height: 48px; border-radius: 10px;">
                     </div>
-                    <div class="col-md-4 d-flex align-items-end">
-                        <button type="button" onclick="addItem()" class="btn btn-dark w-100 fw-bold">
-                            <i class="bi bi-plus-lg me-1"></i> Жагсаалтад нэмэх
+                    <div class="col-md-3 d-flex align-items-end">
+                        <button type="button" onclick="addItemToList()" class="btn btn-primary btn-lg w-100 fw-bold shadow-sm" style="height: 48px; border-radius: 10px;">
+                            <i class="bi bi-plus-circle-fill me-1"></i> НЭМЭХ
                         </button>
                     </div>
                 </div>
 
-                <form action="{{ url_for('special_transfer') }}" method="POST" id="transferForm">
+                <form action="{{ url_for('special_transfer') }}" method="POST">
                     <div class="table-responsive mb-4">
-                        <table class="table table-hover align-middle" id="transferTable">
-                            <thead class="table-light">
+                        <table class="table table-hover align-middle table-custom">
+                            <thead>
                                 <tr>
-                                    <th>SKU | Бараа</th>
-                                    <th width="120">Тоо ширхэг</th>
-                                    <th width="50"></th>
+                                    <th class="ps-3">Барааны мэдээлэл</th>
+                                    <th width="150">Тоо ширхэг</th>
+                                    <th width="80" class="text-center">Устгах</th>
                                 </tr>
                             </thead>
-                            <tbody id="itemList">
+                            <tbody id="transferBody" class="bg-white">
                                 </tbody>
                         </table>
+                        <div id="emptyMsg" class="text-center text-muted py-4 border rounded-3 bg-light">
+                            <i class="bi bi-cart-x fs-3 d-block mb-2"></i>
+                            Жагсаалт хоосон байна. Дээрх хэсгээс бараа хайж нэмнэ үү.
+                        </div>
                     </div>
 
                     <div class="mb-4">
-                        <label class="form-label fw-bold small text-muted">ХҮРЭХ ЦЭГ / ТАЙЛБАР</label>
-                        <input type="text" name="note" class="form-control form-control-lg border-2" placeholder="Жишээ: Салбар 2 руу, Дотоод хэрэгцээнд..." required>
+                        <label class="form-label fw-bold text-muted small text-uppercase">
+                            <i class="bi bi-info-circle me-1"></i> Хүрэх цэг / Тайлбар
+                        </label>
+                        <input type="text" name="note" class="form-control form-control-lg border-2" placeholder="Жишээ: Салбар-2 руу, Дотоод хэрэгцээ..." required style="border-radius: 10px;">
                     </div>
 
-                    <button type="submit" class="btn btn-warning btn-lg w-100 fw-bold py-3 shadow-sm">
-                        <i class="bi bi-send-fill me-2"></i> БҮХ ШИЛЖҮҮЛГИЙГ БАТЛАХ
+                    <button type="submit" class="btn btn-warning btn-lg w-100 fw-bold py-3 shadow-sm text-dark" style="border-radius: 12px;">
+                        <i class="bi bi-send-check-fill me-2"></i> ШИЛЖҮҮЛГИЙГ БАТЛАХ
                     </button>
                 </form>
             </div>
@@ -64,37 +117,63 @@
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 
+
+
 <script>
     $(document).ready(function() {
-        $('#productSelect').select2({ theme: 'bootstrap-5', width: '100%' });
+        // Select2-ийг идэвхжүүлэх
+        $('#productSelect').select2({
+            theme: 'bootstrap-5',
+            width: '100%',
+            dropdownParent: $('.card') // Утсан дээр хайлт зөв ажиллахад чухал
+        });
     });
 
-    function addItem() {
+    function addItemToList() {
         const sel = document.getElementById('productSelect');
         const opt = sel.options[sel.selectedIndex];
-        const qty = document.getElementById('tempQty').value;
+        const qtyInput = document.getElementById('tempQty');
+        const qty = qtyInput.value;
 
-        if (!opt.value || qty <= 0) return;
+        if (!opt.value || qty <= 0) {
+            alert("Бараагаа сонгоод тоог зөв оруулна уу.");
+            return;
+        }
 
-        const html = `
-            <tr>
-                <td>
+        const tbody = document.getElementById('transferBody');
+        document.getElementById('emptyMsg').style.display = 'none';
+
+        // Ижил бараа байгаа эсэхийг шалгах (сонголттой)
+        const rowHtml = `
+            <tr class="animate__animated animate__fadeIn">
+                <td class="ps-3">
                     <input type="hidden" name="product_ids[]" value="${opt.value}">
-                    <div class="fw-bold">${opt.getAttribute('data-sku')}</div>
-                    <small class="text-muted">${opt.getAttribute('data-name')}</small>
+                    <div class="fw-bold text-dark">${opt.getAttribute('data-sku')}</div>
+                    <div class="small text-secondary">${opt.getAttribute('data-name')}</div>
                 </td>
                 <td>
-                    <input type="number" name="quantities[]" value="${qty}" step="0.1" class="form-control form-control-sm border-2">
+                    <input type="number" name="quantities[]" value="${qty}" step="0.1" class="form-control border-2 fw-medium text-center">
                 </td>
-                <td>
-                    <button type="button" onclick="this.closest('tr').remove()" class="btn btn-outline-danger btn-sm border-0">
-                        <i class="bi bi-trash"></i>
+                <td class="text-center">
+                    <button type="button" class="btn btn-outline-danger btn-sm border-0" onclick="this.closest('tr').remove(); checkEmpty();">
+                        <i class="bi bi-trash3-fill"></i>
                     </button>
                 </td>
             </tr>
         `;
-        document.getElementById('itemList').insertAdjacentHTML('beforeend', html);
+
+        tbody.insertAdjacentHTML('beforeend', rowHtml);
+        
+        // Цэвэрлэх
         $('#productSelect').val(null).trigger('change');
+        qtyInput.value = 1;
+    }
+
+    function checkEmpty() {
+        const tbody = document.getElementById('transferBody');
+        if (tbody.rows.length === 0) {
+            document.getElementById('emptyMsg').style.display = 'block';
+        }
     }
 </script>
 {% endblock %}
