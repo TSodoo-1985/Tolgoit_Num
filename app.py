@@ -1713,6 +1713,48 @@ def export_old_bow():
         # Хэрэв OldBow бас биш бол алдааг дэлгэцэнд харуулна
         return f"Алдаа гарлаа: {str(e)}. Хүснэгтийн нэрээ шалгана уу."
 
+@app.route('/export-income-report')
+@login_required
+def export_income_report():
+    try:
+        # Зөвхөн "Орлого" (Салбараас өртгөөр авсан бараа) төрөлтэйг шүүнэ
+        incomes = Transaction.query.filter_by(type='Орлого').order_by(Transaction.timestamp.desc()).all()
+        
+        data = []
+        for t in incomes:
+            data.append({
+                "Огноо": t.timestamp.strftime('%Y-%m-%d %H:%M'),
+                "Барааны нэр": t.product.name if t.product else "Устсан бараа",
+                "SKU": t.product.sku if t.product else "-",
+                "Тоо ширхэг": t.quantity,
+                "Өртөг үнэ": t.price if t.price else 0,
+                "Нийт өртөг": t.quantity * (t.price if t.price else 0),
+                "Тайлбар": t.description if t.description else "Салбарын орлого",
+                "Бүртгэсэн": t.user.username if t.user else "-"
+            })
+
+        if not data:
+            flash("Орлогын өгөгдөл олдсонгүй.")
+            return redirect(url_for('dashboard'))
+
+        import pandas as pd
+        from io import BytesIO
+
+        df = pd.DataFrame(data)
+        output = BytesIO()
+        with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+            df.to_excel(writer, index=False, sheet_name='Салбарын Орлого')
+        output.seek(0)
+
+        return send_file(
+            output,
+            mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            as_attachment=True,
+            download_name=f"Internal_Income_Report_{datetime.now().strftime('%Y%m%d')}.xlsx"
+        )
+    except Exception as e:
+        return f"Алдаа гарлаа: {str(e)}"
+
 # --- ХЭРЭГЛЭГЧИЙН УДИРДЛАГА ---
 
 @app.route('/users')
