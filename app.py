@@ -92,6 +92,9 @@ class OldBow(db.Model):
     retail_price = db.Column(db.Float)
     quantity = db.Column(db.Integer, default=1)
     date = db.Column(db.String(50))
+    # Шинээр нэмэх хэсэг:
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    user = db.relationship('User', backref='old_bows')
 
 class EmployeeLoan(db.Model):
     id = db.Column(db.Integer, primary_key=True)
