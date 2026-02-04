@@ -1,0 +1,39 @@
+{% extends "layout.html" %}
+{% block content %}
+<div class="container mt-4">
+    <div class="card shadow-sm border-0 rounded-4 p-4" style="max-width: 500px; margin: auto;">
+        <h4 class="fw-bold mb-4 text-primary"><i class="bi bi-plus-square-fill me-2"></i>Салбарын орлого нэмэх</h4>
+        <form method="POST">
+            <div class="mb-3">
+                <label class="form-label fw-bold">Бараа хайх</label>
+                <input class="form-control rounded-3" list="productsList" id="productSearch" placeholder="Нэр эсвэл SKU бич..." required>
+                <datalist id="productsList">
+                    {% for p in products %}
+                    <option data-id="{{ p.id }}" value="{{ p.name }} (SKU: {{ p.sku }})"></option>
+                    {% endfor %}
+                </datalist>
+                <input type="hidden" name="product_id" id="product_id_hidden">
+            </div>
+            <div class="mb-3">
+                <label class="form-label fw-bold">Тоо ширхэг</label>
+                <input type="number" name="quantity" class="form-control rounded-3" value="1" min="1" required>
+            </div>
+            <button type="submit" class="btn btn-primary w-100 rounded-3 fw-bold py-2">Бүртгэх</button>
+        </form>
+    </div>
+</div>
+
+<script>
+// Сонгосон барааны ID-г hidden input-д оноох
+document.getElementById('productSearch').addEventListener('input', function(e) {
+    const val = e.target.value;
+    const opts = document.getElementById('productsList').childNodes;
+    for (let i = 0; i < opts.length; i++) {
+        if (opts[i].value === val) {
+            document.getElementById('product_id_hidden').value = opts[i].getAttribute('data-id');
+            break;
+        }
+    }
+});
+</script>
+{% endblock %}
