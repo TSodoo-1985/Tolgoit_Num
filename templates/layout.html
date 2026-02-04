@@ -64,6 +64,7 @@
                     {% if current_user.role in ['admin', 'staff'] %}
                     <li><a class="dropdown-item py-2 fw-bold text-primary" href="{{ url_for('manage_packages') }}"><i class="bi bi-box-seam-fill me-2"></i>Багц тохиргоо</a></li>
                     <li><a class="dropdown-item py-2 fw-bold text-info" href="{{ url_for('bundles_page') }}"><i class="bi bi-boxes me-2"></i>Багц зарах</a></li>
+                    {% endif %}
                     {% if current_user.role in ['admin', 'staff'] %}
                     <li><a class="dropdown-item py-2 fw-bold text-primary" href="{{ url_for('manage_packages') }}"><i class="bi bi-box-seam-fill me-2"></i>Багц тохиргоо</a></li>
                     {% endif %}
