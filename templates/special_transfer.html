@@ -3,61 +3,57 @@
 <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" />
 
-<style>
-    body { background-color: #f8f9fa; }
-    .card { border-radius: 15px; border: none; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
-    /* Select2-ийг бусад оролтын талбартай адил өндөртэй болгох */
-    .select2-container--bootstrap-5 .select2-selection { height: calc(3.5rem + 2px); display: flex; align-items: center; border: 2px solid #dee2e6; }
-</style>
-
 <div class="container mt-2">
     <div class="row justify-content-center">
-        <div class="col-md-8">
-            <div class="mb-3">
-                <a href="{{ url_for('dashboard') }}" class="btn btn-outline-secondary btn-sm rounded-pill px-3">
-                    <i class="bi bi-arrow-left me-1"></i>Буцах
-                </a>
-            </div>
-
-            <div class="card p-4 border-top border-warning border-4 shadow-sm">
-                <div class="text-center mb-4">
-                    <h3 class="fw-bold text-warning"><i class="bi bi-arrow-left-right me-2"></i>Шилжүүлэг бүртгэх</h3>
-                    <p class="text-muted small">Барааг өртөг үнээр нь салбар хооронд эсвэл тусгай хэрэгцээнд гаргах</p>
-                </div>
+        <div class="col-md-10">
+            <div class="card p-4 shadow-sm border-top border-warning border-4">
+                <h3 class="fw-bold text-warning text-center mb-4"><i class="bi bi-arrow-left-right me-2"></i>Олон бараа шилжүүлэх</h3>
                 
-                <form action="{{ url_for('special_transfer') }}" method="POST">
-                    <div class="mb-4">
-                        <label class="form-label fw-bold text-uppercase small text-muted"><i class="bi bi-box-seam me-1"></i> Шилжүүлэх бараа сонгох</label>
-                        <select name="product_id" id="transferProductSelect" class="form-select form-select-lg border-2 shadow-sm" required>
-                            <option value="">--- Бараа хайх (SKU эсвэл нэр) ---</option>
+                <div class="row g-2 mb-4 p-3 bg-light rounded-4">
+                    <div class="col-md-6">
+                        <label class="small fw-bold text-muted">Бараа сонгох</label>
+                        <select id="productSelect" class="form-select">
+                            <option value="">--- Хайх ---</option>
                             {% for p in products %}
-                            <option value="{{ p.id }}">{{ p.sku }} | {{ p.name }} (Үлдэгдэл: {{ p.stock|int }} ш)</option>
+                            <option value="{{ p.id }}" data-name="{{ p.name }}" data-sku="{{ p.sku }}" data-stock="{{ p.stock|int }}">
+                                {{ p.sku }} | {{ p.name }} ({{ p.stock|int }}ш)
+                            </option>
                             {% endfor %}
                         </select>
                     </div>
+                    <div class="col-md-2">
+                        <label class="small fw-bold text-muted">Тоо</label>
+                        <input type="number" id="tempQty" class="form-control" value="1" min="0.1" step="0.1">
+                    </div>
+                    <div class="col-md-4 d-flex align-items-end">
+                        <button type="button" onclick="addItem()" class="btn btn-dark w-100 fw-bold">
+                            <i class="bi bi-plus-lg me-1"></i> Жагсаалтад нэмэх
+                        </button>
+                    </div>
+                </div>
 
-                    <div class="row">
-                        <div class="col-md-6 mb-4">
-                            <label class="form-label fw-bold text-uppercase small text-muted"><i class="bi bi-plus-minus me-1"></i> Тоо ширхэг</label>
-                            <input type="number" step="0.1" name="quantity" class="form-control form-control-lg border-2 shadow-sm" placeholder="0.0" required>
-                        </div>
-                        <div class="col-md-6 mb-4">
-                            <label class="form-label fw-bold text-uppercase small text-muted"><i class="bi bi-info-circle me-1"></i> Хаашаа / Тайлбар</label>
-                            <input type="text" name="note" class="form-control form-control-lg border-2 shadow-sm" placeholder="Жишээ: Салбар 2 руу..." required>
-                        </div>
+                <form action="{{ url_for('special_transfer') }}" method="POST" id="transferForm">
+                    <div class="table-responsive mb-4">
+                        <table class="table table-hover align-middle" id="transferTable">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>SKU | Бараа</th>
+                                    <th width="120">Тоо ширхэг</th>
+                                    <th width="50"></th>
+                                </tr>
+                            </thead>
+                            <tbody id="itemList">
+                                </tbody>
+                        </table>
                     </div>
 
-                    <div class="alert alert-warning border-0 bg-warning-subtle text-dark mb-4 rounded-4">
-                        <div class="d-flex align-items-center">
-                            <i class="bi bi-exclamation-triangle-fill fs-4 me-3"></i>
-                            <div class="small">
-                                <strong>Санамж:</strong> Энэ гүйлгээ нь <strong>"Өртгөөр зарлага"</strong> гэж бүртгэгдэх бөгөөд барааны үлдэгдлээс шууд хасагдана.
-                            </div>
-                        </div>
+                    <div class="mb-4">
+                        <label class="form-label fw-bold small text-muted">ХҮРЭХ ЦЭГ / ТАЙЛБАР</label>
+                        <input type="text" name="note" class="form-control form-control-lg border-2" placeholder="Жишээ: Салбар 2 руу, Дотоод хэрэгцээнд..." required>
                     </div>
 
-                    <button type="submit" class="btn btn-warning btn-lg w-100 fw-bold shadow-sm py-3 text-dark">
-                        <i class="bi bi-check-circle-fill me-2"></i> ШИЛЖҮҮЛЭГ БАТЛАХ
+                    <button type="submit" class="btn btn-warning btn-lg w-100 fw-bold py-3 shadow-sm">
+                        <i class="bi bi-send-fill me-2"></i> БҮХ ШИЛЖҮҮЛГИЙГ БАТЛАХ
                     </button>
                 </form>
             </div>
@@ -70,14 +66,35 @@
 
 <script>
     $(document).ready(function() {
-        // Шилжүүлэг дээрх бараа сонголтыг хайлттай болгох
-        $('#transferProductSelect').select2({
-            theme: 'bootstrap-5',
-            width: '100%',
-            placeholder: 'Барааны нэр эсвэл SKU бичнэ үү...',
-            allowClear: true,
-            dropdownParent: $('.card') // Утсан дээр хайлт зөв ажиллахад тусална
-        });
+        $('#productSelect').select2({ theme: 'bootstrap-5', width: '100%' });
     });
+
+    function addItem() {
+        const sel = document.getElementById('productSelect');
+        const opt = sel.options[sel.selectedIndex];
+        const qty = document.getElementById('tempQty').value;
+
+        if (!opt.value || qty <= 0) return;
+
+        const html = `
+            <tr>
+                <td>
+                    <input type="hidden" name="product_ids[]" value="${opt.value}">
+                    <div class="fw-bold">${opt.getAttribute('data-sku')}</div>
+                    <small class="text-muted">${opt.getAttribute('data-name')}</small>
+                </td>
+                <td>
+                    <input type="number" name="quantities[]" value="${qty}" step="0.1" class="form-control form-control-sm border-2">
+                </td>
+                <td>
+                    <button type="button" onclick="this.closest('tr').remove()" class="btn btn-outline-danger btn-sm border-0">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </td>
+            </tr>
+        `;
+        document.getElementById('itemList').insertAdjacentHTML('beforeend', html);
+        $('#productSelect').val(null).trigger('change');
+    }
 </script>
 {% endblock %}
