@@ -225,7 +225,6 @@ from flask import jsonify # Файлын дээр заавал нэмээрэй
 @app.route('/add_transaction', methods=['POST'])
 @login_required
 def add_transaction():
-    # JSON өгөгдөл ирсэн эсэхийг шалгах (Олон бараа нэг дор сагснаас ирэх үед)
     if request.is_json:
         data = request.get_json()
         if data and 'items' in data:
@@ -234,39 +233,71 @@ def add_transaction():
                     p_id = item.get('product_id')
                     t_type = item.get('type')
                     qty = float(item.get('quantity') or 0)
-                    product = Product.query.get(p_id)
+                    # 1. Сагснаас ирж буй зассан үнийг авах
+                    custom_price = item.get('price') 
                     
+                    product = Product.query.get(p_id)
                     if product:
+                        # 2. Хэрэв сагснаас үнэ ирээгүй бол барааны үндсэн үнийг сонгох
+                        if custom_price is None or float(custom_price) == 0:
+                            if "Бөөний" in t_type:
+                                actual_price = product.wholesale_price
+                            elif "Жижиглэн" in t_type:
+                                actual_price = product.retail_price
+                            else:
+                                actual_price = 0
+                        else:
+                            actual_price = float(custom_price)
+
+                        # Сток засах
                         if t_type in ['Орлого', 'буцаалт']:
                             product.stock += qty
                         else:
                             product.stock -= qty
                         
+                        # 3. TRANSACTION-Д ҮНЭГ ХАМТ ХАДГАЛАХ
                         db.session.add(Transaction(
                             product_id=p_id, 
                             type=t_type, 
                             quantity=qty, 
+                            price=actual_price,  # ЭНЭ МӨРИЙГ НЭМЛЭЭ
                             user_id=current_user.id
                         ))
                 
                 db.session.commit()
                 return jsonify({"success": True, "message": "Бүх гүйлгээ амжилттай хадгалагдлаа."})
             except Exception as e:
-                db.session.rollback() # Алдаа гарвал бүх үйлдлийг цуцална
+                db.session.rollback()
                 return jsonify({"success": False, "message": str(e)}), 500
 
-    # Хуучин Form-оор ганц бараа ирэх үеийн логикийг хэвээр үлдээв
+    # Ганц бараа Form-оор ирэх үеийн логик (Үнийг мөн нэмэв)
     p_id = request.form.get('product_id')
     t_type = request.form.get('type')
     qty = float(request.form.get('quantity') or 0)
     product = Product.query.get(p_id)
     
     if product:
+        # Үнэ тодорхойлох
+        if "Бөөний" in t_type:
+            actual_price = product.wholesale_price
+        elif "Жижиглэн" in t_type:
+            actual_price = product.retail_price
+        else:
+            actual_price = 0
+
         if t_type in ['Орлого', 'буцаалт']:
             product.stock += qty
         else:
             product.stock -= qty
-        db.session.add(Transaction(product_id=p_id, type=t_type, quantity=qty, user_id=current_user.id))
+            
+        # Үнээр нь хадгалах
+        db.session.add(Transaction(
+            product_id=p_id, 
+            type=t_type, 
+            quantity=qty, 
+            price=actual_price, # ЭНЭ МӨРИЙГ НЭМЛЭЭ
+            user_id=current_user.id
+        ))
         db.session.commit()
         flash(f"{product.name} - {t_type} бүртгэгдлээ.")
         
