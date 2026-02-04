@@ -1671,12 +1671,8 @@ def export_old_bow():
         start_date = request.args.get('start_date')
         end_date = request.args.get('end_date')
 
-        # Хэрэв таны хүснэгтийн нэр OldBowPurchase биш бол OldBow гэж шалгана уу
-        # Таны app.py-ийн дээр class OldBow(db.Model) гэж байгаа бол энд OldBow байна
-        purchases = OldBow.query.filter(
-            OldBow.date >= start_date,
-            OldBow.date <= end_date
-        ).all()
+        all_bows = OldBow.query.all()
+        purchases = [p for p in all_bows if s <= p.date[:10] <= e]
 
         data = []
         for p in purchases:
@@ -1685,33 +1681,23 @@ def export_old_bow():
                 "Барааны нэр": p.product_name,
                 "Тоо ширхэг": p.quantity,
                 "Авсан үнэ": p.purchase_price,
-                "Нийт": p.quantity * p.purchase_price,
-                "Тайлбар": p.description
+                "Нийт дүн": p.quantity * p.purchase_price,
+                "Хүлээж авсан ажилтан": p.user.username if p.user else "Тодорхойгүй" # Энэ мөр нэмэгдлээ
             })
 
         if not data:
-            flash("Тухайн хугацаанд өгөгдөл олдсонгүй.")
+            flash("Тухайн хугацаанд мэдээлэл олдсонгүй.")
             return redirect(url_for('dashboard'))
-
-        import pandas as pd
-        from io import BytesIO
 
         df = pd.DataFrame(data)
         output = BytesIO()
         with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
             df.to_excel(writer, index=False, sheet_name='Хуучин нум')
-        
         output.seek(0)
         
-        return send_file(
-            output,
-            mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            as_attachment=True,
-            download_name=f"Old_Bow_Report_{start_date}_{end_date}.xlsx"
-        )
+        return send_file(output, as_attachment=True, download_name=f"Old_Bow_{s}_{e}.xlsx")
     except Exception as e:
-        # Хэрэв OldBow бас биш бол алдааг дэлгэцэнд харуулна
-        return f"Алдаа гарлаа: {str(e)}. Хүснэгтийн нэрээ шалгана уу."
+        return f"Алдаа: {str(e)}"
 
 @app.route('/export-income-report')
 @login_required
