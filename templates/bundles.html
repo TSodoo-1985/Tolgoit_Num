@@ -1,169 +1,170 @@
 {% extends "layout.html" %}
-
 {% block content %}
-<div class="container-fluid mt-3">
-    <div class="d-flex justify-content-between align-items-center mb-3">
-        <h4 class="mb-0">📦 Багцлах & Зарах</h4>
-        <a href="{{ url_for('dashboard') }}" class="btn btn-outline-secondary btn-sm">Буцах</a>
-    </div>
+
+<style>
+    /* Гар утасны хайлтын хэсгийг дээр нь бэхлэх */
+    .sticky-bundle-search {
+        position: -webkit-sticky;
+        position: sticky;
+        top: 58px;
+        z-index: 1010;
+        background-color: #f0f2f5;
+        margin: -1rem -1rem 1rem -1rem;
+        padding: 1rem 1rem;
+    }
+    .card { border-radius: 15px; border: none; }
+    .bundle-item-row { border-bottom: 1px solid #eee; padding: 10px 0; }
+    .bundle-item-row:last-child { border-bottom: none; }
     
-    <div class="row">
-        <div class="col-12 col-md-5 mb-3">
-            <div class="card shadow-sm">
-                <div class="card-header bg-primary text-white py-2">
-                    <i class="fas fa-search"></i> Бараа нэмэх
-                </div>
-                <div class="card-body p-2">
-                    <input type="text" id="bundleProductSearch" class="form-control mb-2" placeholder="Хайх (Нэр, SKU)...">
-                    <div id="productList" class="list-group" style="max-height: 250px; overflow-y: auto;">
-                        {% for p in products %}
-                        <button class="list-group-item list-group-item-action p-2" 
-                                data-name="{{ p.name }}" 
-                                data-sku="{{ p.sku }}"
-                                onclick="addItemToBundle({{ p.id }}, '{{ p.name }}', {{ p.retail_price }})">
-                            <div class="d-flex justify-content-between">
-                                <strong>{{ p.name }}</strong>
-                                <span class="text-primary font-weight-bold">{{ "{:,.0f}".format(p.retail_price) }}₮</span>
-                            </div>
-                            <small class="text-muted">Үлдэгдэл: {{ p.stock }} | SKU: {{ p.sku }}</small>
-                        </button>
-                        {% endfor %}
-                    </div>
-                </div>
-            </div>
-        </div>
+    /* Загварууд (Templates) хөндлөн гүйдэг хэсэг */
+    .template-scroll {
+        display: flex;
+        overflow-x: auto;
+        gap: 10px;
+        padding-bottom: 10px;
+        -webkit-overflow-scrolling: touch;
+    }
+    .template-card {
+        min-width: 140px;
+        background: white;
+        padding: 12px;
+        border-radius: 12px;
+        border: 1px solid #dee2e6;
+        text-align: center;
+        cursor: pointer;
+    }
+</style>
 
-        <div class="col-12 col-md-7 mb-4">
-            <div class="card shadow-sm border-success">
-                <div class="card-header bg-success text-white py-2">
-                    <i class="fas fa-shopping-cart"></i> Борлуулалт бүрдүүлэлт
-                </div>
-                <div class="card-body p-2">
-                    <input type="text" id="bundleName" class="form-control mb-2" placeholder="Багцын нэр (Заавал биш)">
-                    
-                    <div class="table-responsive">
-                        <table class="table table-sm" id="bundleItemsTable">
-                            <thead class="bg-light">
-                                <tr>
-                                    <th>Бараа</th>
-                                    <th width="80">Тоо</th>
-                                    <th width="30"></th>
-                                </tr>
-                            </thead>
-                            <tbody></tbody>
-                        </table>
+<div class="sticky-bundle-search shadow-sm">
+    <div class="input-group">
+        <span class="input-group-text bg-white border-0"><i class="bi bi-search text-primary"></i></span>
+        <input type="text" id="bundleSearch" class="form-control border-0" placeholder="Бараа хайх..." onkeyup="filterBundleProducts()">
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-12 col-lg-5 mb-3">
+        <h6 class="fw-bold mb-3 text-uppercase small text-muted"><i class="bi bi-list-ul me-1"></i> Барааны жагсаалт</h6>
+        <div id="bundleProductList" style="max-height: 350px; overflow-y: auto; padding-right: 5px;">
+            {% for p in products %}
+            <div class="card p-3 mb-2 shadow-sm bundle-product-card" data-name="{{ p.name }}" data-sku="{{ p.sku }}">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div onclick="addItemToBundle('{{ p.id }}', '{{ p.name }}', {{ p.retail_price }})" style="cursor:pointer; flex: 1;">
+                        <span class="badge bg-dark mb-1">{{ p.sku }}</span>
+                        <h6 class="mb-0 fw-bold">{{ p.name }}</h6>
+                        <small class="text-muted">{{ "{:,.0f}".format(p.retail_price) }}₮ | Үлдэгдэл: {{ p.stock }}</small>
                     </div>
-                    
-                    <div class="bg-light p-2 border rounded mb-3 text-center">
-                        <small class="text-muted d-block text-uppercase">Нийт зарах үнэ</small>
-                        <input type="number" id="bundlePrice" class="form-control form-control-lg text-center text-success font-weight-bold border-0 bg-transparent" placeholder="0 ₮">
-                    </div>
-                    
-                    <div class="row no-gutters">
-                        <div class="col-6 pr-1">
-                            <button class="btn btn-outline-success btn-block" onclick="saveBundle()">💾 Хадгалах</button>
-                        </div>
-                        <div class="col-6 pl-1">
-                            <button class="btn btn-primary btn-block font-weight-bold" onclick="sellNow()">💰 ЗАРАХ</button>
-                        </div>
-                    </div>
+                    <button class="btn btn-primary btn-sm rounded-3" onclick="addItemToBundle('{{ p.id }}', '{{ p.name }}', {{ p.retail_price }})">
+                        <i class="bi bi-plus-lg"></i>
+                    </button>
                 </div>
             </div>
+            {% endfor %}
         </div>
     </div>
 
-    <div class="row">
-        <div class="col-12">
-            <div class="card shadow-sm border-info bg-light">
-                <div class="card-header bg-info text-white py-2 font-weight-bold">
-                    <i class="fas fa-th-large"></i> Бэлэн загварууд
+    <div class="col-12 col-lg-7">
+        <div class="card p-4 shadow-sm mb-4 border-top border-primary border-4">
+            <h5 class="fw-bold mb-3"><i class="bi bi-cart-check-fill text-primary"></i> Багц бүрдүүлэлт</h5>
+            
+            <div class="mb-3">
+                <label class="small fw-bold text-muted">БАГЦЫН НЭР</label>
+                <input type="text" id="bundleName" class="form-control border-2" placeholder="Жишээ: Комбо-1">
+            </div>
+
+            <div id="selectedItemsContainer" class="mb-4">
+                <p class="text-center text-muted py-3 border rounded-3 bg-light small">Бараа сонгоогүй байна</p>
+            </div>
+
+            <div class="bg-light p-3 rounded-4 mb-4 text-center">
+                <small class="fw-bold text-muted d-block mb-1">НИЙТ ЗАРАХ ҮНЭ</small>
+                <input type="number" id="bundlePrice" class="form-control form-control-lg border-0 bg-transparent text-center fw-bold text-success" placeholder="0 ₮" style="font-size: 1.8rem;">
+            </div>
+
+            <div class="row g-2">
+                <div class="col-6">
+                    <button class="btn btn-outline-success w-100 py-3 fw-bold rounded-3" onclick="saveBundle()">
+                        <i class="bi bi-save"></i> ХАДГАЛАХ
+                    </button>
                 </div>
-                <div class="card-body p-2">
-                    <div class="d-flex flex-nowrap overflow-auto py-2" id="savedBundlesList" style="-webkit-overflow-scrolling: touch;">
-                        {% if saved_bundles %}
-                            {% for b in saved_bundles %}
-                            <div class="mr-2">
-                                <button class="btn btn-white border-info shadow-sm p-2 text-center" style="min-width: 130px; border-width: 2px;"
-                                        onclick='loadBundleTemplate({{ {
-                                            "name": b.name,
-                                            "price": b.set_price,
-                                            "items": b.items|map(attribute="product_id")|list,
-                                            "item_names": b.items|map(attribute="product")|map(attribute="name")|list,
-                                            "quantities": b.items|map(attribute="quantity")|list
-                                        }|tojson }})'>
-                                    <span class="d-block font-weight-bold text-truncate text-info" style="max-width: 110px;">{{ b.name }}</span>
-                                    <span class="badge badge-info">{{ "{:,.0f}".format(b.set_price) }}₮</span>
-                                </button>
-                            </div>
-                            {% endfor %}
-                        {% else %}
-                            <small class="text-muted ml-2">Загвар байхгүй.</small>
-                        {% endif %}
-                    </div>
+                <div class="col-6">
+                    <button class="btn btn-primary w-100 py-3 fw-bold shadow rounded-3" onclick="sellNow()">
+                        <i class="bi bi-cash-stack"></i> ЗАРАХ
+                    </button>
                 </div>
             </div>
         </div>
     </div>
 </div>
 
-<style>
-    /* Гар утсанд зориулсан тусгай стиль */
-    @media (max-width: 768px) {
-        .container-fluid { padding-left: 10px; padding-right: 10px; }
-        .btn-lg, .form-control-lg { font-size: 1.1rem; }
-        .list-group-item { padding: 12px 8px; } /* Хуруугаар дарахад хялбар болгох */
-    }
-    /* Загварууд хөндлөнгөөр гүйдэг байх (Scroll) */
-    #savedBundlesList::-webkit-scrollbar { height: 5px; }
-    #savedBundlesList::-webkit-scrollbar-thumb { background: #17a2b8; border-radius: 10px; }
-</style>
+<div class="mt-2">
+    <h6 class="fw-bold mb-3 text-uppercase small text-muted"><i class="bi bi-stars text-warning me-1"></i> Хадгалсан загварууд</h6>
+    <div class="template-scroll">
+        {% if saved_bundles %}
+            {% for b in saved_bundles %}
+            <div class="template-card shadow-sm" onclick='loadBundleTemplate({{ {
+                "name": b.name,
+                "price": b.set_price,
+                "items": b.items|map(attribute="product_id")|list,
+                "item_names": b.items|map(attribute="product")|map(attribute="name")|list,
+                "quantities": b.items|map(attribute="quantity")|list
+            }|tojson }})'>
+                <div class="text-primary fw-bold text-truncate mb-1">{{ b.name }}</div>
+                <div class="badge bg-light text-dark border">{{ "{:,.0f}".format(b.set_price) }}₮</div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="text-muted small">Одоогоор загвар байхгүй байна.</div>
+        {% endif %}
+    </div>
+</div>
 
 <script>
-// ... (Өмнөх JS кодууд хэвээрээ ашиглагдана)
 let selectedItems = [];
 
-document.getElementById('bundleProductSearch').addEventListener('input', function(e) {
-    let filter = e.target.value.toLowerCase().trim();
-    document.querySelectorAll('#productList .list-group-item').forEach(item => {
-        let name = item.getAttribute('data-name').toLowerCase();
-        let sku = item.getAttribute('data-sku').toLowerCase();
-        item.style.setProperty('display', (name.includes(filter) || sku.includes(filter)) ? 'block' : 'none', 'important');
+function filterBundleProducts() {
+    let s = document.getElementById('bundleSearch').value.toLowerCase();
+    document.querySelectorAll('.bundle-product-card').forEach(card => {
+        let text = card.dataset.name.toLowerCase() + card.dataset.sku.toLowerCase();
+        card.style.display = text.includes(s) ? 'block' : 'none';
     });
-});
+}
 
 function addItemToBundle(id, name, price) {
     let existing = selectedItems.find(i => i.product_id === id);
-    if (existing) existing.quantity += 1;
-    else selectedItems.push({ product_id: id, name: name, quantity: 1 });
-    renderBundle();
-}
-
-function loadBundleTemplate(bundle) {
-    document.getElementById('bundleName').value = bundle.name;
-    document.getElementById('bundlePrice').value = bundle.price;
-    selectedItems = [];
-    for(let i=0; i < bundle.items.length; i++) {
-        selectedItems.push({ product_id: bundle.items[i], name: bundle.item_names[i], quantity: bundle.quantities[i] });
+    if (existing) {
+        existing.quantity += 1;
+    } else {
+        selectedItems.push({ product_id: id, name: name, quantity: 1 });
     }
     renderBundle();
-    window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 function renderBundle() {
-    let tbody = document.querySelector('#bundleItemsTable tbody');
+    const container = document.getElementById('selectedItemsContainer');
     if (selectedItems.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="3" class="text-center text-muted py-3">Хоосон</td></tr>';
+        container.innerHTML = '<p class="text-center text-muted py-3 border rounded-3 bg-light small">Бараа сонгоогүй байна</p>';
         return;
     }
+
     let html = '';
     selectedItems.forEach(item => {
-        html += `<tr>
-            <td class="small font-weight-bold">${item.name}</td>
-            <td><input type="number" class="form-control form-control-sm" value="${item.quantity}" step="0.1" onchange="updateQty(${item.product_id}, this.value)"></td>
-            <td class="text-right"><button class="btn btn-sm text-danger" onclick="removeItem(${item.product_id})">×</button></td>
-        </tr>`;
+        html += `
+        <div class="bundle-item-row d-flex justify-content-between align-items-center">
+            <div style="flex: 2;">
+                <h6 class="mb-0 fw-bold small">${item.name}</h6>
+            </div>
+            <div class="d-flex align-items-center" style="flex: 1;">
+                <input type="number" class="form-control form-control-sm text-center fw-bold border-2" 
+                    value="${item.quantity}" step="0.1" 
+                    onchange="updateQty('${item.product_id}', this.value)" style="width: 70px;">
+                <button class="btn btn-link text-danger ms-2" onclick="removeItem('${item.product_id}')">
+                    <i class="bi bi-x-circle-fill"></i>
+                </button>
+            </div>
+        </div>`;
     });
-    tbody.innerHTML = html;
+    container.innerHTML = html;
 }
 
 function updateQty(id, qty) {
@@ -176,33 +177,65 @@ function removeItem(id) {
     renderBundle();
 }
 
+function loadBundleTemplate(bundle) {
+    document.getElementById('bundleName').value = bundle.name;
+    document.getElementById('bundlePrice').value = bundle.price;
+    selectedItems = [];
+    for(let i=0; i < bundle.items.length; i++) {
+        selectedItems.push({
+            product_id: bundle.items[i],
+            name: bundle.item_names[i],
+            quantity: bundle.quantities[i]
+        });
+    }
+    renderBundle();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
 function saveBundle() {
     const name = document.getElementById('bundleName').value;
     const price = document.getElementById('bundlePrice').value;
     if (!name || selectedItems.length === 0 || !price) { alert("Мэдээлэл дутуу!"); return; }
+
     fetch('/create_bundle', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({ name: name, set_price: price, items: selectedItems })
-    }).then(res => res.json()).then(data => { if(data.status === 'success') location.reload(); });
+    }).then(res => res.json()).then(data => {
+        if(data.status === 'success') location.reload();
+        else alert(data.message);
+    });
 }
 
 function sellNow() {
     const name = document.getElementById('bundleName').value || "Багц";
     const price = document.getElementById('bundlePrice').value;
-    if (selectedItems.length === 0 || !price) { alert("Мэдээлэл дутуу!"); return; }
-    let desc = name + ": " + selectedItems.map(i => `${i.name}(${i.quantity})`).join(", ");
-    const data = { items: [{ is_bundle: true, name: name, price: price, description: desc, bundle_items: selectedItems }] };
-    if(!confirm("Зарах уу?")) return;
+    if (selectedItems.length === 0 || !price) { alert("Бараа эсвэл үнэ дутуу!"); return; }
+
+    let desc = name + ": " + selectedItems.map(i => `${i.name} (${i.quantity}ш)`).join(", ");
+    const data = {
+        items: [{
+            is_bundle: true,
+            name: name,
+            price: price,
+            description: desc,
+            bundle_items: selectedItems
+        }]
+    };
+
+    if(!confirm("Борлуулалтыг баталгаажуулах уу?")) return;
+
     fetch('/add_transaction_bulk', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify(data)
     }).then(res => res.json()).then(data => {
-        if(data.status === 'success') window.location.href = "/";
+        if(data.status === 'success') {
+            alert("Амжилттай зарагдлаа!");
+            window.location.href = "/";
+        } else alert(data.message);
     });
 }
-
-renderBundle();
 </script>
+
 {% endblock %}
