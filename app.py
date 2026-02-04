@@ -951,6 +951,20 @@ def create_bundle():
         db.session.rollback()
         return jsonify({"status": "error", "message": str(e)}), 500
 
+@app.route('/bundles')
+@login_required
+def bundles_page():
+    # 1. Бүх бараануудыг жагсаалтаар авна (Багцад нэмэхийн тулд)
+    products = Product.query.all()
+    
+    # 2. Өмнө нь хадгалсан багцуудыг (Templates) доторх бараануудтай нь цуг татаж авна
+    saved_bundles = Bundle.query.all()
+    
+    # 3. bundles.html руу өгөгдлүүдээ дамжуулна
+    return render_template('bundles.html', 
+                           products=products, 
+                           saved_bundles=saved_bundles)
+
 # --- ТАЙЛАН, СТАТИСТИК ---
 @app.route('/statistics')
 @login_required
