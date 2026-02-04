@@ -3,24 +3,22 @@
 {% block content %}
 <div class="container mt-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2>📦 Шинэ багц (Combo) үүсгэх</h2>
+        <h2>📦 Багцлах & Зарах</h2>
         <a href="{{ url_for('dashboard') }}" class="btn btn-secondary btn-sm">Буцах</a>
     </div>
     
     <div class="row">
-        <div class="col-md-6">
-            <div class="card shadow-sm">
-                <div class="card-header bg-primary text-white">
-                    <i class="fas fa-search"></i> Бараа сонгох
-                </div>
+        <div class="col-md-5">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-primary text-white">Бараа нэмэх</div>
                 <div class="card-body">
-                    <input type="text" id="bundleProductSearch" class="form-control mb-3" placeholder="Барааны нэрээр хайх...">
-                    <div id="productList" class="list-group" style="max-height: 450px; overflow-y: auto;">
+                    <input type="text" id="bundleProductSearch" class="form-control mb-3" placeholder="Хайх...">
+                    <div id="productList" class="list-group" style="max-height: 400px; overflow-y: auto;">
                         {% for p in products %}
                         <button class="list-group-item list-group-item-action d-flex justify-content-between align-items-center" 
                                 onclick="addItemToBundle({{ p.id }}, '{{ p.name }}', {{ p.retail_price }})">
-                            <span><strong>{{ p.name }}</strong> <small class="text-muted">({{ p.sku }})</small></span>
-                            <span class="badge badge-primary badge-pill">{{ p.retail_price }}₮</span>
+                            <span><strong>{{ p.name }}</strong></span>
+                            <span class="badge badge-primary">{{ p.retail_price }}₮</span>
                         </button>
                         {% endfor %}
                     </div>
@@ -28,40 +26,66 @@
             </div>
         </div>
 
-        <div class="col-md-6">
-            <div class="card shadow-sm border-success">
-                <div class="card-header bg-success text-white">
-                    <i class="fas fa-box-open"></i> Багцын бүтэц
-                </div>
+        <div class="col-md-7">
+            <div class="card shadow-sm border-success h-100">
+                <div class="card-header bg-success text-white">Одоогийн борлуулалт</div>
                 <div class="card-body">
-                    <div class="form-group mb-3">
-                        <label class="font-weight-bold">Багцын нэр:</label>
-                        <input type="text" id="bundleName" class="form-control border-success" placeholder="Жишээ: Өдрийн хоолны багц">
+                    <div class="form-group">
+                        <label>Багцын нэр:</label>
+                        <input type="text" id="bundleName" class="form-control" placeholder="Жишээ: Комбо-1">
                     </div>
                     
-                    <div class="table-responsive">
-                        <table class="table table-hover" id="bundleItemsTable">
-                            <thead class="thead-light">
-                                <tr>
-                                    <th>Бараа</th>
-                                    <th width="100">Тоо</th>
-                                    <th width="50"></th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                </tbody>
-                        </table>
+                    <table class="table table-sm" id="bundleItemsTable">
+                        <thead>
+                            <tr>
+                                <th>Бараа</th>
+                                <th width="100">Тоо</th>
+                                <th width="40"></th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                    
+                    <div class="p-3 bg-light border rounded mb-3">
+                        <label class="font-weight-bold">Нийт зарах үнэ (₮):</label>
+                        <input type="number" id="bundlePrice" class="form-control form-control-lg text-success" placeholder="0">
                     </div>
                     
-                    <div class="form-group mt-4 p-3 bg-light border rounded">
-                        <label class="font-weight-bold">Багцын зарах нийт үнэ (₮):</label>
-                        <input type="number" id="bundlePrice" class="form-control form-control-lg text-success font-weight-bold" placeholder="0">
-                        <small class="text-muted">Жич: Багц зарагдахад дээрх бараанууд тус бүр стокоос хасагдана.</small>
+                    <div class="row">
+                        <div class="col"><button class="btn btn-outline-success btn-block" onclick="saveBundle()">Загвар хадгалах</button></div>
+                        <div class="col"><button class="btn btn-primary btn-block" onclick="sellNow()">ШУУД ЗАРАХ</button></div>
                     </div>
-                    
-                    <button class="btn btn-success btn-block btn-lg shadow mt-3" onclick="saveBundle()">
-                        <i class="fas fa-save"></i> Багцыг Загвар болгож хадгалах
-                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mt-5">
+        <div class="col-12">
+            <div class="card shadow-sm border-info">
+                <div class="card-header bg-info text-white">
+                    <i class="fas fa-th-large"></i> Хадгалсан багцын загварууд
+                </div>
+                <div class="card-body bg-light">
+                    <div class="d-flex flex-wrap" id="savedBundlesList">
+                        {% if saved_bundles %}
+                            {% for b in saved_bundles %}
+                            <button class="btn btn-white border-info m-2 shadow-sm p-3 text-center" style="min-width: 150px;"
+                                    onclick='loadBundleTemplate({{ {
+                                        "name": b.name,
+                                        "price": b.set_price,
+                                        "items": b.items|map(attribute="product_id")|list,
+                                        "item_names": b.items|map(attribute="product")|map(attribute="name")|list,
+                                        "quantities": b.items|map(attribute="quantity")|list
+                                    }|tojson }})'>
+                                <strong class="text-info">{{ b.name }}</strong><br>
+                                <span class="badge badge-info">{{ "{:,.0f}".format(b.set_price) }}₮</span>
+                            </button>
+                            {% endfor %}
+                        {% else %}
+                            <p class="text-muted w-100 text-center">Загвар хадгалагдаагүй байна.</p>
+                        {% endif %}
+                    </div>
                 </div>
             </div>
         </div>
@@ -71,17 +95,22 @@
 <script>
 let selectedItems = [];
 
-// Бараа хайх функц
-document.getElementById('bundleProductSearch').addEventListener('input', function(e) {
-    let filter = e.target.value.toLowerCase();
-    let items = document.querySelectorAll('#productList .list-group-item');
-    items.forEach(item => {
-        let text = item.textContent.toLowerCase();
-        item.style.display = text.includes(filter) ? '' : 'none';
-    });
-});
+// Загвар ачаалах - Доороос сонгох үед
+function loadBundleTemplate(bundle) {
+    document.getElementById('bundleName').value = bundle.name;
+    document.getElementById('bundlePrice').value = bundle.price;
+    selectedItems = [];
+    
+    for(let i=0; i < bundle.items.length; i++) {
+        selectedItems.push({
+            product_id: bundle.items[i],
+            name: bundle.item_names[i],
+            quantity: bundle.quantities[i]
+        });
+    }
+    renderBundle();
+}
 
-// Жагсаалтад бараа нэмэх
 function addItemToBundle(id, name, price) {
     let existing = selectedItems.find(i => i.product_id === id);
     if (existing) {
@@ -92,69 +121,75 @@ function addItemToBundle(id, name, price) {
     renderBundle();
 }
 
-// Бараа хасах
 function removeItem(id) {
     selectedItems = selectedItems.filter(i => i.product_id !== id);
     renderBundle();
 }
 
-// Тоо ширхэг шинэчлэх
 function updateQty(id, qty) {
     let item = selectedItems.find(i => i.product_id === id);
     if (item) item.quantity = parseFloat(qty);
 }
 
-// Хүснэгтийг дахин зурах
 function renderBundle() {
     let tbody = document.querySelector('#bundleItemsTable tbody');
     if (selectedItems.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="3" class="text-center text-muted">Бараа сонгогдоогүй байна</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="3" class="text-center text-muted">Хоосон</td></tr>';
         return;
     }
-    
     let html = '';
     selectedItems.forEach(item => {
         html += `<tr>
             <td>${item.name}</td>
-            <td><input type="number" class="form-control form-control-sm" value="${item.quantity}" min="0.1" step="0.1" onchange="updateQty(${item.product_id}, this.value)"></td>
-            <td><button class="btn btn-outline-danger btn-sm" onclick="removeItem(${item.product_id})"><i class="fas fa-trash"></i></button></td>
+            <td><input type="number" class="form-control form-control-sm" value="${item.quantity}" step="0.1" onchange="updateQty(${item.product_id}, this.value)"></td>
+            <td><button class="btn btn-sm text-danger" onclick="removeItem(${item.product_id})">×</button></td>
         </tr>`;
     });
     tbody.innerHTML = html;
 }
 
-// Баазад хадгалах
 function saveBundle() {
     const name = document.getElementById('bundleName').value;
     const price = document.getElementById('bundlePrice').value;
-
-    if (!name || selectedItems.length === 0 || !price) {
-        alert("Мэдээллээ бүрэн оруулна уу! (Нэр, Бараанууд, Үнэ)");
-        return;
-    }
+    if (!name || selectedItems.length === 0 || !price) { alert("Мэдээлэл дутуу!"); return; }
 
     fetch('/create_bundle', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({
-            name: name,
-            set_price: price,
-            items: selectedItems
-        })
-    })
-    .then(res => res.json())
-    .then(data => {
-        if(data.status === 'success') {
-            alert("Багцын загвар амжилттай хадгалагдлаа!");
-            window.location.href = "{{ url_for('dashboard') }}";
-        } else {
-            alert("Алдаа: " + data.message);
-        }
-    })
-    .catch(err => alert("Сервертэй холбогдоход алдаа гарлаа."));
+        body: JSON.stringify({ name: name, set_price: price, items: selectedItems })
+    }).then(res => res.json()).then(data => {
+        if(data.status === 'success') location.reload();
+        else alert(data.message);
+    });
 }
 
-// Анхны төлөв
+function sellNow() {
+    const name = document.getElementById('bundleName').value || "Багц";
+    const price = document.getElementById('bundlePrice').value;
+    if (selectedItems.length === 0 || !price) { alert("Бараа/Үнэ дутуу!"); return; }
+
+    let desc = name + ": " + selectedItems.map(i => `${i.name}(${i.quantity})`).join(", ");
+    const data = { items: [{ is_bundle: true, name: name, price: price, description: desc, bundle_items: selectedItems }] };
+
+    if(!confirm("Зарах уу?")) return;
+
+    fetch('/add_transaction_bulk', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(data)
+    }).then(res => res.json()).then(data => {
+        if(data.status === 'success') { alert("Зарагдлаа!"); window.location.href = "/"; }
+        else alert(data.message);
+    });
+}
+
+document.getElementById('bundleProductSearch').addEventListener('input', function(e) {
+    let filter = e.target.value.toLowerCase();
+    document.querySelectorAll('#productList .list-group-item').forEach(item => {
+        item.style.display = item.textContent.toLowerCase().includes(filter) ? '' : 'none';
+    });
+});
+
 renderBundle();
 </script>
 {% endblock %}
