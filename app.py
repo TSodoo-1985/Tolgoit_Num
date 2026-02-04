@@ -1126,35 +1126,26 @@ def export_transactions(type):
         unit_profit = sell_price - cost_price
         total_profit = unit_profit * t.quantity
         
+        # Гүйлгээ бүрийг салгахын тулд цаг минутыг заавал оруулна
         data.append({
-            # Цаг минутыг нэмснээр гүйлгээ бүр ялгарч харагдахад тусална
-            'Огноо': t.timestamp.strftime('%Y-%m-%d %H:%M'), 
+            'Огноо': t.timestamp.strftime('%Y-%m-%d %H:%M:%S'), 
             'Ангилал': t.product.category if t.product else "-",
             'Барааны код': t.product.sku if t.product else "-",
             'Барааны нэр': t.product.name if t.product else "Устгагдсан",
             'Гүйлгээний төрөл': t.type,
             'Тоо ширхэг': t.quantity,
-            'Нэгж өртөг': float(cost_price),
-            'Зарах үнэ': float(sell_price), # Энд зассан үнэ чинь орж ирнэ
-            'Нийт ашиг': float(total_profit) if sell_price > 0 else 0,
+            'Нэгж өртөг': cost_price,
+            'Зарах үнэ': sell_price,
+            'Нийт ашиг': total_profit if sell_price > 0 else 0,
             'Ажилтан': t.user.username if t.user else "-"
         })
         
     df = pd.DataFrame(data)
 
-    # --- НЭГТГЭХ ЛОГИКИЙГ САЙЖРУУЛАХ ---
+    # --- ЧУХАЛ ӨӨРЧЛӨЛТ: НЭГТГЭХ (GROUPBY) ХЭСГИЙГ УСТГАВ ---
+    # Гүйлгээ бүрийг салгаж харахын тулд Grouping хийхгүй.
     if not df.empty:
-        df = df.fillna(0)
-        # 'Зарах үнэ' болон 'Огноо'-гоор нэгтгэх тул зассан үнүүд ялгарч гарна
-        group_cols = [
-            'Огноо', 'Ангилал', 'Барааны код', 'Барааны нэр', 
-            'Гүйлгээний төрөл', 'Нэгж өртөг', 'Зарах үнэ', 'Ажилтан'
-        ]
-        df = df.groupby(group_cols, as_index=False).agg({
-            'Тоо ширхэг': 'sum',
-            'Нийт ашиг': 'sum'
-        })
-        
+        # Зөвхөн багануудын дарааллыг тохируулна
         order = ['Огноо', 'Ангилал', 'Барааны код', 'Барааны нэр', 'Гүйлгээний төрөл', 
                  'Тоо ширхэг', 'Нэгж өртөг', 'Зарах үнэ', 'Нийт ашиг', 'Ажилтан']
         df = df[order]
@@ -1170,7 +1161,6 @@ def export_transactions(type):
         }
         df = pd.concat([df, pd.DataFrame([totals])], ignore_index=True)
         
-    # --- EXCEL ФОРМАТЛАХ ХЭСЭГ (Чиний хуучин кодтой яг ижил) ---
     output = BytesIO()
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
         sheet_name = f"{type} Тайлан"
@@ -1179,6 +1169,7 @@ def export_transactions(type):
         workbook = writer.book
         worksheet = writer.sheets[sheet_name[:31]]
         
+        # Форматууд
         border_fmt = workbook.add_format({'border': 1, 'align': 'left'})
         header_fmt = workbook.add_format({'bold': True, 'bg_color': '#D7E4BC', 'border': 1, 'align': 'center'})
         money_fmt = workbook.add_format({'num_format': '#,##0', 'border': 1, 'align': 'right'})
@@ -1187,6 +1178,7 @@ def export_transactions(type):
         for col_num, value in enumerate(df.columns.values):
             worksheet.write(0, col_num, value, header_fmt)
 
+        # Дата бичих
         for row_num in range(1, len(df)):
             for col_num in range(len(df.columns)):
                 val = df.iloc[row_num-1, col_num]
