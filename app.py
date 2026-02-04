@@ -746,6 +746,7 @@ def buy_old_bow():
                 retail_price=retail,
                 quantity=int(qty),
                 date=datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                user_id=current_user.id  # ЭНҮҮНИЙГ НЭМЭХ ХЭРЭГТЭЙ
             )
             
             # 2. Үндсэн барааны жагсаалт руу нэмэх (Ингэснээр Dashboard дээр харагдана)
