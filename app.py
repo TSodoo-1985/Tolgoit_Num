@@ -498,28 +498,54 @@ def add_transaction_bulk():
 @app.route('/special_transfer', methods=['GET', 'POST'])
 @login_required
 def special_transfer():
-    if request.method == 'POST':
-        product_id = request.form.get('product_id')
-        quantity = float(request.form.get('quantity') or 0)
-        note = request.form.get('note') # Хаашаа шилжүүлж буй тайлбар
+    # Viewer эрхтэй хүн шилжүүлэг хийж болохгүй
+    if current_user.role == 'viewer':
+        flash('Танд шилжүүлэг хийх эрх байхгүй байна.', 'danger')
+        return redirect(url_for('dashboard'))
 
-        product = Product.query.get(product_id)
-        if product and quantity > 0:
-            product.stock -= quantity # Үлдэгдэл хасах
-            
-            # Гүйлгээг 'Өртгөөр зарлага' төрлөөр хадгалах
-            new_tx = Transaction(
-                product_id=product.id,
-                type='Өртгөөр зарлага',
-                quantity=quantity,
-                timestamp=datetime.now(),
-                user_id=current_user.id
-            )
-            db.session.add(new_tx)
+    if request.method == 'POST':
+        # Формоос ирсэн жагсаалтуудыг авах
+        product_ids = request.form.getlist('product_ids[]')
+        quantities = request.form.getlist('quantities[]')
+        note = request.form.get('note')
+
+        if not product_ids:
+            flash('Шилжүүлэх бараа сонгоогүй байна!', 'warning')
+            return redirect(url_for('special_transfer'))
+
+        try:
+            # Бүх барааг нэг дор боловсруулах
+            for p_id, qty in zip(product_ids, quantities):
+                product = Product.query.get(p_id)
+                q = float(qty) if qty else 0
+                
+                if product and q > 0:
+                    # Сток хасах
+                    product.stock -= q
+                    
+                    # Гүйлгээний түүхөнд 'Өртгөөр зарлага' гэж тэмдэглэх
+                    new_tx = Transaction(
+                        product_id=product.id,
+                        user_id=current_user.id,
+                        type='Өртгөөр зарлага',
+                        quantity=q,
+                        # Шилжүүлэгт борлуулах үнэ биш өртөг үнийг нь авна
+                        price=product.cost_price if product.cost_price else 0,
+                        description=f"Шилжүүлэг: {note}",
+                        timestamp=datetime.now()
+                    )
+                    db.session.add(new_tx)
+
             db.session.commit()
-            flash(f'{product.name} - {quantity} ш өртгөөр амжилттай шилжлээ.')
+            flash(f'Нийт {len(product_ids)} төрлийн барааг "{note}" тайлбартайгаар амжилттай шилжүүллээ.', 'success')
             return redirect(url_for('dashboard'))
 
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Алдаа гарлаа: {str(e)}', 'danger')
+            return redirect(url_for('special_transfer'))
+
+    # Зөвхөн идэвхтэй байгаа бараануудыг харуулах
     products = Product.query.filter(Product.is_active == True).order_by(Product.name).all()
     return render_template('special_transfer.html', products=products)
 
