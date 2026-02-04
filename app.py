@@ -448,22 +448,35 @@ def add_transaction_bulk():
         if product:
             qty = float(item['quantity'])
             
+            # --- 1. ТУХАЙН ҮЕИЙН ЗАРСАН ҮНИЙГ ТОДОРХОЙЛОХ ---
+            # Сагснаас зассан үнэ ирсэн бол тэрийг авна, ирээгүй бол үндсэн үнийг авна
+            actual_price = float(item.get('price') or 0)
+            if actual_price == 0:
+                if item['type'] == 'Бөөний':
+                    actual_price = product.wholesale_price
+                elif item['type'] == 'Өртгөөр':
+                    actual_price = product.cost_price
+                else: # Жижиглэн эсвэл бусад
+                    actual_price = product.retail_price
+
             # Үлдэгдэл тооцох
             if item['type'] == 'Орлого':
                 product.stock += qty
-            else: # Жижиглэн, Бөөний, Өртгөөр бүгд хасагдана
+            else:
                 product.stock -= qty
             
-            # Гүйлгээ хадгалах (timestamp ашиглана)
+            # --- 2. ГҮЙЛГЭЭ ХАДГАЛАХ (ҮНЭТЭЙ НЬ ХАМТ) ---
             db.session.add(Transaction(
                 product_id=product.id,
                 type=item['type'],
                 quantity=qty,
+                price=actual_price, # <--- ЭНЭ МӨРИЙГ НЭМСНЭЭР ҮНЭ БААЗАД ҮЛДЭНЭ
                 timestamp=datetime.now(), 
                 user_id=current_user.id
             ))
+            
     db.session.commit()
-    flash(f"{len(items)} гүйлгээ амжилттай бүртгэгдлээ.")
+    # Flash мессеж JSON хариунд шууд харагдахгүй тул хэрэггүй бол устгаж болно
     return jsonify({"status": "success"}), 200
 
 @app.route('/special_transfer', methods=['GET', 'POST'])
