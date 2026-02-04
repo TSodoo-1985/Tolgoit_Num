@@ -1146,22 +1146,26 @@ def export_transactions(type):
     for t in transactions:
         cost_price = t.product.cost_price if t.product else 0
         
-        # --- 1. ЗАРСАН ҮНИЙГ ТОДОРХОЙЛОХ ---
-        # Касс дээр гараар бичсэн үнэ (t.price) байвал түүнийг авна.
-        # Байхгүй бол (0 бол) сая үндсэн үнийг авна.
-        actual_sold_price = t.price if (t.price and t.price > 0) else 0
-        
-        if actual_sold_price == 0 and t.product:
-            if "Бөөний" in t.type:
-                actual_sold_price = t.product.wholesale_price
-            elif "Жижиглэн" in t.type:
-                actual_sold_price = t.product.retail_price
-        
-        # --- 2. НИЙТ ДҮН БОЛОН АШИГ БОДОХ ---
-        # Нийт дүн = Нэгж зарсан үнэ * Тоо ширхэг
+        # --- ТУХАЙН ҮЕД ЗАРСАН ҮНИЙГ ШАЛГАХ ---
+        # 1. Transaction (t.price) хүснэгтэд үнэ хадгалагдсан уу?
+        # None биш, мөн 0-ээс их байвал энэ бол ТУХАЙН ҮЕД ЗАРСАН ҮНЭ мөн.
+        if t.price is not None and t.price > 0:
+            actual_sold_price = float(t.price)
+        else:
+            # 2. Хэрэв Transaction дээр үнэ 0 байвал аргагүйн эрхэнд одоогийн үнийг авна.
+            # (Энэ нь хуучин гүйлгээн дээр үнэ хадгалаагүй үед гарна)
+            if t.product:
+                if "Бөөний" in t.type:
+                    actual_sold_price = float(t.product.wholesale_price)
+                else: # Жижиглэн гэж үзье
+                    actual_sold_price = float(t.product.retail_price)
+            else:
+                actual_sold_price = 0
+
+        # Нийт дүн бодох
         total_sales_amount = actual_sold_price * t.quantity
         
-        # Нийт ашиг = (Нэгж зарсан үнэ - Нэгж өртөг) * Тоо ширхэг
+        # Ашиг бодох
         unit_profit = actual_sold_price - cost_price
         total_profit = unit_profit * t.quantity
         
@@ -1173,17 +1177,15 @@ def export_transactions(type):
             'Гүйлгээний төрөл': t.type,
             'Тоо ширхэг': t.quantity,
             'Нэгж өртөг': float(cost_price),
-            'Зарсан үнэ': float(actual_sold_price),  # Нэг бүрийн зарсан үнэ
-            'Нийт дүн': float(total_sales_amount),   # ШИНЭ: Зарсан үнэ * Тоо
-            'Нийт ашиг': float(total_profit) if actual_sold_price > 0 else 0,
+            'Зарсан үнэ': actual_sold_price, # Энд одоо тухайн үеийн үнэ гарна
+            'Нийт дүн': total_sales_amount,
+            'Нийт ашиг': total_profit,
             'Ажилтан': t.user.username if t.user else "-"
         })
         
     df = pd.DataFrame(data)
 
-    # --- НЭГТГЭХГҮЙ (Салгаж харуулах) ---
     if not df.empty:
-        # Баганын дараалал: 'Нийт дүн' баганыг нэмсэн
         order = ['Огноо', 'Ангилал', 'Барааны код', 'Барааны нэр', 'Гүйлгээний төрөл', 
                  'Тоо ширхэг', 'Нэгж өртөг', 'Зарсан үнэ', 'Нийт дүн', 'Нийт ашиг', 'Ажилтан']
         df = df[order]
@@ -1193,15 +1195,14 @@ def export_transactions(type):
         totals = {
             'Огноо': 'НИЙТ ДҮН:', 'Ангилал': '', 'Барааны код': '', 'Барааны нэр': '', 'Гүйлгээний төрөл': '',
             'Тоо ширхэг': df['Тоо ширхэг'].sum(),
-            'Нэгж өртөг': '', 
-            'Зарсан үнэ': '', # Нэгж үнийг нэмэх утгагүй тул хоосон
-            'Нийт дүн': df['Нийт дүн'].sum(),   # Энд нийт орж ирсэн мөнгө харагдана
+            'Нэгж өртөг': '', 'Зарсан үнэ': '', 
+            'Нийт дүн': df['Нийт дүн'].sum(),
             'Нийт ашиг': df['Нийт ашиг'].sum(),
             'Ажилтан': ''
         }
         df = pd.concat([df, pd.DataFrame([totals])], ignore_index=True)
         
-    # --- EXCEL FORMATTING ---
+    # --- EXCEL ФОРМАТ ---
     output = BytesIO()
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
         sheet_name = f"{type} Тайлан"
@@ -1222,7 +1223,7 @@ def export_transactions(type):
             for col_num in range(len(df.columns)):
                 val = df.iloc[row_num-1, col_num]
                 col_name = df.columns[col_num]
-                # 'өртөг', 'үнэ', 'ашиг', 'дүн' гэсэн үгтэй багануудыг мөнгөн дүнгээр форматлана
+                # 'өртөг', 'үнэ', 'ашиг', 'дүн' гэсэн багануудыг мөнгөн дүнгээр харуулна
                 if any(x in col_name for x in ['өртөг', 'үнэ', 'ашиг', 'дүн']):
                     worksheet.write(row_num, col_num, val, money_fmt)
                 else:
@@ -1236,7 +1237,7 @@ def export_transactions(type):
         for i, col in enumerate(df.columns):
             column_len = max(df[col].astype(str).map(len).max(), len(col)) + 4
             worksheet.set_column(i, i, column_len)
-
+            
         worksheet.freeze_panes(1, 0)
 
     output.seek(0)
