@@ -1,91 +1,178 @@
 {% extends "layout.html" %}
 {% block content %}
 <div class="container mt-4">
-    <div class="card shadow-sm border-0 rounded-4 p-4">
-        <h4 class="fw-bold mb-4 text-primary"><i class="bi bi-box-arrow-in-down me-2"></i>Салбарын орлого нэмэх (Олноор)</h4>
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" />
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+
+    <div class="card shadow-sm border-0 rounded-4 p-4 mb-5">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h4 class="fw-bold text-primary m-0">
+                <i class="bi bi-box-arrow-in-down me-2"></i>Салбарын орлого нэмэх
+            </h4>
+            <a href="{{ url_for('internal_income_list') }}" class="btn btn-outline-secondary btn-sm rounded-3">
+                <i class="bi bi-arrow-left me-1"></i> Буцах
+            </a>
+        </div>
         
-        <div class="row g-3 mb-4 align-items-end">
-            <div class="col-md-6">
-                <label class="form-label fw-bold">Бараа хайх (Нэр эсвэл SKU)</label>
-                <input class="form-control rounded-3" list="productsList" id="productSearch" placeholder="Бичиж эхэл...">
-                <datalist id="productsList">
+        <div class="row g-3 p-3 bg-light rounded-4 mb-4 align-items-end">
+            <div class="col-md-7">
+                <label class="form-label fw-bold text-secondary">Бараа хайх (Нэр эсвэл SKU)</label>
+                <select id="smartProductSearch" class="form-select">
+                    <option value="">Бараа сонгоно уу...</option>
                     {% for p in products %}
-                    <option value="{{ p.name }} ({{ p.sku }})" data-id="{{ p.id }}" data-price="{{ p.cost_price }}" data-sku="{{ p.sku }}"></option>
+                    <option value="{{ p.id }}" 
+                            data-name="{{ p.name }}" 
+                            data-sku="{{ p.sku }}" 
+                            data-price="{{ p.cost_price }}">
+                        {{ p.sku }} | {{ p.name }} (Үлдэгдэл: {{ p.stock }})
+                    </option>
                     {% endfor %}
-                </datalist>
+                </select>
             </div>
             <div class="col-md-2">
-                <label class="form-label fw-bold">Тоо</label>
-                <input type="number" id="tempQty" class="form-control" value="1" min="1">
+                <label class="form-label fw-bold text-secondary">Тоо</label>
+                <input type="number" id="tempQty" class="form-control rounded-3" value="1" min="1">
             </div>
-            <div class="col-md-2">
-                <button type="button" onclick="addToTable()" class="btn btn-success w-100"><i class="bi bi-plus-lg"></i> Нэмэх</button>
+            <div class="col-md-3">
+                <button type="button" onclick="addToTable()" class="btn btn-success w-100 rounded-3 fw-bold py-2">
+                    <i class="bi bi-plus-lg me-1"></i> Жагсаалтад нэмэх
+                </button>
             </div>
         </div>
 
         <form id="incomeForm" method="POST">
-            <div class="table-responsive mb-3">
-                <table class="table table-bordered align-middle" id="incomeTable">
-                    <thead class="table-light">
+            <div class="table-responsive mb-4">
+                <table class="table table-hover align-middle shadow-sm border rounded-3" id="incomeTable">
+                    <thead class="table-dark">
                         <tr>
                             <th>SKU</th>
                             <th>Барааны нэр</th>
-                            <th width="150">Тоо ширхэг</th>
+                            <th width="120">Тоо ширхэг</th>
                             <th>Нэгж өртөг</th>
-                            <th>Нийт</th>
-                            <th>Устгах</th>
+                            <th>Нийт өртөг</th>
+                            <th class="text-center">Устгах</th>
                         </tr>
                     </thead>
                     <tbody id="incomeBody">
                         </tbody>
+                    <tfoot id="tableFooter" style="display: none;">
+                        <tr class="table-info fw-bold">
+                            <td colspan="4" class="text-end">НИЙТ ДҮН:</td>
+                            <td id="grandTotal">0₮</td>
+                            <td></td>
+                        </tr>
+                    </tfoot>
                 </table>
             </div>
-            <button type="submit" class="btn btn-primary btn-lg w-100 rounded-3 shadow">Бүх барааг баазад хадгалах</button>
+
+            <div id="submitSection" style="display: none;">
+                <button type="submit" class="btn btn-primary btn-lg w-100 rounded-4 shadow-sm fw-bold">
+                    <i class="bi bi-cloud-arrow-up-fill me-2"></i>Бүх барааг баазад хадгалах
+                </button>
+            </div>
         </form>
     </div>
 </div>
 
+
+
 <script>
-function addToTable() {
-    const searchInput = document.getElementById('productSearch');
-    const qtyInput = document.getElementById('tempQty');
-    const val = searchInput.value;
-    const opts = document.getElementById('productsList').options;
-    
-    let selectedProduct = null;
-    for (let opt of opts) {
-        if (opt.value === val) {
-            selectedProduct = {
-                id: opt.getAttribute('data-id'),
-                name: val,
-                sku: opt.getAttribute('data-sku'),
-                price: opt.getAttribute('data-price')
-            };
-            break;
+$(document).ready(function() {
+    // Select2-ыг идэвхжүүлэх
+    $('#smartProductSearch').select2({
+        theme: 'bootstrap-5',
+        placeholder: 'Нэр эсвэл SKU бичнэ үү...',
+        allowClear: true,
+        width: '100%'
+    });
+
+    // Хүснэгтэд бараа нэмэх функц
+    window.addToTable = function() {
+        const selectElement = $('#smartProductSearch');
+        const data = selectElement.select2('data')[0];
+        const qty = parseInt($('#tempQty').val());
+
+        if (!data || !data.id) {
+            alert("Бараа сонгоно уу!");
+            return;
         }
-    }
 
-    if (!selectedProduct) {
-        alert("Бараагаа жагсаалтаас сонгоно уу!");
-        return;
-    }
+        const product = {
+            id: data.id,
+            name: data.element.dataset.name,
+            sku: data.element.dataset.sku,
+            price: parseFloat(data.element.dataset.price)
+        };
 
-    const tbody = document.getElementById('incomeBody');
-    const row = document.createElement('tr');
-    row.innerHTML = `
-        <td>${selectedProduct.sku}</td>
-        <td>${selectedProduct.name} <input type="hidden" name="p_ids[]" value="${selectedProduct.id}"></td>
-        <td><input type="number" name="qtys[]" class="form-control" value="${qtyInput.value}" min="1"></td>
-        <td>${Number(selectedProduct.price).toLocaleString()}₮</td>
-        <td>${(selectedProduct.price * qtyInput.value).toLocaleString()}₮</td>
-        <td><button type="button" class="btn btn-outline-danger btn-sm" onclick="this.closest('tr').remove()"><i class="bi bi-trash"></i></button></td>
-    `;
-    tbody.appendChild(row);
-    
-    // Цэвэрлэх
-    searchInput.value = '';
-    qtyInput.value = '1';
-    searchInput.focus();
-}
+        const tbody = document.getElementById('incomeBody');
+        const row = document.createElement('tr');
+        row.className = "fade-in"; // CSS animation нэмж болно
+        
+        row.innerHTML = `
+            <td class="fw-bold">${product.sku}</td>
+            <td>${product.name} <input type="hidden" name="p_ids[]" value="${product.id}"></td>
+            <td><input type="number" name="qtys[]" class="form-control form-control-sm" value="${qty}" min="1" onchange="updateTotals()"></td>
+            <td class="unit-price" data-price="${product.price}">${product.price.toLocaleString()}₮</td>
+            <td class="row-total">${(product.price * qty).toLocaleString()}₮</td>
+            <td class="text-center">
+                <button type="button" class="btn btn-outline-danger btn-sm border-0" onclick="removeRow(this)">
+                    <i class="bi bi-trash3-fill"></i>
+                </button>
+            </td>
+        `;
+        
+        tbody.appendChild(row);
+        
+        // Form-ыг харуулах
+        document.getElementById('tableFooter').style.display = 'table-footer-group';
+        document.getElementById('submitSection').style.display = 'block';
+
+        // Цэвэрлэх
+        selectElement.val(null).trigger('change');
+        $('#tempQty').val(1);
+        updateTotals();
+    };
+
+    // Мөр устгах
+    window.removeRow = function(btn) {
+        btn.closest('tr').remove();
+        updateTotals();
+        
+        const tbody = document.getElementById('incomeBody');
+        if (tbody.children.length === 0) {
+            document.getElementById('tableFooter').style.display = 'none';
+            document.getElementById('submitSection').style.display = 'none';
+        }
+    };
+
+    // Нийт дүн бодох
+    window.updateTotals = function() {
+        let grandTotal = 0;
+        document.querySelectorAll('#incomeBody tr').forEach(row => {
+            const qty = parseInt(row.querySelector('input[name="qtys[]"]').value) || 0;
+            const price = parseFloat(row.querySelector('.unit-price').dataset.price);
+            const total = qty * price;
+            row.querySelector('.row-total').innerText = total.toLocaleString() + '₮';
+            grandTotal += total;
+        });
+        document.getElementById('grandTotal').innerText = grandTotal.toLocaleString() + '₮';
+    };
+});
 </script>
+
+<style>
+    .select2-container--bootstrap-5 .select2-selection {
+        border-radius: 0.5rem;
+        padding: 0.4rem;
+    }
+    .fade-in {
+        animation: fadeIn 0.3s ease-in;
+    }
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+</style>
 {% endblock %}
