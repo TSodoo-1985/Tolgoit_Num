@@ -1,39 +1,91 @@
 {% extends "layout.html" %}
 {% block content %}
 <div class="container mt-4">
-    <div class="card shadow-sm border-0 rounded-4 p-4" style="max-width: 500px; margin: auto;">
-        <h4 class="fw-bold mb-4 text-primary"><i class="bi bi-plus-square-fill me-2"></i>Салбарын орлого нэмэх</h4>
-        <form method="POST">
-            <div class="mb-3">
-                <label class="form-label fw-bold">Бараа хайх</label>
-                <input class="form-control rounded-3" list="productsList" id="productSearch" placeholder="Нэр эсвэл SKU бич..." required>
+    <div class="card shadow-sm border-0 rounded-4 p-4">
+        <h4 class="fw-bold mb-4 text-primary"><i class="bi bi-box-arrow-in-down me-2"></i>Салбарын орлого нэмэх (Олноор)</h4>
+        
+        <div class="row g-3 mb-4 align-items-end">
+            <div class="col-md-6">
+                <label class="form-label fw-bold">Бараа хайх (Нэр эсвэл SKU)</label>
+                <input class="form-control rounded-3" list="productsList" id="productSearch" placeholder="Бичиж эхэл...">
                 <datalist id="productsList">
                     {% for p in products %}
-                    <option data-id="{{ p.id }}" value="{{ p.name }} (SKU: {{ p.sku }})"></option>
+                    <option value="{{ p.name }} ({{ p.sku }})" data-id="{{ p.id }}" data-price="{{ p.cost_price }}" data-sku="{{ p.sku }}"></option>
                     {% endfor %}
                 </datalist>
-                <input type="hidden" name="product_id" id="product_id_hidden">
             </div>
-            <div class="mb-3">
-                <label class="form-label fw-bold">Тоо ширхэг</label>
-                <input type="number" name="quantity" class="form-control rounded-3" value="1" min="1" required>
+            <div class="col-md-2">
+                <label class="form-label fw-bold">Тоо</label>
+                <input type="number" id="tempQty" class="form-control" value="1" min="1">
             </div>
-            <button type="submit" class="btn btn-primary w-100 rounded-3 fw-bold py-2">Бүртгэх</button>
+            <div class="col-md-2">
+                <button type="button" onclick="addToTable()" class="btn btn-success w-100"><i class="bi bi-plus-lg"></i> Нэмэх</button>
+            </div>
+        </div>
+
+        <form id="incomeForm" method="POST">
+            <div class="table-responsive mb-3">
+                <table class="table table-bordered align-middle" id="incomeTable">
+                    <thead class="table-light">
+                        <tr>
+                            <th>SKU</th>
+                            <th>Барааны нэр</th>
+                            <th width="150">Тоо ширхэг</th>
+                            <th>Нэгж өртөг</th>
+                            <th>Нийт</th>
+                            <th>Устгах</th>
+                        </tr>
+                    </thead>
+                    <tbody id="incomeBody">
+                        </tbody>
+                </table>
+            </div>
+            <button type="submit" class="btn btn-primary btn-lg w-100 rounded-3 shadow">Бүх барааг баазад хадгалах</button>
         </form>
     </div>
 </div>
 
 <script>
-// Сонгосон барааны ID-г hidden input-д оноох
-document.getElementById('productSearch').addEventListener('input', function(e) {
-    const val = e.target.value;
-    const opts = document.getElementById('productsList').childNodes;
-    for (let i = 0; i < opts.length; i++) {
-        if (opts[i].value === val) {
-            document.getElementById('product_id_hidden').value = opts[i].getAttribute('data-id');
+function addToTable() {
+    const searchInput = document.getElementById('productSearch');
+    const qtyInput = document.getElementById('tempQty');
+    const val = searchInput.value;
+    const opts = document.getElementById('productsList').options;
+    
+    let selectedProduct = null;
+    for (let opt of opts) {
+        if (opt.value === val) {
+            selectedProduct = {
+                id: opt.getAttribute('data-id'),
+                name: val,
+                sku: opt.getAttribute('data-sku'),
+                price: opt.getAttribute('data-price')
+            };
             break;
         }
     }
-});
+
+    if (!selectedProduct) {
+        alert("Бараагаа жагсаалтаас сонгоно уу!");
+        return;
+    }
+
+    const tbody = document.getElementById('incomeBody');
+    const row = document.createElement('tr');
+    row.innerHTML = `
+        <td>${selectedProduct.sku}</td>
+        <td>${selectedProduct.name} <input type="hidden" name="p_ids[]" value="${selectedProduct.id}"></td>
+        <td><input type="number" name="qtys[]" class="form-control" value="${qtyInput.value}" min="1"></td>
+        <td>${Number(selectedProduct.price).toLocaleString()}₮</td>
+        <td>${(selectedProduct.price * qtyInput.value).toLocaleString()}₮</td>
+        <td><button type="button" class="btn btn-outline-danger btn-sm" onclick="this.closest('tr').remove()"><i class="bi bi-trash"></i></button></td>
+    `;
+    tbody.appendChild(row);
+    
+    // Цэвэрлэх
+    searchInput.value = '';
+    qtyInput.value = '1';
+    searchInput.focus();
+}
 </script>
 {% endblock %}
