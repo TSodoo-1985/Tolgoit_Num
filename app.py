@@ -995,6 +995,44 @@ def bundles_page():
                            products=products, 
                            saved_bundles=saved_bundles)
 
+# 1. Салбарын орлогын жагсаалт харах
+@app.route('/internal-income')
+@login_required
+def internal_income_list():
+    page = request.args.get('page', 1, type=int)
+    # Зөвхөн 'Орлого' төрөлтэй гүйлгээг харуулна
+    incomes = Transaction.query.filter_by(type='Орлого').order_by(Transaction.timestamp.desc()).paginate(page=page, per_page=20)
+    return render_template('internal_income.html', incomes=incomes)
+
+# 2. Бараа сонгож орлого нэмэх хуудас
+@app.route('/add-internal-income', methods=['GET', 'POST'])
+@login_required
+def add_internal_income():
+    if request.method == 'POST':
+        product_id = request.form.get('product_id')
+        quantity = int(request.form.get('quantity'))
+        
+        product = Product.query.get(product_id)
+        if product:
+            product.stock += quantity  # Үлдэгдэл нэмэх
+            
+            # Гүйлгээг бүртгэх
+            new_trans = Transaction(
+                product_id=product.id,
+                user_id=current_user.id,
+                quantity=quantity,
+                price=product.cost_price, # Өртгөөр нь авна
+                type='Орлого',
+                timestamp=datetime.now()
+            )
+            db.session.add(new_trans)
+            db.session.commit()
+            flash(f"{product.name} бараанаас {quantity} ширхэг орлого авлаа.")
+            return redirect(url_for('internal_income_list'))
+            
+    products = Product.query.all() # Сонгох барааны жагсаалт
+    return render_template('add_internal_income.html', products=products)
+
 # --- ТАЙЛАН, СТАТИСТИК ---
 @app.route('/statistics')
 @login_required
