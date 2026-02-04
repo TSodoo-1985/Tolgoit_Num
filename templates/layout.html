@@ -62,14 +62,11 @@
                     <li><a class="dropdown-item py-2" href="{{ url_for('special_transfer') }}"><i class="bi bi-arrow-left-right text-warning me-2"></i>Шилжүүлэг</a></li>
                     <li><a class="dropdown-item py-2" href="{{ url_for('inventory') }}"><i class="bi bi-list-check me-2"></i>Тооллого</a></li>
                     {% if current_user.role in ['admin', 'staff'] %}
-                    <li><a class="dropdown-item py-2 fw-bold text-primary" href="{{ url_for('manage_packages') }}"><i class="bi bi-box-seam-fill me-2"></i>Багц тохиргоо</a></li>
-                    <li><a class="dropdown-item py-2 fw-bold text-info" href="{{ url_for('bundles_page') }}"><i class="bi bi-boxes me-2"></i>Багц зарах</a></li>
-                    {% endif %}
-                    {% if current_user.role in ['admin', 'staff'] %}
-                    <li><a class="dropdown-item py-2 fw-bold text-primary" href="{{ url_for('manage_packages') }}"><i class="bi bi-box-seam-fill me-2"></i>Багц тохиргоо</a></li>
+                    <li><a class="dropdown-item py-2" href="{{ url_for('bundles_page') }}"><i class="bi bi-boxes me-2"></i>Багц зарах</a></li>
+                    <li><a class="dropdown-item py-2" href="{{ url_for('manage_packages') }}"><i class="bi bi-box-seam-fill me-2"></i>Багц тохиргоо</a></li>
                     {% endif %}
                     <li><a class="dropdown-item py-2" href="{{ url_for('expenses') }}"><i class="bi bi-cash-coin text-danger me-2"></i>Зардал & Цалин</a></li>
-                    <li><a class="dropdown-item py-2 fw-bold" href="{{ url_for('manage_loans') }}"><i class="bi bi-person-badge-fill text-primary me-2"></i>Зээлийн бүртгэл</a></li>
+                    <li><a class="dropdown-item py-2" href="{{ url_for('manage_loans') }}"><i class="bi bi-person-badge-fill text-primary me-2"></i>Зээлийн бүртгэл</a></li>
                 </ul>
             </div>
 
