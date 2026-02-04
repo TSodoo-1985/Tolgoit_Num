@@ -1115,52 +1115,62 @@ def export_transactions(type):
     for t in transactions:
         cost_price = t.product.cost_price if t.product else 0
         
-        # --- ЧИНИЙ ГАРГАСАН САНАА: ЗАСАРСАН ҮНЭ ТООЦОХ ---
-        sell_price = t.price if (t.price and t.price > 0) else 0
-        if sell_price == 0 and t.product:
-            if "Бөөний" in t.type:
-                sell_price = t.product.wholesale_price
-            elif "Жижиглэн" in t.type:
-                sell_price = t.product.retail_price
+        # --- 1. ЗАРСАН ҮНИЙГ ТОДОРХОЙЛОХ ---
+        # Касс дээр гараар бичсэн үнэ (t.price) байвал түүнийг авна.
+        # Байхгүй бол (0 бол) сая үндсэн үнийг авна.
+        actual_sold_price = t.price if (t.price and t.price > 0) else 0
         
-        unit_profit = sell_price - cost_price
+        if actual_sold_price == 0 and t.product:
+            if "Бөөний" in t.type:
+                actual_sold_price = t.product.wholesale_price
+            elif "Жижиглэн" in t.type:
+                actual_sold_price = t.product.retail_price
+        
+        # --- 2. НИЙТ ДҮН БОЛОН АШИГ БОДОХ ---
+        # Нийт дүн = Нэгж зарсан үнэ * Тоо ширхэг
+        total_sales_amount = actual_sold_price * t.quantity
+        
+        # Нийт ашиг = (Нэгж зарсан үнэ - Нэгж өртөг) * Тоо ширхэг
+        unit_profit = actual_sold_price - cost_price
         total_profit = unit_profit * t.quantity
         
-        # Гүйлгээ бүрийг салгахын тулд цаг минутыг заавал оруулна
         data.append({
-            'Огноо': t.timestamp.strftime('%Y-%m-%d %H:%M:%S'), 
+            'Огноо': t.timestamp.strftime('%Y-%m-%d %H:%M:%S'),
             'Ангилал': t.product.category if t.product else "-",
             'Барааны код': t.product.sku if t.product else "-",
             'Барааны нэр': t.product.name if t.product else "Устгагдсан",
             'Гүйлгээний төрөл': t.type,
             'Тоо ширхэг': t.quantity,
-            'Нэгж өртөг': cost_price,
-            'Зарах үнэ': sell_price,
-            'Нийт ашиг': total_profit if sell_price > 0 else 0,
+            'Нэгж өртөг': float(cost_price),
+            'Зарсан үнэ': float(actual_sold_price),  # Нэг бүрийн зарсан үнэ
+            'Нийт дүн': float(total_sales_amount),   # ШИНЭ: Зарсан үнэ * Тоо
+            'Нийт ашиг': float(total_profit) if actual_sold_price > 0 else 0,
             'Ажилтан': t.user.username if t.user else "-"
         })
         
     df = pd.DataFrame(data)
 
-    # --- ЧУХАЛ ӨӨРЧЛӨЛТ: НЭГТГЭХ (GROUPBY) ХЭСГИЙГ УСТГАВ ---
-    # Гүйлгээ бүрийг салгаж харахын тулд Grouping хийхгүй.
+    # --- НЭГТГЭХГҮЙ (Салгаж харуулах) ---
     if not df.empty:
-        # Зөвхөн багануудын дарааллыг тохируулна
+        # Баганын дараалал: 'Нийт дүн' баганыг нэмсэн
         order = ['Огноо', 'Ангилал', 'Барааны код', 'Барааны нэр', 'Гүйлгээний төрөл', 
-                 'Тоо ширхэг', 'Нэгж өртөг', 'Зарах үнэ', 'Нийт ашиг', 'Ажилтан']
+                 'Тоо ширхэг', 'Нэгж өртөг', 'Зарсан үнэ', 'Нийт дүн', 'Нийт ашиг', 'Ажилтан']
         df = df[order]
 
-    # --- НИЙТ ДҮН НЭМЭХ ---
+    # --- НИЙТ ДҮНГИЙН МӨР ---
     if not df.empty and type != 'Орлого':
         totals = {
             'Огноо': 'НИЙТ ДҮН:', 'Ангилал': '', 'Барааны код': '', 'Барааны нэр': '', 'Гүйлгээний төрөл': '',
             'Тоо ширхэг': df['Тоо ширхэг'].sum(),
-            'Нэгж өртөг': '', 'Зарах үнэ': '', 
+            'Нэгж өртөг': '', 
+            'Зарсан үнэ': '', # Нэгж үнийг нэмэх утгагүй тул хоосон
+            'Нийт дүн': df['Нийт дүн'].sum(),   # Энд нийт орж ирсэн мөнгө харагдана
             'Нийт ашиг': df['Нийт ашиг'].sum(),
             'Ажилтан': ''
         }
         df = pd.concat([df, pd.DataFrame([totals])], ignore_index=True)
         
+    # --- EXCEL FORMATTING ---
     output = BytesIO()
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
         sheet_name = f"{type} Тайлан"
@@ -1169,7 +1179,6 @@ def export_transactions(type):
         workbook = writer.book
         worksheet = writer.sheets[sheet_name[:31]]
         
-        # Форматууд
         border_fmt = workbook.add_format({'border': 1, 'align': 'left'})
         header_fmt = workbook.add_format({'bold': True, 'bg_color': '#D7E4BC', 'border': 1, 'align': 'center'})
         money_fmt = workbook.add_format({'num_format': '#,##0', 'border': 1, 'align': 'right'})
@@ -1178,12 +1187,12 @@ def export_transactions(type):
         for col_num, value in enumerate(df.columns.values):
             worksheet.write(0, col_num, value, header_fmt)
 
-        # Дата бичих
         for row_num in range(1, len(df)):
             for col_num in range(len(df.columns)):
                 val = df.iloc[row_num-1, col_num]
                 col_name = df.columns[col_num]
-                if any(x in col_name for x in ['өртөг', 'үнэ', 'ашиг']):
+                # 'өртөг', 'үнэ', 'ашиг', 'дүн' гэсэн үгтэй багануудыг мөнгөн дүнгээр форматлана
+                if any(x in col_name for x in ['өртөг', 'үнэ', 'ашиг', 'дүн']):
                     worksheet.write(row_num, col_num, val, money_fmt)
                 else:
                     worksheet.write(row_num, col_num, val, border_fmt)
