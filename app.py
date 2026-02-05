@@ -748,66 +748,43 @@ def buy_old_bow():
             retail_price = float(request.form.get('retail_price'))
             quantity = int(request.form.get('stock'))
             
-            total_cost = cost_price * quantity # Нийт гарах мөнгө
+            total_cost = cost_price * quantity
 
-            # 1. САНХҮҮГИЙН БИЧИЛТ: Зарлага (Expense) үүсгэх
+            # 1. Зарлага бүртгэх
             new_expense = Expense(
                 category="Хуучин нум авалт",
                 amount=total_cost,
-                description=f"{name} ({quantity} ш) - Худалдаж авсан",
-                date=datetime.now(), # datetime.now()-ийг ашиглана
+                description=f"Хуучин нум авсан: {name}",
+                date=datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
                 user_id=current_user.id
             )
             db.session.add(new_expense)
 
-            # 2. АГУУЛАХЫН БИЧИЛТ: Бараа (Product) бүртгэх/нэмэх
-            # Энд алдаа гарч байсан хэсгийг засав (price -> retail_price)
+            # 2. Агуулахын үлдэгдэлд нэмэх/шинээр үүсгэх
             existing_product = Product.query.filter_by(
                 name=name, 
                 sku=sku, 
                 cost_price=cost_price, 
-                retail_price=retail_price,  # <--- ЭНД ЗАСВАР ОРЛОО
-                category="Хуучин нум"
+                retail_price=retail_price
             ).first()
 
             if existing_product:
-                # Бүх юм нь таарвал тоог нь нэмнэ
                 existing_product.stock += quantity
-                # Орлогын гүйлгээ бичих (Optional)
-                db.session.add(Transaction(
-                    product_id=existing_product.id,
-                    type='Орлого', 
-                    quantity=quantity,
-                    price=cost_price,
-                    user_id=current_user.id
-                ))
-                flash(f"'{name}' агуулахад байсан тул тоог нь {quantity}-ээр нэмлээ.")
             else:
-                # Зөрүүтэй бол шинээр үүсгэнэ
                 new_product = Product(
                     name=name,
                     sku=sku if sku else f"OLD-{datetime.now().strftime('%m%d%H%M')}",
-                    category="Хуучин нум",
-                    retail_price=retail_price,      # Зарах үнэ
-                    cost_price=cost_price,          # Өртөг үнэ
-                    wholesale_price=retail_price,   # Бөөний үнэ (байхгүй бол жижиглэнтэй ижил)
+                    category="Хуучин нум", # Заавал энэ ангиллыг өгнө
+                    cost_price=cost_price,
+                    retail_price=retail_price,
+                    wholesale_price=retail_price,
                     stock=quantity,
                     is_active=True
                 )
                 db.session.add(new_product)
-                db.session.flush() # ID авахын тулд
-                
-                # Орлогын гүйлгээ бичих
-                db.session.add(Transaction(
-                    product_id=new_product.id,
-                    type='Орлого', 
-                    quantity=quantity,
-                    price=cost_price,
-                    user_id=current_user.id
-                ))
-                flash(f"'{name}' шинэ бараа болж бүртгэгдлээ.")
 
-            # 3. ТАЙЛАНГИЙН БИЧИЛТ: Түүх (OldBow) үүсгэх
+            # 3. Тайлангийн хүснэгтэд хадгалах
+            # Энд OldBow класс тодорхойлогдсон байх ёстой
             new_report = OldBow(
                 product_name=name,
                 sku=sku,
@@ -815,11 +792,12 @@ def buy_old_bow():
                 retail_price=retail_price,
                 quantity=quantity,
                 date=datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                user_id=current_user.id 
+                user_id=current_user.id
             )
             db.session.add(new_report)
-
+            
             db.session.commit()
+            flash(f"'{name}' амжилттай бүртгэгдэж, кассаас мөнгө хасагдлаа.")
             return redirect(url_for('old_bow_report'))
 
         except Exception as e:
