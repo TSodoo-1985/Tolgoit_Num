@@ -12,24 +12,28 @@
         <table class="table table-hover">
             <thead class="table-light">
                 <tr>
-                    <th>Огноо</th>
-                    <th>Барааны нэр</th>
-                    <th>Тоо ширхэг</th>
-                    <th>Өртөг</th>
-                    <th>Нийт</th>
-                    <th>Ажилтан</th>
+                   <th>Огноо</th>
+                <th>Код (SKU)</th>
+                <th>Барааны нэр</th>
+                <th>Тоо</th>
+                <th>Өртөг</th>
+                <th>Нийт өртөг</th>
+                <th>Тайлбар</th>
+                <th>Хүлээн авсан</th>
                 </tr>
             </thead>
             <tbody>
                 {% for item in incomes.items %}
                 <tr>
                     <td>{{ item.timestamp.strftime('%Y-%m-%d %H:%M') }}</td>
-                    <td>{{ item.product.name if item.product else item.description }}</td>
-                    <td>{{ item.quantity }}</td>
-                    <td>{{ "{:,.0f}".format(item.price) }}₮</td>
-                    <td>{{ "{:,.0f}".format(item.quantity * item.price) }}₮</td>
-                    <td>{{ item.user.username }}</td>
-                </tr>
+                <td><span class="badge bg-secondary">{{ item.product.sku }}</span></td>
+                <td class="fw-bold">{{ item.product.name }}</td>
+                <td>{{ item.quantity }}</td>
+                <td>{{ "{:,.0f}".format(item.price) }}₮</td>
+                <td class="text-primary fw-bold">{{ "{:,.0f}".format(item.quantity * item.price) }}₮</td>
+                <td><small class="text-muted">{{ item.description or '-' }}</small></td>
+                <td><i class="bi bi-person me-1"></i>{{ item.user.username }}</td>
+            </tr>
                 {% else %}
                 <tr>
                     <td colspan="6" class="text-center py-4 text-muted">Одоогоор орлого бүртгэгдээгүй байна.</td>
