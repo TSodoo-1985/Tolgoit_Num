@@ -131,6 +131,17 @@ class BundleItem(db.Model):
     quantity = db.Column(db.Float, nullable=False) # Хэдэн ширхэг орох вэ
     product = db.relationship('Product')# Ширхэг
 
+class OldBow(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    product_name = db.Column(db.String(200), nullable=False)
+    sku = db.Column(db.String(100))
+    purchase_price = db.Column(db.Float, nullable=False) # Авсан үнэ
+    retail_price = db.Column(db.Float, nullable=False)   # Зарах үнэ
+    quantity = db.Column(db.Integer, nullable=False)
+    date = db.Column(db.String(100), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    user = db.relationship('User', backref='old_bow_entries')
+
 login_manager = LoginManager(app)
 login_manager.login_view = 'login'
 
