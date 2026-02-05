@@ -730,61 +730,76 @@ def returns():
 @login_required
 def buy_old_bow():
     if request.method == 'POST':
-        name = request.form.get('name')
-        sku = request.form.get('sku')
-        cost = float(request.form.get('cost_price'))
-        retail = float(request.form.get('retail_price'))
-        qty = float(request.form.get('stock')) # Product дээр stock нь Float байна
-
         try:
-            # 1. Хуучин нумны түүхэнд хадгалах (OldBow модель)
-            new_old_bow = OldBow(
-                product_name=name,
-                sku=sku,
-                category="Хуучин нум",
-                purchase_price=cost,
-                retail_price=retail,
-                quantity=int(qty),
-                date=datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                user_id=current_user.id  # ЭНҮҮНИЙГ НЭМЭХ ХЭРЭГТЭЙ
-            )
+            name = request.form.get('name')
+            sku = request.form.get('sku')
+            cost_price = float(request.form.get('cost_price'))
+            retail_price = float(request.form.get('retail_price'))
+            quantity = int(request.form.get('stock'))
             
-            # 2. Үндсэн барааны жагсаалт руу нэмэх (Ингэснээр Dashboard дээр харагдана)
-            new_product = Product(
-                name=f"[Хуучин] {name}",
-                sku=sku if sku else f"OLD-{datetime.now().strftime('%m%d%H%M')}",
-                category="Хуучин нум",
-                cost_price=cost,      # purchase_price биш cost_price гэж зассан
-                retail_price=retail,
-                wholesale_price=retail, 
-                stock=qty,
-                is_active=True
-            )
+            total_cost = cost_price * quantity # Нийт гарах мөнгө
 
-            # 3. Кассаас зардал хасах
+            # 1. САНХҮҮГИЙН БИЧИЛТ: Зарлага (Expense) үүсгэх
+            # Кассаас мөнгө гарч байгаа тул Expense руу бичнэ
             new_expense = Expense(
                 category="Хуучин нум авалт",
-                amount=cost * qty,
-                description=f"{name} худалдаж авсан",
-                date=datetime.utcnow(),
+                amount=total_cost,
+                description=f"{name} ({quantity} ш) - Худалдаж авсан",
+                date=datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
                 user_id=current_user.id
             )
-
-            db.session.add(new_old_bow)
-            db.session.add(new_product)
             db.session.add(new_expense)
+
+            # 2. АГУУЛАХЫН БИЧИЛТ: Бараа (Product) бүртгэх/нэмэх
+            # Таны хүсэлт: Нэр, Код, Өртөг, Зарах үнэ БҮГД таарч байж нэмнэ.
+            existing_product = Product.query.filter_by(
+                name=name, 
+                sku=sku, 
+                cost_price=cost_price, 
+                price=retail_price,
+                category="Хуучин нум"
+            ).first()
+
+            if existing_product:
+                # Бүх юм нь таарвал тоог нь нэмнэ
+                existing_product.stock += quantity
+                flash(f"'{name}' агуулахад байсан тул тоог нь {quantity}-ээр нэмлээ.")
+            else:
+                # Зөрүүтэй бол шинээр үүсгэнэ
+                new_product = Product(
+                    name=name,
+                    sku=sku,
+                    category="Хуучин нум",
+                    price=retail_price,      # Зарах үнэ
+                    cost_price=cost_price,   # Өртөг үнэ
+                    stock=quantity,
+                    is_active=True
+                )
+                db.session.add(new_product)
+                flash(f"'{name}' шинэ бараа болж бүртгэгдлээ.")
+
+            # 3. ТАЙЛАНГИЙН БИЧИЛТ: Түүх (OldBow) үүсгэх
+            new_report = OldBow(
+                product_name=name,
+                sku=sku,
+                purchase_price=cost_price,
+                retail_price=retail_price,
+                quantity=quantity,
+                date=datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                user_id=current_user.id 
+            )
+            db.session.add(new_report)
+
             db.session.commit()
-            
-            flash(f"'{name}' амжилттай бүртгэгдэж, Dashboard дээр нэмэгдлээ.")
-            return redirect(url_for('dashboard'))
-            
+            return redirect(url_for('old_bow_report'))
+
         except Exception as e:
             db.session.rollback()
             flash(f"Алдаа гарлаа: {str(e)}")
             return redirect(url_for('buy_old_bow'))
 
     return render_template('buy_old_bow.html')
-
+    
 @app.route('/manage-packages', methods=['GET', 'POST'])
 @login_required
 def manage_packages():
@@ -866,8 +881,8 @@ def disassemble_simple():
 @app.route('/old-bow-report')
 @login_required
 def old_bow_report():
-    # Зөвхөн "Хуучин нум авалт" төрөлтэй зардлуудыг харах
-    reports = Expense.query.filter_by(category="Хуучин нум авалт").order_by(Expense.date.desc()).all()
+    # Хамгийн сүүлд авснаараа эрэмбэлэгдэнэ
+    reports = OldBow.query.order_by(OldBow.id.desc()).all()
     return render_template('old_bow_report.html', reports=reports)
 
 # --- CHECKOUT ХЭСЭГТ VIEWER ЭРХИЙГ ХЯЗГААРЛАХ ---
