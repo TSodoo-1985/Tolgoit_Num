@@ -1788,47 +1788,89 @@ def export_old_bow():
     except Exception as e:
         return f"Алдаа гарлаа: {str(e)}"
 
-@app.route('/export-income-report')
+@app.route('/export-internal-income')
 @login_required
-def export_income_report():
-    try:
-        # Зөвхөн "Орлого" (Салбараас өртгөөр авсан бараа) төрөлтэйг шүүнэ
-        incomes = Transaction.query.filter_by(type='Орлого').order_by(Transaction.timestamp.desc()).all()
-        
-        data = []
-        for t in incomes:
-            data.append({
-                "Огноо": t.timestamp.strftime('%Y-%m-%d %H:%M'),
-                "Барааны нэр": t.product.name if t.product else "Устсан бараа",
-                "SKU": t.product.sku if t.product else "-",
-                "Тоо ширхэг": t.quantity,
-                "Өртөг үнэ": t.price if t.price else 0,
-                "Нийт өртөг": t.quantity * (t.price if t.price else 0),
-                "Тайлбар": t.description if t.description else "Салбарын орлого",
-                "Бүртгэсэн": t.user.username if t.user else "-"
-            })
+def export_internal_income():
+    start_date = request.args.get('start_date')
+    end_date = request.args.get('end_date')
 
-        if not data:
-            flash("Орлогын өгөгдөл олдсонгүй.")
-            return redirect(url_for('dashboard'))
+    # Зөвхөн 'Орлого' төрөлтэй гүйлгээнүүдийг шүүх
+    query = Transaction.query.filter_by(type='Орлого')
+    
+    if start_date and end_date:
+        query = query.filter(Transaction.timestamp >= start_date, 
+                             Transaction.timestamp <= end_date + " 23:59:59")
+    
+    items = query.order_by(Transaction.timestamp.desc()).all()
+    
+    data = []
+    for i in items:
+        data.append({
+            "Огноо": i.timestamp.strftime('%Y-%m-%d %H:%M'),
+            "Код (SKU)": i.product.sku if i.product else "",
+            "Барааны нэр": i.product.name if i.product else i.description,
+            "Тоо": i.quantity,
+            "Өртөг": i.price,
+            "Нийт өртөг": i.quantity * i.price,
+            "Тайлбар": i.description,
+            "Хүлээн авсан ажилтан": i.user.username if i.user else ""
+        })
 
-        import pandas as pd
-        from io import BytesIO
+    if not data:
+        flash("Тухайн хугацаанд орлогын мэдээлэл олдсонгүй.")
+        return redirect(url_for('internal_income_list'))
 
-        df = pd.DataFrame(data)
-        output = BytesIO()
-        with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-            df.to_excel(writer, index=False, sheet_name='Салбарын Орлого')
-        output.seek(0)
+    df = pd.DataFrame(data)
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+        df.to_excel(writer, index=False, sheet_name='Салбарын орлого')
+    
+    output.seek(0)
+    return send_file(output, 
+                     download_name=f"Internal_Income_{start_date}_{end_date}.xlsx", 
+                     as_attachment=True)
 
-        return send_file(
-            output,
-            mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            as_attachment=True,
-            download_name=f"Internal_Income_Report_{datetime.now().strftime('%Y%m%d')}.xlsx"
-        )
-    except Exception as e:
-        return f"Алдаа гарлаа: {str(e)}"
+@app.route('/export-internal-income')
+@login_required
+def export_internal_income():
+    start_date = request.args.get('start_date')
+    end_date = request.args.get('end_date')
+
+    # Зөвхөн 'Орлого' төрөлтэй гүйлгээнүүдийг шүүх
+    query = Transaction.query.filter_by(type='Орлого')
+    
+    if start_date and end_date:
+        query = query.filter(Transaction.timestamp >= start_date, 
+                             Transaction.timestamp <= end_date + " 23:59:59")
+    
+    items = query.order_by(Transaction.timestamp.desc()).all()
+    
+    data = []
+    for i in items:
+        data.append({
+            "Огноо": i.timestamp.strftime('%Y-%m-%d %H:%M'),
+            "Код (SKU)": i.product.sku if i.product else "",
+            "Барааны нэр": i.product.name if i.product else i.description,
+            "Тоо": i.quantity,
+            "Өртөг": i.price,
+            "Нийт өртөг": i.quantity * i.price,
+            "Тайлбар": i.description,
+            "Хүлээн авсан ажилтан": i.user.username if i.user else ""
+        })
+
+    if not data:
+        flash("Тухайн хугацаанд орлогын мэдээлэл олдсонгүй.")
+        return redirect(url_for('internal_income_list'))
+
+    df = pd.DataFrame(data)
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+        df.to_excel(writer, index=False, sheet_name='Салбарын орлого')
+    
+    output.seek(0)
+    return send_file(output, 
+                     download_name=f"Internal_Income_{start_date}_{end_date}.xlsx", 
+                     as_attachment=True)
 
 # --- ХЭРЭГЛЭГЧИЙН УДИРДЛАГА ---
 
