@@ -1,34 +1,59 @@
 {% extends "layout.html" %}
 {% block content %}
-<div class="card border-0 shadow-sm rounded-4 p-4 mt-3">
-    <h4 class="fw-bold"><i class="bi bi-recycle text-success"></i> Хуучин нум худалдаж авах</h4>
-    <p class="text-muted">Энд бүртгэсэн үнэ автоматаар үндсэн кассаас зардал болж хасагдана.</p>
-    <form method="POST" class="mt-3">
-        <div class="row g-3">
-            <div class="col-md-6">
-                <label class="small-label text-uppercase">Нумын нэр</label>
-                <input type="text" name="name" class="form-control bg-light border-0" required>
-            </div>
-            <div class="col-md-6">
-                <label class="small-label text-uppercase">Код (SKU)</label>
-                <input type="text" name="sku" class="form-control bg-light border-0">
-            </div>
-            <div class="col-md-4">
-                <label class="small-label text-uppercase">Худалдаж авсан үнэ (Өртөг)</label>
-                <input type="number" name="cost_price" class="form-control bg-light border-0" required>
-            </div>
-            <div class="col-md-4">
-                <label class="small-label text-uppercase">Зарах үнэ (Жижиглэн)</label>
-                <input type="number" name="retail_price" class="form-control bg-light border-0" required>
-            </div>
-            <div class="col-md-4">
-                <label class="small-label text-uppercase">Ширхэг</label>
-                <input type="number" name="stock" value="1" class="form-control bg-light border-0" required>
-            </div>
-            <div class="col-12 mt-4">
-                <button type="submit" class="btn btn-dark w-100 py-3 rounded-3 shadow">Баталгаажуулах</button>
+<div class="container mt-4">
+    <div class="card border-0 shadow-sm rounded-4 p-4" style="max-width: 800px; margin: auto;">
+        <h4 class="fw-bold mb-4 text-success">
+            <i class="bi bi-recycle me-2"></i>Хуучин нум худалдаж авах
+        </h4>
+        
+        <div class="alert alert-info d-flex align-items-center rounded-3">
+            <i class="bi bi-info-circle-fill me-2 fs-4"></i>
+            <div>
+                Энд бүртгэсэн мөнгөн дүн <strong>Кассын зарлага</strong> болж хасагдана. <br>
+                Мөн агуулахын <strong>"Хуучин нум"</strong> ангилалд бараа болж орно.
             </div>
         </div>
-    </form>
+
+        <form method="POST">
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="form-label fw-bold">Нумын нэр</label>
+                    <input type="text" name="name" class="form-control" placeholder="Жишээ: Prius 20 хойд нум" required>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-bold">Код (SKU)</label>
+                    <input type="text" name="sku" class="form-control" placeholder="Байхгүй бол хоосон үлдээж болно">
+                </div>
+                
+                <div class="col-md-4">
+                    <label class="form-label fw-bold text-danger">Авсан үнэ (Өртөг)</label>
+                    <div class="input-group">
+                        <input type="number" name="cost_price" class="form-control" required>
+                        <span class="input-group-text">₮</span>
+                    </div>
+                    <small class="text-muted">Үйлчлүүлэгчид өгсөн мөнгө</small>
+                </div>
+                
+                <div class="col-md-4">
+                    <label class="form-label fw-bold text-success">Зарах үнэ</label>
+                    <div class="input-group">
+                        <input type="number" name="retail_price" class="form-control" required>
+                        <span class="input-group-text">₮</span>
+                    </div>
+                </div>
+                
+                <div class="col-md-4">
+                    <label class="form-label fw-bold">Тоо ширхэг</label>
+                    <input type="number" name="stock" value="1" min="1" class="form-control" required>
+                </div>
+            </div>
+
+            <hr class="my-4">
+            
+            <button type="submit" class="btn btn-success w-100 py-2 fw-bold rounded-3">
+                <i class="bi bi-check-circle-fill me-2"></i>Худалдаж авах / Бүртгэх
+            </button>
+        </form>
+    </div>
 </div>
 {% endblock %}
