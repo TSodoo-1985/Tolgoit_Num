@@ -1728,40 +1728,33 @@ def export_return_report():
         download_name=f"Return_Report_{start_date if start_date else 'all'}.xlsx"
     )
 
-@app.route('/export-old-bow')
+@app.route('/export-old-bow-excel')
 @login_required
-def export_old_bow():
-    try:
-        start_date = request.args.get('start_date')
-        end_date = request.args.get('end_date')
-
-        all_bows = OldBow.query.all()
-        purchases = [p for p in all_bows if s <= p.date[:10] <= e]
-
-        data = []
-        for p in purchases:
-            data.append({
-                "Огноо": p.date,
-                "Барааны нэр": p.product_name,
-                "Тоо ширхэг": p.quantity,
-                "Авсан үнэ": p.purchase_price,
-                "Нийт дүн": p.quantity * p.purchase_price,
-                "Хүлээж авсан ажилтан": p.user.username if p.user else "Тодорхойгүй" # Энэ мөр нэмэгдлээ
-            })
-
-        if not data:
-            flash("Тухайн хугацаанд мэдээлэл олдсонгүй.")
-            return redirect(url_for('dashboard'))
-
-        df = pd.DataFrame(data)
-        output = BytesIO()
-        with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-            df.to_excel(writer, index=False, sheet_name='Хуучин нум')
-        output.seek(0)
-        
-        return send_file(output, as_attachment=True, download_name=f"Old_Bow_{s}_{e}.xlsx")
-    except Exception as e:
-        return f"Алдаа: {str(e)}"
+def export_old_bow_excel():
+    reports = OldBow.query.order_by(OldBow.id.desc()).all()
+    
+    data = []
+    for r in reports:
+        data.append({
+            "Огноо": r.date,
+            "Барааны нэр": r.product_name,
+            "SKU/Код": r.sku,
+            "Авсан үнэ": r.purchase_price,
+            "Зарах үнэ": r.retail_price,
+            "Тоо ширхэг": r.quantity,
+            "Нийт зардал": r.purchase_price * r.quantity,
+            "Бүртгэсэн ажилтан": r.user.username if r.user else "Тодорхойгүй"
+        })
+    
+    df = pd.DataFrame(data)
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+        df.to_excel(writer, index=False, sheet_name='Хуучин нум авалт')
+    
+    output.seek(0)
+    return send_file(output, 
+                     download_name=f"Old_Bow_Report_{datetime.now().strftime('%Y%m%d')}.xlsx", 
+                     as_attachment=True)
 
 @app.route('/export-income-report')
 @login_required
