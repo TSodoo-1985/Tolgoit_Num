@@ -1,28 +1,54 @@
 {% extends "layout.html" %}
 {% block content %}
-<div class="card border-0 shadow-sm rounded-4 p-4 mt-3">
-    <h4 class="fw-bold mb-4">Хуучин нум авалтын тайлан</h4>
-    <div class="table-responsive">
-        <table class="table table-hover">
-            <thead>
-                <tr>
-                    <th>Огноо</th>
-                    <th>Бараа</th>
-                    <th>Мөнгө гарсан</th>
-                    <th>Хариуцсан</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for r in reports %}
-                <tr>
-                    <td>{{ r.date.strftime('%Y-%m-%d') }}</td>
-                    <td>{{ r.description }}</td>
-                    <td class="text-danger fw-bold">-{{ "{:,.0f}".format(r.amount) }}₮</td>
-                    <td>{{ r.user }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h4 class="fw-bold"><i class="bi bi-clock-history me-2"></i>Хуучин нум авалтын түүх</h4>
+        <div class="d-flex gap-2">
+            <button class="btn btn-outline-success" onclick="handleOldBowExcel()">
+                <i class="bi bi-file-earmark-excel me-1"></i>Excel татах
+            </button>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm rounded-4 p-3">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>Огноо</th>
+                        <th>Барааны нэр</th>
+                        <th>Тоо</th>
+                        <th>Авсан үнэ (Нэгж)</th>
+                        <th>Нийт гарсан мөнгө</th>
+                        <th>Ажилтан</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for r in reports %}
+                    <tr>
+                        <td>{{ r.date }}</td>
+                        <td>
+                            <div class="fw-bold">{{ r.product_name }}</div>
+                            <small class="text-muted">{{ r.sku }}</small>
+                        </td>
+                        <td>{{ r.quantity }}</td>
+                        <td>{{ "{:,.0f}".format(r.purchase_price) }}₮</td>
+                        <td class="text-danger fw-bold">-{{ "{:,.0f}".format(r.quantity * r.purchase_price) }}₮</td>
+                        <td>
+                            <span class="badge bg-light text-dark border">
+                                <i class="bi bi-person me-1"></i>
+                                {{ r.user.username if r.user else "Тодорхойгүй" }}
+                            </span>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="6" class="text-center py-4 text-muted">Мэдээлэл байхгүй байна.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
     </div>
 </div>
 {% endblock %}
