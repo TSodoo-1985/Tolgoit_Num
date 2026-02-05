@@ -1348,7 +1348,7 @@ def export_transactions(type):
         total_profit = unit_profit * t.quantity
         
         data.append({
-            'Огноо': t.timestamp.strftime('%Y-%m-%d %H:%M:%S'),
+            'Огноо': t.timestamp.strftime('%Y-%m-%d'),
             'Ангилал': t.product.category if t.product else "-",
             'Барааны код': t.product.sku if t.product else "-",
             'Барааны нэр': t.product.name if t.product else "Устгагдсан",
@@ -1429,7 +1429,7 @@ def export_transactions(type):
 def export_inventory_report():
     transactions = Transaction.query.filter(Transaction.type.like('Тооллого%')).all()
     data = [{
-        "Огноо": t.timestamp.strftime('%Y-%m-%d %H:%M'), 
+        "Огноо": t.timestamp.strftime('%Y-%m-%d'), 
         "Ангилал": t.product.category if t.product else "-", # НЭМЭГДЭВ
         "Барааны код": t.product.sku if t.product else "-", # НЭМЭГДЭВ
         "Бараа": t.product.name if t.product else "Устгагдсан", 
@@ -1602,7 +1602,7 @@ def export_labor_report():
     total_sum = 0
     for f in fees:
         data.append({
-            'Огноо': f.timestamp.strftime('%Y-%m-%d %H:%M'),
+            'Огноо': f.timestamp.strftime('%Y-%m-%d'),
             'Ажлын тайлбар': f.description,
             'Ажилтан': f.staff_name,
             'Дүн': f.amount
@@ -1698,7 +1698,7 @@ def export_return_report():
         total_refund += refund_val
         
         data.append({
-            "Огноо": t.date.strftime('%Y-%m-%d %H:%M'),
+            "Огноо": t.date.strftime('%Y-%m-%d'),
             "Ангилал": t.product.category if t.product else "-", # НЭМЭГДЭВ
             "SKU / Код": t.product.sku if t.product else "",
             "Барааны нэр": t.product.name if t.product else "",
@@ -1750,16 +1750,20 @@ def export_old_bow():
         start_date = request.args.get('start_date')
         end_date = request.args.get('end_date')
 
-        # OldBow моделиос өгөгдөл татах (Моделийн нэр OldBow байх ёстойг анхаарна уу)
         query = OldBow.query
         if start_date and end_date:
-            # Огноог "YYYY-MM-DD" форматаас "YYYY-MM-DD 23:59:59" хүртэл шүүнэ
             query = query.filter(OldBow.date >= start_date, OldBow.date <= end_date + " 23:59:59")
         
         reports = query.order_by(OldBow.id.desc()).all()
 
         data = []
+        total_qty = 0
+        total_amount = 0
+
         for r in reports:
+            amount = r.purchase_price * r.quantity
+            total_qty += r.quantity
+            total_amount += amount
             data.append({
                 "Огноо": r.date,
                 "Барааны нэр": r.product_name,
@@ -1767,13 +1771,25 @@ def export_old_bow():
                 "Авсан үнэ": r.purchase_price,
                 "Зарах үнэ": r.retail_price,
                 "Тоо ширхэг": r.quantity,
-                "Нийт дүн": r.purchase_price * r.quantity,
+                "Нийт дүн": amount,
                 "Бүртгэсэн": r.user.username if r.user else "Систем"
             })
 
         if not data:
             flash("Тухайн хугацаанд мэдээлэл олдсонгүй.")
             return redirect(url_for('dashboard'))
+
+        # Нийт дүнг жагсаалтын төгсгөлд нэмэх
+        data.append({
+            "Огноо": "НИЙТ",
+            "Барааны нэр": "",
+            "Код/SKU": "",
+            "Авсан үнэ": "",
+            "Зарах үнэ": "",
+            "Тоо ширхэг": total_qty,
+            "Нийт дүн": total_amount,
+            "Бүртгэсэн": ""
+        })
 
         df = pd.DataFrame(data)
         output = io.BytesIO()
@@ -1782,7 +1798,7 @@ def export_old_bow():
         
         output.seek(0)
         return send_file(output, 
-                         download_name=f"Old_Bow_Report_{datetime.now().strftime('%Y%m%d')}.xlsx", 
+                         download_name=f"Хуучин нум Х/А_{datetime.now().strftime('%Y%m%d')}.xlsx", 
                          as_attachment=True)
                          
     except Exception as e:
@@ -1794,9 +1810,7 @@ def export_internal_income():
     start_date = request.args.get('start_date')
     end_date = request.args.get('end_date')
 
-    # Зөвхөн 'Орлого' төрөлтэй гүйлгээнүүдийг шүүх
     query = Transaction.query.filter_by(type='Орлого')
-    
     if start_date and end_date:
         query = query.filter(Transaction.timestamp >= start_date, 
                              Transaction.timestamp <= end_date + " 23:59:59")
@@ -1804,14 +1818,20 @@ def export_internal_income():
     items = query.order_by(Transaction.timestamp.desc()).all()
     
     data = []
+    total_qty = 0
+    total_amount = 0
+
     for i in items:
+        amount = i.quantity * i.price
+        total_qty += i.quantity
+        total_amount += amount
         data.append({
-            "Огноо": i.timestamp.strftime('%Y-%m-%d %H:%M'),
+            "Огноо": i.timestamp.strftime('%Y-%m-%d'),
             "Код (SKU)": i.product.sku if i.product else "",
             "Барааны нэр": i.product.name if i.product else i.description,
             "Тоо": i.quantity,
             "Өртөг": i.price,
-            "Нийт өртөг": i.quantity * i.price,
+            "Нийт өртөг": amount,
             "Тайлбар": i.description,
             "Хүлээн авсан ажилтан": i.user.username if i.user else ""
         })
@@ -1820,6 +1840,18 @@ def export_internal_income():
         flash("Тухайн хугацаанд орлогын мэдээлэл олдсонгүй.")
         return redirect(url_for('internal_income_list'))
 
+    # Нийт дүнг жагсаалтын төгсгөлд нэмэх
+    data.append({
+        "Огноо": "НИЙТ",
+        "Код (SKU)": "",
+        "Барааны нэр": "",
+        "Тоо": total_qty,
+        "Өртөг": "",
+        "Нийт өртөг": total_amount,
+        "Тайлбар": "",
+        "Хүлээн авсан ажилтан": ""
+    })
+
     df = pd.DataFrame(data)
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
@@ -1827,9 +1859,8 @@ def export_internal_income():
     
     output.seek(0)
     return send_file(output, 
-                     download_name=f"Internal_Income_{start_date}_{end_date}.xlsx", 
+                     download_name=f"Орлогын тайлан {start_date}-{end_date}.xlsx", 
                      as_attachment=True)
-
 # --- ХЭРЭГЛЭГЧИЙН УДИРДЛАГА ---
 
 @app.route('/users')
