@@ -99,6 +99,7 @@
                     <div id="sub-trans" class="submenu-container" style="display: none;">
                         <li><button class="dropdown-item submenu-item" onclick="handleDownload('Жижиглэн зарлага')">Жижиглэн зарлага</button></li>
                         <li><button class="dropdown-item submenu-item" onclick="handleDownload('Бөөний зарлага')">Бөөний зарлага</button></li>
+                        <li><button class="dropdown-item submenu-item" onclick="handleDownload('Орлого')">Орлого салбараар</button></li>
                         <li><button class="dropdown-item submenu-item" onclick="handleDownload('Өртгөөр зарлага')">Шилжүүлэг тайлан</button></li>
                         <li><button class="dropdown-item submenu-item" onclick="handleDownload('буцаалт')">Буцаалтын тайлан</button></li>
                         <li><button class="dropdown-item submenu-item" onclick="handleDownload('Хуучин нум')">Хуучин нум авалт</button></li>
@@ -209,6 +210,9 @@
             url = `/export-labor-report?start_date=${s}&end_date=${e}`;
         } else if (type === 'salary') {
             url = `/export-salary-report?start_date=${s}&end_date=${e}`;
+        } else if (type === 'Орлого') {
+        // Шинээр нэмэгдсэн хэсэг: Салбарын орлогын тайлан
+            url = `/export-internal-income?start_date=${s}&end_date=${e}`;
         } else {
             // Бусад гүйлгээнүүд (Жижиглэн, Бөөний гм)
             url = `/export-transactions/${type}?start_date=${s}&end_date=${e}`;
