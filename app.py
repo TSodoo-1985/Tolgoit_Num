@@ -236,7 +236,7 @@ def edit_product(id):
         return redirect(url_for('dashboard'))
     return render_template('edit_product.html', product=product)
 
-@app.route('/delete-product/<int:id>', methods=['POST'])
+@app.route('/delete-product/<int:id>', methods=['GET'])
 @login_required
 def delete_product(id):
     if current_user.role != 'admin':
@@ -1757,14 +1757,21 @@ def export_old_bow():
         
         reports = query.order_by(OldBow.id.desc()).all()
 
+        if not reports:
+            flash("Тухайн хугацаанд мэдээлэл олдсонгүй.")
+            return redirect(url_for('dashboard'))
+
         data = []
         t_qty = 0
         t_amount = 0
 
         for r in reports:
-            qty = r.quantity or 0
-            price = r.purchase_price or 0
+            # None утга ирэхээс сэргийлж 0 болгоно
+            qty = int(r.quantity) if r.quantity else 0
+            price = float(r.purchase_price) if r.purchase_price else 0
             subtotal = qty * price
+            
+            # Нийт дүнг нэмж бодох
             t_qty += qty
             t_amount += subtotal
             
@@ -1773,39 +1780,53 @@ def export_old_bow():
                 "Барааны нэр": r.product_name,
                 "Код/SKU": r.sku,
                 "Авсан үнэ": price,
-                "Зарах үнэ": r.retail_price,
+                "Зарах үнэ": float(r.retail_price) if r.retail_price else 0,
                 "Тоо ширхэг": qty,
                 "Нийт дүн": subtotal,
                 "Бүртгэсэн": r.user.username if r.user else "Систем"
             })
 
-        if data:
-            # Хамгийн доор Нийт мөр нэмэх
-            data.append({
-                "Огноо": "НИЙТ ДҮН",
-                "Барааны нэр": "",
-                "Код/SKU": "",
-                "Авсан үнэ": "",
-                "Зарах үнэ": "",
-                "Тоо ширхэг": t_qty,
-                "Нийт дүн": t_amount,
-                "Бүртгэсэн": ""
-            })
+        # НИЙТ ДҮН-г жагсаалтын төгсгөлд Dictionary хэлбэрээр нэмэх
+        total_row = {
+            "Огноо": "НИЙТ ДҮН",
+            "Барааны нэр": "",
+            "Код/SKU": "",
+            "Авсан үнэ": "",
+            "Зарах үнэ": "",
+            "Тоо ширхэг": t_qty,
+            "Нийт дүн": t_amount,
+            "Бүртгэсэн": ""
+        }
+        data.append(total_row)
 
-            df = pd.DataFrame(data)
-            output = io.BytesIO()
-            with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-                df.to_excel(writer, index=False, sheet_name='Хуучин нум')
+        # DataFrame үүсгэх
+        df = pd.DataFrame(data)
+        
+        output = io.BytesIO()
+        # xlsxwriter ашиглан файлыг үүсгэх
+        with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+            df.to_excel(writer, index=False, sheet_name='Хуучин нум')
             
-            output.seek(0)
-            return send_file(output, 
-                             download_name=f"Old_Bow_Report_{datetime.now().strftime('%Y%m%d')}.xlsx", 
-                             as_attachment=True)
-        else:
-            flash("Тухайн хугацаанд мэдээлэл олдсонгүй.")
-            return redirect(url_for('dashboard'))
+            # Excel-ийн форматыг жаахан сайжруулах (заавал биш)
+            workbook  = writer.book
+            worksheet = writer.sheets['Хуучин нум']
+            header_format = workbook.add_format({'bold': True, 'bg_color': '#D7E4BC'})
+            # Сүүлийн мөрийг тодруулах формат
+            total_format = workbook.add_format({'bold': True, 'bg_color': '#FCE4D6'})
+            
+            # Хамгийн сүүлийн мөрөнд формат өгөх
+            last_row = len(df)
+            worksheet.set_row(last_row, None, total_format)
+
+        output.seek(0)
+        return send_file(
+            output, 
+            download_name=f"Хуучин нум {datetime.now().strftime('%Y%m%d')}.xlsx", 
+            as_attachment=True
+        )
                          
     except Exception as e:
+        print(f"Excel Error: {str(e)}") # Консол дээр алдааг хэвлэх
         return f"Алдаа гарлаа: {str(e)}"
 
 # --- 2. САЛБАРЫН ОРЛОГО ТАЙЛАН (НИЙТ ДҮНТЭЙ) ---
@@ -1828,9 +1849,11 @@ def export_internal_income():
         t_amount = 0
 
         for i in items:
-            qty = i.quantity or 0
-            price = i.price or 0
+            # Тоон утгуудыг баталгаажуулах
+            qty = int(i.quantity) if i.quantity else 0
+            price = float(i.price) if i.price else 0
             subtotal = qty * price
+            
             t_qty += qty
             t_amount += subtotal
 
@@ -1841,35 +1864,39 @@ def export_internal_income():
                 "Тоо": qty,
                 "Өртөг": price,
                 "Нийт өртөг": subtotal,
-                "Тайлбар": i.description,
-                "Хүлээн авсан ажилтан": i.user.username if i.user else ""
+                "Тайлбар": i.description or "",
+                "Ажилтан": i.user.username if i.user else ""
             })
 
-        if data:
-            # Хамгийн доор Нийт мөр нэмэх
-            data.append({
-                "Огноо": "НИЙТ ДҮН",
-                "Код (SKU)": "",
-                "Барааны нэр": "",
-                "Тоо": t_qty,
-                "Өртөг": "",
-                "Нийт өртөг": t_amount,
-                "Тайлбар": "",
-                "Хүлээн авсан ажилтан": ""
-            })
-
-            df = pd.DataFrame(data)
-            output = io.BytesIO()
-            with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-                df.to_excel(writer, index=False, sheet_name='Салбарын орлого')
-            
-            output.seek(0)
-            return send_file(output, 
-                             download_name=f"Internal_Income_{datetime.now().strftime('%Y%m%d')}.xlsx", 
-                             as_attachment=True)
-        else:
+        if not data:
             flash("Мэдээлэл олдсонгүй.")
             return redirect(url_for('internal_income_list'))
+
+        # DataFrame үүсгэх
+        df = pd.DataFrame(data)
+
+        # Excel-ийн хамгийн доор нийт мөрийг Pandas-ийн loc ашиглан нэмэх (Илүү цэвэрхэн)
+        total_row_index = len(df)
+        df.loc[total_row_index, "Огноо"] = "НИЙТ ДҮН"
+        df.loc[total_row_index, "Тоо"] = t_qty
+        df.loc[total_row_index, "Нийт өртөг"] = t_amount
+
+        output = io.BytesIO()
+        with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+            df.to_excel(writer, index=False, sheet_name='Салбарын орлого')
+            
+            # Excel форматыг гоё болгох (заавал биш ч хэрэгтэй)
+            workbook  = writer.book
+            worksheet = writer.sheets['Салбарын орлого']
+            
+            # Мөнгөн дүнгийн формат (мянтын таслалтай)
+            num_format = workbook.add_format({'num_format': '#,##0'})
+            worksheet.set_column('E:F', 15, num_format) # Өртөг, Нийт өртөг багана
+            
+        output.seek(0)
+        return send_file(output, 
+                         download_name=f"Салбарын орлого {datetime.now().strftime('%Y%m%d')}.xlsx", 
+                         as_attachment=True)
     except Exception as e:
         return f"Алдаа: {str(e)}"
         
