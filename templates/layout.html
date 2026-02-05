@@ -175,11 +175,7 @@
     
     function toggleSubMenu(id) {
         const el = document.getElementById(id);
-        if (el.style.display === 'none') {
-            el.style.display = 'block';
-        } else {
-            el.style.display = 'none';
-        }
+        el.style.display = (el.style.display === 'none' || el.style.display === '') ? 'block' : 'none';
         event.stopPropagation();
         event.preventDefault();
     }
@@ -198,56 +194,34 @@
         }
     });
 
+    // Нэгдсэн татан авалтын функц
     function handleDownload(type) {
         const s = document.getElementById('start_date_input').value;
         const e = document.getElementById('end_date_input').value;
         if(!s || !e) { alert("Огноо сонгоно уу!"); return; }
-        window.location.href = `/export-transactions/${type}?start_date=${s}&end_date=${e}`;
+
+        let url = "";
+        if (type === 'Хуучин нум') {
+            url = `/export-old-bow?start_date=${s}&end_date=${e}`;
+        } else if (type === 'inventory') {
+            url = `/export-inventory-report?start_date=${s}&end_date=${e}`;
+        } else if (type === 'labor') {
+            url = `/export-labor-report?start_date=${s}&end_date=${e}`;
+        } else if (type === 'salary') {
+            url = `/export-salary-report?start_date=${s}&end_date=${e}`;
+        } else {
+            // Бусад гүйлгээнүүд (Жижиглэн, Бөөний гм)
+            url = `/export-transactions/${type}?start_date=${s}&end_date=${e}`;
+        }
+        window.location.href = url;
     }
+
     function handleExpenseDownload(cat) {
         const s = document.getElementById('start_date_input').value;
         const e = document.getElementById('end_date_input').value;
         if(!s || !e) { alert("Огноо сонгоно уу!"); return; }
         window.location.href = `/export-expense-report/${cat}?start_date=${s}&end_date=${e}`;
     }
-    function handleInventoryDownload() {
-        const s = document.getElementById('start_date_input').value;
-        const e = document.getElementById('end_date_input').value;
-        if(!s || !e) { alert("Огноо сонгоно уу!"); return; }
-        window.location.href = `/export-inventory-report?start_date=${s}&end_date=${e}`;
-    }
-    function handleLaborDownload() {
-        const s = document.getElementById('start_date_input').value;
-        const e = document.getElementById('end_date_input').value;
-        if(!s || !e) { alert("Огноо сонгоно уу!"); return; }
-        window.location.href = `/export-labor-report?start_date=${s}&end_date=${e}`;
-    }
-    function handleSalaryDownload() {
-        const s = document.getElementById('start_date_input').value;
-        const e = document.getElementById('end_date_input').value;
-        if(!s || !e) { alert("Огноо сонгоно уу!"); return; }
-        window.location.href = `/export-salary-report?start_date=${s}&end_date=${e}`;
-    }
-    function handleDownload(type) {
-    const start = document.getElementById('start_date_input').value;
-    const end = document.getElementById('end_date_input').value;
-
-    if (!start || !end) {
-        alert("Огноо сонгоно уу!");
-        return;
-    }
-
-    let url = "";
-    if (type === 'Хуучин нум') {
-        // Хуучин нумны тусдаа функц руу хандана
-        url = `/export-old-bow?start_date=${start}&end_date=${end}`;
-    } else {
-        // Бусад ерөнхий гүйлгээнүүд рүү хандана
-        url = `/export-transactions?type=${type}&start_date=${start}&end_date=${end}`;
-    }
-
-    window.location.href = url;
-}
 </script>
 </body>
 </html>
