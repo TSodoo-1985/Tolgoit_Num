@@ -1031,28 +1031,39 @@ def internal_income_list():
 @login_required
 def add_internal_income():
     if request.method == 'POST':
-        product_id = request.form.get('product_id')
-        quantity = int(request.form.get('quantity'))
-        
-        product = Product.query.get(product_id)
-        if product:
-            product.stock += quantity  # Үлдэгдэл нэмэх
+        product_ids = request.form.getlist('p_ids[]')
+        quantities = request.form.getlist('qtys[]')
+        comment = request.form.get('description') # Тайлбар хэсэг
+
+        try:
+            for p_id, qty in zip(product_ids, quantities):
+                if not qty or int(qty) <= 0: continue
+                
+                product = Product.query.get(p_id)
+                if product:
+                    # 1. Үлдэгдэл нэмэх
+                    product.stock += int(qty)
+                    
+                    # 2. Гүйлгээний түүх бичих (Type='Орлого' тул кассаас хасахгүй)
+                    new_trans = Transaction(
+                        product_id=product.id,
+                        user_id=current_user.id,
+                        quantity=int(qty),
+                        price=product.cost_price,
+                        type='Орлого',
+                        description=comment, # "Салбараас ирсэн" гэх мэт тайлбар
+                        timestamp=datetime.now()
+                    )
+                    db.session.add(new_trans)
             
-            # Гүйлгээг бүртгэх
-            new_trans = Transaction(
-                product_id=product.id,
-                user_id=current_user.id,
-                quantity=quantity,
-                price=product.cost_price, # Өртгөөр нь авна
-                type='Орлого',
-                timestamp=datetime.now()
-            )
-            db.session.add(new_trans)
             db.session.commit()
-            flash(f"{product.name} бараанаас {quantity} ширхэг орлого авлаа.")
+            flash("Салбарын орлого амжилттай бүртгэгдлээ.")
             return redirect(url_for('internal_income_list'))
+        except Exception as e:
+            db.session.rollback()
+            flash(f"Алдаа гарлаа: {str(e)}")
             
-    products = Product.query.all() # Сонгох барааны жагсаалт
+    products = Product.query.filter_by(is_active=True).order_by(Product.name).all()
     return render_template('add_internal_income.html', products=products)
 
 # --- ТАЙЛАН, СТАТИСТИК ---
