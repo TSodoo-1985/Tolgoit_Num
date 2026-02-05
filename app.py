@@ -83,7 +83,7 @@ class LaborFee(db.Model):
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
 
 # --- 1. MODEL ХЭСЭГТ НЭМЭХ ---
-class OldBow(db.Model):
+class Bow(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     product_name = db.Column(db.String(200), nullable=False)
     sku = db.Column(db.String(50))
@@ -94,7 +94,7 @@ class OldBow(db.Model):
     date = db.Column(db.String(50))
     # Шинээр нэмэх хэсэг:
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
-    user = db.relationship('User', backref='old_bows')
+    user = db.relationship('User', backref='_bows')
 
 class EmployeeLoan(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -740,42 +740,60 @@ def buy_old_bow():
             total_cost = cost_price * quantity # Нийт гарах мөнгө
 
             # 1. САНХҮҮГИЙН БИЧИЛТ: Зарлага (Expense) үүсгэх
-            # Кассаас мөнгө гарч байгаа тул Expense руу бичнэ
             new_expense = Expense(
                 category="Хуучин нум авалт",
                 amount=total_cost,
                 description=f"{name} ({quantity} ш) - Худалдаж авсан",
-                date=datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                date=datetime.now(), # datetime.now()-ийг ашиглана
                 user_id=current_user.id
             )
             db.session.add(new_expense)
 
             # 2. АГУУЛАХЫН БИЧИЛТ: Бараа (Product) бүртгэх/нэмэх
-            # Таны хүсэлт: Нэр, Код, Өртөг, Зарах үнэ БҮГД таарч байж нэмнэ.
+            # Энд алдаа гарч байсан хэсгийг засав (price -> retail_price)
             existing_product = Product.query.filter_by(
                 name=name, 
                 sku=sku, 
                 cost_price=cost_price, 
-                price=retail_price,
+                retail_price=retail_price,  # <--- ЭНД ЗАСВАР ОРЛОО
                 category="Хуучин нум"
             ).first()
 
             if existing_product:
                 # Бүх юм нь таарвал тоог нь нэмнэ
                 existing_product.stock += quantity
+                # Орлогын гүйлгээ бичих (Optional)
+                db.session.add(Transaction(
+                    product_id=existing_product.id,
+                    type='Орлого', 
+                    quantity=quantity,
+                    price=cost_price,
+                    user_id=current_user.id
+                ))
                 flash(f"'{name}' агуулахад байсан тул тоог нь {quantity}-ээр нэмлээ.")
             else:
                 # Зөрүүтэй бол шинээр үүсгэнэ
                 new_product = Product(
                     name=name,
-                    sku=sku,
+                    sku=sku if sku else f"OLD-{datetime.now().strftime('%m%d%H%M')}",
                     category="Хуучин нум",
-                    price=retail_price,      # Зарах үнэ
-                    cost_price=cost_price,   # Өртөг үнэ
+                    retail_price=retail_price,      # Зарах үнэ
+                    cost_price=cost_price,          # Өртөг үнэ
+                    wholesale_price=retail_price,   # Бөөний үнэ (байхгүй бол жижиглэнтэй ижил)
                     stock=quantity,
                     is_active=True
                 )
                 db.session.add(new_product)
+                db.session.flush() # ID авахын тулд
+                
+                # Орлогын гүйлгээ бичих
+                db.session.add(Transaction(
+                    product_id=new_product.id,
+                    type='Орлого', 
+                    quantity=quantity,
+                    price=cost_price,
+                    user_id=current_user.id
+                ))
                 flash(f"'{name}' шинэ бараа болж бүртгэгдлээ.")
 
             # 3. ТАЙЛАНГИЙН БИЧИЛТ: Түүх (OldBow) үүсгэх
