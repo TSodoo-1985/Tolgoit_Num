@@ -190,36 +190,54 @@ def add_product_page():
     cats = ["Шинэ нум", "Хуучин нум", "Амортизатор", "Стермэнь", "Центр боолт", "Дэр", "Зэс түлк", "Пальц", "Хар түлк", "Шар түлк", "Ээмэг", "Толгойн боолт", "Босоо пальц", "Сорочик", "Бусад"]
     return render_template('add_product.html', categories=cats)
 
-@app.route('/add_product', methods=['POST'])
+@app.route('/add-product', methods=['POST'])
 @login_required
 def add_product():
-    sku = request.form.get('sku')
-    product = Product.query.filter_by(sku=sku).first()
-    stock_val = float(request.form.get('stock') or 0)
-    
-    if product:
-        # Хуучин бараа бол үлдэгдэл нэмнэ
-        product.stock += stock_val
-        if stock_val > 0:
-            db.session.add(Transaction(product_id=product.id, type='Орлого', quantity=stock_val, user_id=current_user.id))
-        flash('Барааны үлдэгдэл нэмэгдлээ.')
+    name = request.form.get('name').strip()
+    # Том жижиг үсгийн асуудлыг шийдэхийн тулд кодыг том үсэг болгох
+    original_sku = request.form.get('sku').strip().upper() 
+    purchase_price = float(request.form.get('purchase_price'))
+    retail_price = float(request.form.get('retail_price'))
+    wholesale_price = float(request.form.get('wholesale_price'))
+    quantity = int(request.form.get('quantity'))
+    category = request.form.get('category')
+
+    # 1. Яг ижил (Нэр, Код, Үнүүд) бараа байгаа эсэхийг шалгах
+    existing_product = Product.query.filter(
+        func.lower(Product.sku) == original_sku.lower(),
+        func.lower(Product.name) == name.lower(),
+        Product.purchase_price == purchase_price,
+        Product.retail_price == retail_price
+    ).first()
+
+    if existing_product:
+        # Бүх зүйл ижил бол үлдэгдэл дээр нэмнэ
+        existing_product.stock += quantity
+        db.session.commit()
+        flash(f"'{name}' барааны үлдэгдэл нэмэгдлээ.")
     else:
-        # Шинэ бараа үүсгэх
+        # 2. Нэр эсвэл Код адилхан боловч ҮНЭ өөр бол индекс нэмнэ
+        new_sku = original_sku
+        counter = 1
+        while Product.query.filter(func.lower(Product.sku) == new_sku.lower()).first():
+            # Код байгаад байвал -1, -2 гэж залгаж шалгана
+            new_sku = f"{original_sku}-{counter}"
+            counter += 1
+        
         new_p = Product(
-            sku=sku, name=request.form.get('name'), category=request.form.get('category'), 
-            stock=stock_val, 
-            cost_price=float(request.form.get('cost_price') or 0),
-            retail_price=float(request.form.get('retail_price') or 0), 
-            wholesale_price=float(request.form.get('wholesale_price') or 0)
+            name=name,
+            sku=new_sku,
+            purchase_price=purchase_price,
+            retail_price=retail_price,
+            wholesale_price=wholesale_price,
+            stock=quantity,
+            category=category
         )
         db.session.add(new_p)
-        db.session.flush()
-        if stock_val > 0:
-            db.session.add(Transaction(product_id=new_p.id, type='Орлого', quantity=stock_val, user_id=current_user.id))
-        flash('Шинэ бараа амжилттай бүртгэгдлээ.')
-    
-    db.session.commit()
-    return redirect(url_for('dashboard'))
+        db.session.commit()
+        flash(f"Шинэ бараа бүртгэгдлээ (Код: {new_sku})")
+
+    return redirect(url_for('inventory'))
 
 @app.route('/edit-product/<int:id>', methods=['GET', 'POST'])
 @login_required
@@ -742,15 +760,20 @@ def returns():
 def buy_old_bow():
     if request.method == 'POST':
         try:
-            name = request.form.get('name')
-            sku = request.form.get('sku')
+            name = request.form.get('name').strip()
+            # 1. Нэрний урд [Хуучин] залгах (байхгүй бол)
+            if not name.startswith("[Хуучин]"):
+                name = f"[Хуучин] {name}"
+            
+            # 2. Кодыг үргэлж ТОМ үсгээр авч, хоосон зайг арилгах
+            original_sku = request.form.get('sku').strip().upper() if request.form.get('sku') else ""
             cost_price = float(request.form.get('cost_price'))
             retail_price = float(request.form.get('retail_price'))
             quantity = int(request.form.get('stock'))
             
             total_cost = cost_price * quantity
 
-            # 1. Зарлага бүртгэх
+            # Зарлага бүртгэх
             new_expense = Expense(
                 category="Хуучин нум авалт",
                 amount=total_cost,
@@ -760,21 +783,33 @@ def buy_old_bow():
             )
             db.session.add(new_expense)
 
-            # 2. Агуулахын үлдэгдэлд нэмэх/шинээр үүсгэх
-            existing_product = Product.query.filter_by(
-                name=name, 
-                sku=sku, 
-                cost_price=cost_price, 
-                retail_price=retail_price
+            # 3. ТОМ ЖИЖИГ ҮСЭГ ЯЛГАХГҮЙГЭЭР ЯГ ИЖИЛ БАРААГ ХАЙХ
+            # Нэр, Код, Өртөг, Зарах үнэ дөрвүүлээ ижил байвал үлдэгдэл дээр нэмнэ
+            existing_product = Product.query.filter(
+                func.lower(Product.name) == name.lower(),
+                func.lower(Product.sku) == original_sku.lower(),
+                Product.cost_price == cost_price,
+                Product.retail_price == retail_price
             ).first()
 
             if existing_product:
                 existing_product.stock += quantity
+                final_sku = existing_product.sku
             else:
+                # 4. КОД ДАВХАРДАЖ БАЙГАА ЭСЭХИЙГ ШАЛГАХ (Үнэ өөр үед)
+                # Хэрэв код нь өөр бараанд ашиглагдсан байвал ард нь -1, -2 залгана
+                final_sku = original_sku if original_sku else f"OLD-{datetime.now().strftime('%m%d%H%M')}"
+                counter = 1
+                base_sku = final_sku
+                
+                while Product.query.filter(func.lower(Product.sku) == final_sku.lower()).first():
+                    final_sku = f"{base_sku}-{counter}"
+                    counter += 1
+
                 new_product = Product(
                     name=name,
-                    sku=sku if sku else f"OLD-{datetime.now().strftime('%m%d%H%M')}",
-                    category="Хуучин нум", # Заавал энэ ангиллыг өгнө
+                    sku=final_sku,
+                    category="Хуучин нум",
                     cost_price=cost_price,
                     retail_price=retail_price,
                     wholesale_price=retail_price,
@@ -783,11 +818,10 @@ def buy_old_bow():
                 )
                 db.session.add(new_product)
 
-            # 3. Тайлангийн хүснэгтэд хадгалах
-            # Энд OldBow класс тодорхойлогдсон байх ёстой
+            # Тайлангийн хүснэгтэд хадгалах
             new_report = OldBow(
                 product_name=name,
-                sku=sku,
+                sku=final_sku, # Зассан кодыг хадгална
                 purchase_price=cost_price,
                 retail_price=retail_price,
                 quantity=quantity,
@@ -797,7 +831,7 @@ def buy_old_bow():
             db.session.add(new_report)
             
             db.session.commit()
-            flash(f"'{name}' амжилттай бүртгэгдэж, кассаас мөнгө хасагдлаа.")
+            flash(f"'{name}' амжилттай бүртгэгдлээ. Код: {final_sku}")
             return redirect(url_for('old_bow_report'))
 
         except Exception as e:
