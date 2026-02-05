@@ -762,11 +762,10 @@ def buy_old_bow():
         try:
             # 1. Оролтын өгөгдлийг цэвэрлэх
             raw_name = request.form.get('name').strip()
-            # Нэрний урд [Хуучин] залгах (хэрэв байхгүй бол)
             full_name = raw_name if raw_name.startswith("[Хуучин]") else f"[Хуучин] {raw_name}"
             
-            # Кодыг үргэлж ТОМ үсгээр авч, хоосон зайг арилгах
-            original_sku = request.form.get('sku').strip().upper() if request.form.get('sku') else ""
+            # Кодыг том үсгээр авна
+            input_sku = request.form.get('sku').strip().upper() if request.form.get('sku') else ""
             
             cost_price = float(request.form.get('cost_price'))
             retail_price = float(request.form.get('retail_price'))
@@ -774,49 +773,52 @@ def buy_old_bow():
             
             total_cost = cost_price * quantity
 
-            # 2. Кассаас зарлага гаргах бүртгэл
+            # 2. Кассаас зарлага гаргах
             new_expense = Expense(
-                category="Хуучин нум авалт",
+                category="Хуучин num авалт",
                 amount=total_cost,
-                description=f"Хуучин нум авсан: {full_name}",
+                description=f"Хуучин нум авсан: {full_name} ({input_sku})",
                 date=datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
                 user_id=current_user.id
             )
             db.session.add(new_expense)
 
-            # 3. ИЖИЛ БАРААГ ШАЛГАХ (Нэр, Код, Өртөг, Үнэ дөрвүүлээ таарах ёстой)
-            # func.lower() ашиглан том жижиг үсэг үл хамааран хайна
+            # 3. ИЖИЛ БАРААГ ШАЛГАХ (Яг ижил нэр, код, үнэтэйг хайх)
             existing_product = Product.query.filter(
                 func.lower(Product.name) == full_name.lower(),
-                func.lower(Product.sku) == original_sku.lower(),
+                func.lower(Product.sku) == input_sku.lower(),
                 Product.cost_price == cost_price,
                 Product.retail_price == retail_price
             ).first()
 
             if existing_product:
-                # Яг ижил бараа олдвол үлдэгдэл дээр нь нэмнэ
+                # Бүх зүйл ижил бол үлдэгдэл нэмнэ
                 existing_product.stock += quantity
                 final_sku = existing_product.sku
             else:
-                # 4. ШИНЭ БАРАА ҮҮСГЭХ (Код давхардал болон Нэр/Үнэ зөрүүг шалгах)
-                # Хэрэв код байхгүй бол автомат код өгнө
-                base_sku = original_sku if original_sku else f"OLD-{datetime.now().strftime('%m%d%H%M')}"
+                # 4. ШИНЭ БАРАА ҮҮСГЭХ (Кодны давхардал шалгах)
+                base_sku = input_sku if input_sku else f"OLD-{datetime.now().strftime('%m%d%H%M')}"
                 final_sku = base_sku
                 
+                # Давхардахгүй код олох хүртэл loop-дэнэ
                 counter = 1
-                # Хэрэв энэ код баазад өөр нэртэй эсвэл өөр үнэтэй бараан дээр аль хэдийн байгаа бол
-                # Кодны ард -1, -2 гэж залгаж давхардалгүй болгоно
-                while Product.query.filter(func.lower(Product.sku) == final_sku.lower()).first():
+                while True:
+                    # Баазаас энэ SKU байгаа эсэхийг маш тодорхой шалгах
+                    conflict = Product.query.filter(func.lower(Product.sku) == final_sku.lower()).first()
+                    if not conflict:
+                        break # Хэрэв ийм кодтой бараа байхгүй бол loop-ээс гарна
+                    
+                    # Хэрэв код байгаа бол индекс залгаад дахин шалгана
                     final_sku = f"{base_sku}-{counter}"
                     counter += 1
 
                 new_product = Product(
                     name=full_name,
-                    sku=final_sku.upper(), # Үргэлж том үсгээр хадгална
+                    sku=final_sku.upper(),
                     category="Хуучин нум",
                     cost_price=cost_price,
                     retail_price=retail_price,
-                    wholesale_price=retail_price, # Бөөний үнийг жижиглэнтэй адилхан тохируулав
+                    wholesale_price=retail_price,
                     stock=quantity,
                     is_active=True
                 )
@@ -835,7 +837,7 @@ def buy_old_bow():
             db.session.add(new_report)
             
             db.session.commit()
-            flash(f"'{full_name}' амжилттай бүртгэгдлээ. Код: {final_sku}")
+            flash(f"Амжилттай: {full_name} (Код: {final_sku})")
             return redirect(url_for('old_bow_report'))
 
         except Exception as e:
