@@ -1743,6 +1743,7 @@ def export_return_report():
         download_name=f"Return_Report_{start_date if start_date else 'all'}.xlsx"
     )
 
+# --- 1. ХУУЧИН НУМ ТАЙЛАН (НИЙТ ДҮНТЭЙ) ---
 @app.route('/export-old-bow')
 @login_required
 def export_old_bow():
@@ -1757,110 +1758,121 @@ def export_old_bow():
         reports = query.order_by(OldBow.id.desc()).all()
 
         data = []
-        total_qty = 0
-        total_amount = 0
+        t_qty = 0
+        t_amount = 0
 
         for r in reports:
-            amount = r.purchase_price * r.quantity
-            total_qty += r.quantity
-            total_amount += amount
+            qty = r.quantity or 0
+            price = r.purchase_price or 0
+            subtotal = qty * price
+            t_qty += qty
+            t_amount += subtotal
+            
             data.append({
                 "Огноо": r.date,
                 "Барааны нэр": r.product_name,
                 "Код/SKU": r.sku,
-                "Авсан үнэ": r.purchase_price,
+                "Авсан үнэ": price,
                 "Зарах үнэ": r.retail_price,
-                "Тоо ширхэг": r.quantity,
-                "Нийт дүн": amount,
+                "Тоо ширхэг": qty,
+                "Нийт дүн": subtotal,
                 "Бүртгэсэн": r.user.username if r.user else "Систем"
             })
 
-        if not data:
+        if data:
+            # Хамгийн доор Нийт мөр нэмэх
+            data.append({
+                "Огноо": "НИЙТ ДҮН",
+                "Барааны нэр": "",
+                "Код/SKU": "",
+                "Авсан үнэ": "",
+                "Зарах үнэ": "",
+                "Тоо ширхэг": t_qty,
+                "Нийт дүн": t_amount,
+                "Бүртгэсэн": ""
+            })
+
+            df = pd.DataFrame(data)
+            output = io.BytesIO()
+            with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+                df.to_excel(writer, index=False, sheet_name='Хуучин нум')
+            
+            output.seek(0)
+            return send_file(output, 
+                             download_name=f"Old_Bow_Report_{datetime.now().strftime('%Y%m%d')}.xlsx", 
+                             as_attachment=True)
+        else:
             flash("Тухайн хугацаанд мэдээлэл олдсонгүй.")
             return redirect(url_for('dashboard'))
-
-        # Нийт дүнг жагсаалтын төгсгөлд нэмэх
-        data.append({
-            "Огноо": "НИЙТ",
-            "Барааны нэр": "",
-            "Код/SKU": "",
-            "Авсан үнэ": "",
-            "Зарах үнэ": "",
-            "Тоо ширхэг": total_qty,
-            "Нийт дүн": total_amount,
-            "Бүртгэсэн": ""
-        })
-
-        df = pd.DataFrame(data)
-        output = io.BytesIO()
-        with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-            df.to_excel(writer, index=False, sheet_name='Хуучин нум')
-        
-        output.seek(0)
-        return send_file(output, 
-                         download_name=f"Хуучин нум Х/А_{datetime.now().strftime('%Y%m%d')}.xlsx", 
-                         as_attachment=True)
                          
     except Exception as e:
         return f"Алдаа гарлаа: {str(e)}"
 
+# --- 2. САЛБАРЫН ОРЛОГО ТАЙЛАН (НИЙТ ДҮНТЭЙ) ---
 @app.route('/export-internal-income')
 @login_required
 def export_internal_income():
-    start_date = request.args.get('start_date')
-    end_date = request.args.get('end_date')
+    try:
+        start_date = request.args.get('start_date')
+        end_date = request.args.get('end_date')
 
-    query = Transaction.query.filter_by(type='Орлого')
-    if start_date and end_date:
-        query = query.filter(Transaction.timestamp >= start_date, 
-                             Transaction.timestamp <= end_date + " 23:59:59")
-    
-    items = query.order_by(Transaction.timestamp.desc()).all()
-    
-    data = []
-    total_qty = 0
-    total_amount = 0
+        query = Transaction.query.filter_by(type='Орлого')
+        if start_date and end_date:
+            query = query.filter(Transaction.timestamp >= start_date, 
+                                 Transaction.timestamp <= end_date + " 23:59:59")
+        
+        items = query.order_by(Transaction.timestamp.desc()).all()
+        
+        data = []
+        t_qty = 0
+        t_amount = 0
 
-    for i in items:
-        amount = i.quantity * i.price
-        total_qty += i.quantity
-        total_amount += amount
-        data.append({
-            "Огноо": i.timestamp.strftime('%Y-%m-%d'),
-            "Код (SKU)": i.product.sku if i.product else "",
-            "Барааны нэр": i.product.name if i.product else i.description,
-            "Тоо": i.quantity,
-            "Өртөг": i.price,
-            "Нийт өртөг": amount,
-            "Тайлбар": i.description,
-            "Хүлээн авсан ажилтан": i.user.username if i.user else ""
-        })
+        for i in items:
+            qty = i.quantity or 0
+            price = i.price or 0
+            subtotal = qty * price
+            t_qty += qty
+            t_amount += subtotal
 
-    if not data:
-        flash("Тухайн хугацаанд орлогын мэдээлэл олдсонгүй.")
-        return redirect(url_for('internal_income_list'))
+            data.append({
+                "Огноо": i.timestamp.strftime('%Y-%m-%d'),
+                "Код (SKU)": i.product.sku if i.product else "",
+                "Барааны нэр": i.product.name if i.product else i.description,
+                "Тоо": qty,
+                "Өртөг": price,
+                "Нийт өртөг": subtotal,
+                "Тайлбар": i.description,
+                "Хүлээн авсан ажилтан": i.user.username if i.user else ""
+            })
 
-    # Нийт дүнг жагсаалтын төгсгөлд нэмэх
-    data.append({
-        "Огноо": "НИЙТ",
-        "Код (SKU)": "",
-        "Барааны нэр": "",
-        "Тоо": total_qty,
-        "Өртөг": "",
-        "Нийт өртөг": total_amount,
-        "Тайлбар": "",
-        "Хүлээн авсан ажилтан": ""
-    })
+        if data:
+            # Хамгийн доор Нийт мөр нэмэх
+            data.append({
+                "Огноо": "НИЙТ ДҮН",
+                "Код (SKU)": "",
+                "Барааны нэр": "",
+                "Тоо": t_qty,
+                "Өртөг": "",
+                "Нийт өртөг": t_amount,
+                "Тайлбар": "",
+                "Хүлээн авсан ажилтан": ""
+            })
 
-    df = pd.DataFrame(data)
-    output = io.BytesIO()
-    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-        df.to_excel(writer, index=False, sheet_name='Салбарын орлого')
-    
-    output.seek(0)
-    return send_file(output, 
-                     download_name=f"Орлогын тайлан {start_date}-{end_date}.xlsx", 
-                     as_attachment=True)
+            df = pd.DataFrame(data)
+            output = io.BytesIO()
+            with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+                df.to_excel(writer, index=False, sheet_name='Салбарын орлого')
+            
+            output.seek(0)
+            return send_file(output, 
+                             download_name=f"Internal_Income_{datetime.now().strftime('%Y%m%d')}.xlsx", 
+                             as_attachment=True)
+        else:
+            flash("Мэдээлэл олдсонгүй.")
+            return redirect(url_for('internal_income_list'))
+    except Exception as e:
+        return f"Алдаа: {str(e)}"
+        
 # --- ХЭРЭГЛЭГЧИЙН УДИРДЛАГА ---
 
 @app.route('/users')
