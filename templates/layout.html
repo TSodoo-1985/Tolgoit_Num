@@ -100,8 +100,8 @@
                         <li><button class="dropdown-item submenu-item" onclick="handleDownload('Жижиглэн зарлага')">Жижиглэн зарлага</button></li>
                         <li><button class="dropdown-item submenu-item" onclick="handleDownload('Бөөний зарлага')">Бөөний зарлага</button></li>
                         <li><button class="dropdown-item submenu-item" onclick="handleDownload('Өртгөөр зарлага')">Шилжүүлэг тайлан</button></li>
-                        <li><button class="dropdown-item submenu-item" onclick="handleDownload('Орлого')">Хуучин нум</button></li>
                         <li><button class="dropdown-item submenu-item" onclick="handleDownload('буцаалт')">Буцаалтын тайлан</button></li>
+                        <li><button class="dropdown-item submenu-item" onclick="handleDownload('Хуучин нум')">Хуучин нум авалт</button></li>
                     </div>
 
                     <li>
@@ -228,12 +228,26 @@
         if(!s || !e) { alert("Огноо сонгоно уу!"); return; }
         window.location.href = `/export-salary-report?start_date=${s}&end_date=${e}`;
     }
-    function handleOldBowExcel() {
-        const s = document.getElementById('start_date_input').value;
-        const e = document.getElementById('end_date_input').value;
-        if(!s || !e) { alert("Огноо сонгоно уу!"); return; }
-        window.location.href = `/export-old-bow?start_date=${s}&end_date=${e}`;
+    function handleDownload(type) {
+    const start = document.getElementById('start_date_input').value;
+    const end = document.getElementById('end_date_input').value;
+
+    if (!start || !end) {
+        alert("Огноо сонгоно уу!");
+        return;
     }
+
+    let url = "";
+    if (type === 'Хуучин нум') {
+        // Хуучин нумны тусдаа функц руу хандана
+        url = `/export-old-bow?start_date=${start}&end_date=${end}`;
+    } else {
+        // Бусад ерөнхий гүйлгээнүүд рүү хандана
+        url = `/export-transactions?type=${type}&start_date=${start}&end_date=${end}`;
+    }
+
+    window.location.href = url;
+}
 </script>
 </body>
 </html>
