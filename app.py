@@ -1728,33 +1728,50 @@ def export_return_report():
         download_name=f"Return_Report_{start_date if start_date else 'all'}.xlsx"
     )
 
-@app.route('/export-old-bow-excel')
+@app.route('/export-old-bow')
 @login_required
-def export_old_bow_excel():
-    reports = OldBow.query.order_by(OldBow.id.desc()).all()
-    
-    data = []
-    for r in reports:
-        data.append({
-            "Огноо": r.date,
-            "Барааны нэр": r.product_name,
-            "SKU/Код": r.sku,
-            "Авсан үнэ": r.purchase_price,
-            "Зарах үнэ": r.retail_price,
-            "Тоо ширхэг": r.quantity,
-            "Нийт зардал": r.purchase_price * r.quantity,
-            "Бүртгэсэн ажилтан": r.user.username if r.user else "Тодорхойгүй"
-        })
-    
-    df = pd.DataFrame(data)
-    output = io.BytesIO()
-    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-        df.to_excel(writer, index=False, sheet_name='Хуучин нум авалт')
-    
-    output.seek(0)
-    return send_file(output, 
-                     download_name=f"Old_Bow_Report_{datetime.now().strftime('%Y%m%d')}.xlsx", 
-                     as_attachment=True)
+def export_old_bow():
+    try:
+        start_date = request.args.get('start_date')
+        end_date = request.args.get('end_date')
+
+        # OldBow моделиос өгөгдөл татах (Моделийн нэр OldBow байх ёстойг анхаарна уу)
+        query = OldBow.query
+        if start_date and end_date:
+            # Огноог "YYYY-MM-DD" форматаас "YYYY-MM-DD 23:59:59" хүртэл шүүнэ
+            query = query.filter(OldBow.date >= start_date, OldBow.date <= end_date + " 23:59:59")
+        
+        reports = query.order_by(OldBow.id.desc()).all()
+
+        data = []
+        for r in reports:
+            data.append({
+                "Огноо": r.date,
+                "Барааны нэр": r.product_name,
+                "Код/SKU": r.sku,
+                "Авсан үнэ": r.purchase_price,
+                "Зарах үнэ": r.retail_price,
+                "Тоо ширхэг": r.quantity,
+                "Нийт дүн": r.purchase_price * r.quantity,
+                "Бүртгэсэн": r.user.username if r.user else "Систем"
+            })
+
+        if not data:
+            flash("Тухайн хугацаанд мэдээлэл олдсонгүй.")
+            return redirect(url_for('dashboard'))
+
+        df = pd.DataFrame(data)
+        output = io.BytesIO()
+        with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+            df.to_excel(writer, index=False, sheet_name='Хуучин нум')
+        
+        output.seek(0)
+        return send_file(output, 
+                         download_name=f"Old_Bow_Report_{datetime.now().strftime('%Y%m%d')}.xlsx", 
+                         as_attachment=True)
+                         
+    except Exception as e:
+        return f"Алдаа гарлаа: {str(e)}"
 
 @app.route('/export-income-report')
 @login_required
