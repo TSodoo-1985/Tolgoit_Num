@@ -1017,41 +1017,42 @@ def bundles_page():
                            products=products, 
                            saved_bundles=saved_bundles)
 
-# 1. Салбарын орлогын жагсаалт харах
-@app.route('/internal-income')
+# --- САЛБАРЫН ОРЛОГО (BATCH ENTRY) ---
+
+@app.route('/internal-incomes')
 @login_required
 def internal_income_list():
+    # Зөвхөн 'Орлого' төрөлтэй гүйлгээнүүдийг шүүж авна
     page = request.args.get('page', 1, type=int)
-    # Зөвхөн 'Орлого' төрөлтэй гүйлгээг харуулна
-    incomes = Transaction.query.filter_by(type='Орлого').order_by(Transaction.timestamp.desc()).paginate(page=page, per_page=20)
+    incomes = Transaction.query.filter_by(type='Орлого').order_by(Transaction.id.desc()).paginate(page=page, per_page=20)
     return render_template('internal_income.html', incomes=incomes)
 
-# 2. Бараа сонгож орлого нэмэх хуудас
 @app.route('/add-internal-income', methods=['GET', 'POST'])
 @login_required
 def add_internal_income():
     if request.method == 'POST':
         product_ids = request.form.getlist('p_ids[]')
         quantities = request.form.getlist('qtys[]')
-        comment = request.form.get('description') # Тайлбар хэсэг
+        description = request.form.get('description', 'Салбарын орлого')
 
         try:
             for p_id, qty in zip(product_ids, quantities):
-                if not qty or int(qty) <= 0: continue
+                if not qty or int(qty) <= 0:
+                    continue
                 
                 product = Product.query.get(p_id)
                 if product:
                     # 1. Үлдэгдэл нэмэх
                     product.stock += int(qty)
                     
-                    # 2. Гүйлгээний түүх бичих (Type='Орлого' тул кассаас хасахгүй)
+                    # 2. Гүйлгээг 'Орлого' төрлөөр бүртгэх (Кассаас хасагдахгүй)
                     new_trans = Transaction(
                         product_id=product.id,
                         user_id=current_user.id,
                         quantity=int(qty),
-                        price=product.cost_price,
+                        price=product.cost_price, # Өртгөөр нь бүртгэнэ
                         type='Орлого',
-                        description=comment, # "Салбараас ирсэн" гэх мэт тайлбар
+                        description=description,
                         timestamp=datetime.now()
                     )
                     db.session.add(new_trans)
@@ -1059,10 +1060,13 @@ def add_internal_income():
             db.session.commit()
             flash("Салбарын орлого амжилттай бүртгэгдлээ.")
             return redirect(url_for('internal_income_list'))
+            
         except Exception as e:
             db.session.rollback()
             flash(f"Алдаа гарлаа: {str(e)}")
-            
+            return redirect(url_for('add_internal_income'))
+
+    # Сонгох барааны жагсаалт
     products = Product.query.filter_by(is_active=True).order_by(Product.name).all()
     return render_template('add_internal_income.html', products=products)
 
