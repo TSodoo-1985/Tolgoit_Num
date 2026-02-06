@@ -2,7 +2,6 @@
 {% block content %}
 
 <style>
-    /* Гар утасны хайлтын хэсгийг дээр нь бэхлэх */
     .sticky-bundle-search {
         position: -webkit-sticky;
         position: sticky;
@@ -16,7 +15,6 @@
     .bundle-item-row { border-bottom: 1px solid #eee; padding: 10px 0; }
     .bundle-item-row:last-child { border-bottom: none; }
     
-    /* Загварууд (Templates) хөндлөн гүйдэг хэсэг */
     .template-scroll {
         display: flex;
         overflow-x: auto;
@@ -89,33 +87,11 @@
                 </div>
                 <div class="col-6">
                     <button class="btn btn-primary w-100 py-3 fw-bold shadow rounded-3" onclick="sellNow()">
-                        <i class="bi bi-cash-stack"></i> ЗАРАХ
+                        <i class="bi bi-cart-plus"></i> САГСЛАХ
                     </button>
                 </div>
             </div>
         </div>
-    </div>
-</div>
-
-<div class="mt-2">
-    <h6 class="fw-bold mb-3 text-uppercase small text-muted"><i class="bi bi-stars text-warning me-1"></i> Хадгалсан загварууд</h6>
-    <div class="template-scroll">
-        {% if saved_bundles %}
-            {% for b in saved_bundles %}
-            <div class="template-card shadow-sm" onclick='loadBundleTemplate({{ {
-                "name": b.name,
-                "price": b.set_price,
-                "items": b.items|map(attribute="product_id")|list,
-                "item_names": b.items|map(attribute="product")|map(attribute="name")|list,
-                "quantities": b.items|map(attribute="quantity")|list
-            }|tojson }})'>
-                <div class="text-primary fw-bold text-truncate mb-1">{{ b.name }}</div>
-                <div class="badge bg-light text-dark border">{{ "{:,.0f}".format(b.set_price) }}₮</div>
-            </div>
-            {% endfor %}
-        {% else %}
-            <div class="text-muted small">Одоогоор загвар байхгүй байна.</div>
-        {% endif %}
     </div>
 </div>
 
@@ -177,19 +153,33 @@ function removeItem(id) {
     renderBundle();
 }
 
-function loadBundleTemplate(bundle) {
-    document.getElementById('bundleName').value = bundle.name;
-    document.getElementById('bundlePrice').value = bundle.price;
-    selectedItems = [];
-    for(let i=0; i < bundle.items.length; i++) {
-        selectedItems.push({
-            product_id: bundle.items[i],
-            name: bundle.item_names[i],
-            quantity: bundle.quantities[i]
-        });
+function sellNow() {
+    const name = document.getElementById('bundleName').value || "Шинэ багц";
+    const price = document.getElementById('bundlePrice').value;
+    
+    if (selectedItems.length === 0 || !price) { 
+        alert("Бараа эсввал үнэ дутуу байна!"); 
+        return; 
     }
-    renderBundle();
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+
+    let cart = JSON.parse(localStorage.getItem('myCart')) || [];
+    
+    cart.push({
+        product_id: "bundle_" + Date.now(),
+        name: name,
+        quantity: 1,
+        type: "Багц",
+        price: Math.round(parseFloat(price)),
+        is_bundle: true,
+        bundle_items: selectedItems
+    });
+
+    localStorage.setItem('myCart', JSON.stringify(cart));
+    
+    if (window.updateBadge) window.updateBadge();
+    
+    alert("Багц сагсанд нэмэгдлээ!");
+    window.location.href = "/";
 }
 
 function saveBundle() {
@@ -206,36 +196,5 @@ function saveBundle() {
         else alert(data.message);
     });
 }
-
-function sellNow() {
-    const name = document.getElementById('bundleName').value || "Багц";
-    const price = document.getElementById('bundlePrice').value;
-    if (selectedItems.length === 0 || !price) { alert("Бараа эсвэл үнэ дутуу!"); return; }
-
-    let desc = name + ": " + selectedItems.map(i => `${i.name} (${i.quantity}ш)`).join(", ");
-    const data = {
-        items: [{
-            is_bundle: true,
-            name: name,
-            price: price,
-            description: desc,
-            bundle_items: selectedItems
-        }]
-    };
-
-    if(!confirm("Борлуулалтыг баталгаажуулах уу?")) return;
-
-    fetch('/add_transaction_bulk', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify(data)
-    }).then(res => res.json()).then(data => {
-        if(data.status === 'success') {
-            alert("Амжилттай зарагдлаа!");
-            window.location.href = "/";
-        } else alert(data.message);
-    });
-}
 </script>
-
 {% endblock %}
