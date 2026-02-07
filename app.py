@@ -194,30 +194,30 @@ def add_product_page():
 @login_required
 def add_product():
     try:
-        # Нэр болон SKU-г авах (Хоосон зайг арилгаж, SKU-г том үсгээр)
-        name = (request.form.get('name') or "").strip()
-        original_sku = (request.form.get('sku') or "").strip().upper()
+        # 1. Өгөгдлийг авахдаа хоосон эсэхийг нь шалгах функцүүд
+        def get_float(field):
+            val = request.form.get(field)
+            return float(val) if val and val.strip() else 0.0
+
+        def get_int(field):
+            val = request.form.get(field)
+            return int(val) if val and val.strip() else 0
+
+        name = request.form.get('name', '').strip()
+        original_sku = request.form.get('sku', '').strip().upper()
         
-        # Үнэ болон Тоо хэмжээг авах (Хамгаалалттай: Хоосон бол 0 эсвэл 0.0 болгоно)
-        def safe_float(val):
-            if not val or val.strip() == "": return 0.0
-            return float(val)
-
-        def safe_int(val):
-            if not val or val.strip() == "": return 0
-            return int(float(val)) # float-оор дамжуулж int болговол '1.0' гэх мэт утга дээр алдаа өгөхгүй
-
-        purchase_price = safe_float(request.form.get('purchase_price'))
-        retail_price = safe_float(request.form.get('retail_price'))
-        wholesale_price = safe_float(request.form.get('wholesale_price'))
-        quantity = safe_int(request.form.get('quantity'))
+        # Энд алдаа гарч байсан хэсгийг аюулгүй болгов
+        purchase_price = get_float('purchase_price')
+        retail_price = get_float('retail_price')
+        wholesale_price = get_float('wholesale_price')
+        quantity = get_int('quantity')
         category = request.form.get('category')
 
         if not name or not original_sku:
-            flash("Барааны нэр болон кодыг заавал бөглөнө үү!")
-            return redirect(url_for('inventory'))
+            flash("Нэр болон SKU код заавал байх ёстой!")
+            return redirect(url_for('add_product_page'))
 
-        # 1. Яг ижил (Нэр, Код, Үнүүд) бараа байгаа эсэхийг шалгах
+        # 2. Ижил бараа байгаа эсэхийг шалгах
         existing_product = Product.query.filter(
             func.lower(Product.sku) == original_sku.lower(),
             func.lower(Product.name) == name.lower(),
@@ -226,12 +226,10 @@ def add_product():
         ).first()
 
         if existing_product:
-            # Бүх зүйл ижил бол үлдэгдэл дээр нэмнэ
             existing_product.stock += quantity
             db.session.commit()
             flash(f"'{name}' барааны үлдэгдэл нэмэгдлээ.")
         else:
-            # 2. Нэр эсвэл Код адилхан боловч ҮНЭ өөр бол индекс нэмнэ
             new_sku = original_sku
             counter = 1
             while Product.query.filter(func.lower(Product.sku) == new_sku.lower()).first():
@@ -253,8 +251,8 @@ def add_product():
 
     except Exception as e:
         db.session.rollback()
-        flash(f"Системийн алдаа: {str(e)}")
-        print(f"Error adding product: {str(e)}")
+        flash(f"Алдаа гарлаа: {str(e)}")
+        print(f"ADD PRODUCT ERROR: {e}") # Render-ийн лог дээр харагдана
 
     return redirect(url_for('inventory'))
 
