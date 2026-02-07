@@ -49,19 +49,19 @@ class Product(db.Model):
     wholesale_price = db.Column(db.Float, default=0.0)
     stock = db.Column(db.Float, default=0.0)
     is_active = db.Column(db.Boolean, default=True)
+    
 class Transaction(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    product_id = db.Column(db.Integer, db.ForeignKey('product.id'), nullable=False)
+    # ЭНД nullable=True болгож өөрчилнө (Багц зарахад ID байхгүй тул)
+    product_id = db.Column(db.Integer, db.ForeignKey('product.id'), nullable=True) 
     type = db.Column(db.String(50), nullable=False)
     quantity = db.Column(db.Float, nullable=False)
     price = db.Column(db.Float, nullable=True, default=0.0)
-    description = db.Column(db.Text, nullable=True) # ЭНЭ БАГАНЫГ НЭМЭХ (Багцын тайлбар хадгална)
+    description = db.Column(db.Text, nullable=True) 
     timestamp = db.Column(db.DateTime, default=datetime.now)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
     product = db.relationship('Product', backref='transactions')
     user = db.relationship('User', backref='transactions')
-    def __repr__(self):
-        return f'<Transaction {self.type} - {self.quantity}>'
 
 class Expense(db.Model):
     __tablename__ = 'expense'
@@ -516,48 +516,71 @@ def add_transaction_bulk():
         for item in data['items']:
             is_bundle = item.get('is_bundle', False)
             
+            # --- 1. ХЭРЭВ БАГЦ БОЛ (BUNDLE) ---
             if is_bundle:
-                # 🎁 БАГЦ БОЛ: Product_id-аар хайхгүй, алгасна
+                bundle_name = item.get('name', 'Багц')
+                bundle_qty = float(item.get('quantity', 1))
+                
+                # A. Үндсэн гүйлгээг бүртгэх (Мөнгөн дүн, Нэр)
+                # product_id=None гэж өгнө (Алхам 1 дээр моделийг зассан тул алдаа гарахгүй)
                 new_tx = Transaction(
-                    product_id=None, # Текст ID (bundle_...) өгөхгүй, None болгоно
-                    product_name=f"[БАГЦ] {item.get('name')}",
-                    quantity=float(item.get('quantity', 1)),
+                    product_id=None, 
+                    description=f"🎁 {bundle_name} (Багц)", # Description руу нэрийг хийх нь илүү зөв
+                    quantity=bundle_qty,
                     price=float(item.get('price', 0)),
                     type="Багц зарлага",
-                    timestamp=datetime.now()
+                    timestamp=datetime.now(),
+                    user_id=current_user.id
                 )
                 db.session.add(new_tx)
 
-                # Багц доторх бараануудын үлдэгдлийг хасах
-                for b_item in item.get('bundle_items', []):
-                    p = Product.query.get(int(b_item['product_id']))
-                    if p:
-                        p.stock -= float(b_item['quantity'])
+                # B. Багц доторх бараануудын үлдэгдлийг хасах
+                bundle_items = item.get('bundle_items', [])
+                for b_item in bundle_items:
+                    p_id = b_item.get('product_id')
+                    
+                    # ID нь тоо мөн эсэхийг шалгах
+                    if p_id and str(p_id).isdigit():
+                        p = Product.query.get(int(p_id))
+                        if p:
+                            # Багц доторх тоо * Багцын тоо
+                            items_to_deduct = float(b_item.get('quantity', 0)) * bundle_qty
+                            p.stock -= items_to_deduct
+                            
+                            # (Сонголтоор) Бараа тус бүр дээр "Багцаар зарагдсан" гэж түүх үлдээж болно
+                            # Гэхдээ давхар гүйлгээ үүсгэхгүйн тулд зөвхөн Stock хасахад хангалттай.
+            
+            # --- 2. ЭНГИЙН БАРАА БОЛ ---
             else:
-                # 📦 ЭНГИЙН БАРАА БОЛ:
                 p_id = item.get('product_id')
-                # ID нь текст (bundle_...) байвал алгасах хамгаалалт
+                
+                # Хэрэв ID нь "bundle_..." гэх мэт текст байвал (алдаанаас сэргийлж) алгасна
                 if not str(p_id).isdigit():
                     continue
 
-                p = Product.query.get(int(p_id))
-                if p:
+                product = Product.query.get(int(p_id))
+                if product:
                     qty = float(item.get('quantity', 0))
-                    p.stock -= qty
+                    product.stock -= qty
+                    
                     new_tx = Transaction(
-                        product_id=p.id,
-                        product_name=p.name,
+                        product_id=product.id,
+                        # product_name багана Transaction-д байхгүй бол description-д бичнэ
+                        description=product.name, 
                         quantity=qty,
                         price=float(item.get('price', 0)),
                         type=item.get('type', 'Зарлага'),
-                        timestamp=datetime.now()
+                        timestamp=datetime.now(),
+                        user_id=current_user.id
                     )
                     db.session.add(new_tx)
 
         db.session.commit()
-        return jsonify({'status': 'success'})
+        return jsonify({'status': 'success', 'message': 'Амжилттай бүртгэгдлээ'})
+
     except Exception as e:
         db.session.rollback()
+        print(f"Transaction Error: {e}") # Лог харах
         return jsonify({'status': 'error', 'message': str(e)}), 500
         
 @app.route('/special_transfer', methods=['GET', 'POST'])
