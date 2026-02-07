@@ -1405,18 +1405,13 @@ def export_balance():
 @app.route('/export-transactions/<type>')
 @login_required
 def export_transactions(type):
-    start_date_str = request.args.get('start_date', 'all')
-    end_date_str = request.args.get('end_date', 'all')
-    filename = f"{type}_{start_date_str}_to_{end_date_str}.csv"
-    output = make_response(csv_data)
     from urllib.parse import quote
-    filename_quoted = quote(filename)
     
-    output.headers["Content-Disposition"] = f"attachment; filename*=UTF-8''{filename_quoted}"
-    output.headers["Content-type"] = "text/csv; charset=utf-8-sig"
-    return output
-    
-    # --- ЗАССАН ХЭСЭГ: Жижиглэн зарлага дотор Багцыг хамт оруулах ---
+    # 1. URL-аас огноо болон шүүлтүүрийн мэдээллийг авах
+    start_date_str = request.args.get('start_date', '')
+    end_date_str = request.args.get('end_date', '')
+
+    # --- ЗАССАН ХЭСЭГ: Query-г return-ээс өмнө хийх ёстой ---
     if type == 'Жижиглэн зарлага':
         query = Transaction.query.filter(
             or_(
@@ -1434,7 +1429,6 @@ def export_transactions(type):
         )
     else:
         query = Transaction.query.filter(Transaction.type == type)
-    # ---------------------------------------------------------
 
     # Огноо шүүх хэсэг
     if start_date_str:
@@ -1448,21 +1442,17 @@ def export_transactions(type):
     data = []
     
     for t in transactions:
-        # Багц эсвэл устгагдсан барааны өртгийг 0 гэж үзнэ
         cost_price = t.product.cost_price if t.product else 0
         
-        # Барааны нэр болон код (Багц бол description-ээс авна)
         if t.product:
             p_name = t.product.name
             p_sku = t.product.sku
             p_cat = t.product.category
         else:
-            # Таны bundles.html-ээс ирсэн нэр description-д хадгалагдсан байгаа
             p_name = t.description if t.description else "Багц гүйлгээ"
             p_sku = "BUNDLE"
             p_cat = "Багц"
 
-        # Үнэ тодорхойлох
         actual_price = float(t.price) if t.price else 0
 
         data.append({
@@ -1479,35 +1469,38 @@ def export_transactions(type):
             'Ажилтан': t.user.username if t.user else "-"
         })
 
+    if not data:
+        return "Тухайн хугацаанд гүйлгээ олдсонгүй", 404
+
     df = pd.DataFrame(data)
     
-    # Баганын дараалал тааруулах
-    if not df.empty:
-        order = ['Огноо', 'Ангилал', 'Барааны код', 'Барааны нэр', 'Гүйлгээний төрөл', 
-                 'Тоо ширхэг', 'Нэгж өртөг', 'Зарсан үнэ', 'Нийт дүн', 'Нийт ашиг', 'Ажилтан']
-        df = df[order]
+    # Баганын дараалал
+    order = ['Огноо', 'Ангилал', 'Барааны код', 'Барааны нэр', 'Гүйлгээний төрөл', 
+             'Тоо ширхэг', 'Нэгж өртөг', 'Зарсан үнэ', 'Нийт дүн', 'Нийт ашиг', 'Ажилтан']
+    df = df[order]
 
-        # Нийт дүнгийн мөр нэмэх
-        if type != 'Орлого':
-            totals = {
-                'Огноо': 'НИЙТ ДҮН:', 'Ангилал': '', 'Барааны код': '', 'Барааны нэр': '', 'Гүйлгээний төрөл': '',
-                'Тоо ширхэг': df['Тоо ширхэг'].sum(),
-                'Нэгж өртөг': '', 'Зарсан үнэ': '', 
-                'Нийт дүн': df['Нийт дүн'].sum(),
-                'Нийт ашиг': df['Нийт ашиг'].sum(),
-                'Ажилтан': ''
-            }
-            df = pd.concat([df, pd.DataFrame([totals])], ignore_index=True)
+    # Нийт дүн нэмэх
+    if type != 'Орлого':
+        totals = {
+            'Огноо': 'НИЙТ ДҮН:', 'Ангилал': '', 'Барааны код': '', 'Барааны нэр': '', 'Гүйлгээний төрөл': '',
+            'Тоо ширхэг': df['Тоо ширхэг'].sum(),
+            'Нэгж өртөг': '', 'Зарсан үнэ': '', 
+            'Нийт дүн': df['Нийт дүн'].sum(),
+            'Нийт ашиг': df['Нийт ашиг'].sum(),
+            'Ажилтан': ''
+        }
+        df = pd.concat([df, pd.DataFrame([totals])], ignore_index=True)
 
-    # Excel файл үүсгэх
+    # Excel үүсгэх
     output = BytesIO()
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
         sheet_name = f"{type} Тайлан"
         df.to_excel(writer, index=False, sheet_name=sheet_name[:31])
         
-        # Форматжуулалт (Мөнгөн дүн, Хүснэгтийн хүрээ)
         workbook = writer.book
         worksheet = writer.sheets[sheet_name[:31]]
+        
+        # Форматууд
         money_fmt = workbook.add_format({'num_format': '#,##0', 'border': 1})
         header_fmt = workbook.add_format({'bold': True, 'bg_color': '#D7E4BC', 'border': 1})
         
@@ -1516,29 +1509,22 @@ def export_transactions(type):
             worksheet.set_column(col_num, col_num, 15)
 
     output.seek(0)
-    mgl_filename = f"{type} тайлан.xlsx"
-    return send_file(output, as_attachment=True, download_name=mgl_filename)
     
-@app.route('/export-inventory-report')
-@login_required
-def export_inventory_report():
-    transactions = Transaction.query.filter(Transaction.type.like('Тооллого%')).all()
-    data = [{
-        "Огноо": t.timestamp.strftime('%Y-%m-%d'), 
-        "Ангилал": t.product.category if t.product else "-", # НЭМЭГДЭВ
-        "Барааны код": t.product.sku if t.product else "-", # НЭМЭГДЭВ
-        "Бараа": t.product.name if t.product else "Устгагдсан", 
-        "Зөрүү": t.type, 
-        "Тоо": t.quantity
-    } for t in transactions]
+    # --- ФАЙЛЫН НЭРЭНД ОГНОО ОРУУЛАХ ХЭСЭГ ---
+    display_start = start_date_str if start_date_str else "all"
+    display_end = end_date_str if end_date_str else "today"
     
-    df = pd.DataFrame(data)
-    output = BytesIO()
-    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-        df.to_excel(writer, index=False)
-    output.seek(0)
-    return send_file(output, as_attachment=True, download_name="Inventory_Report.xlsx")
-
+    # Файлын нэрийг Монгол болгох
+    filename = f"{type}_tailan_{display_start}_to_{display_end}.xlsx"
+    
+    # Send_file ашиглаж Excel файлыг илгээх
+    return send_file(
+        output, 
+        as_attachment=True, 
+        download_name=filename,
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+    
 @app.route('/export-expense-report/<category>')
 @login_required
 def export_expense_report(category):
