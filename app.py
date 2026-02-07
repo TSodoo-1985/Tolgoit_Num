@@ -1405,8 +1405,16 @@ def export_balance():
 @app.route('/export-transactions/<type>')
 @login_required
 def export_transactions(type):
-    start_date_str = request.args.get('start_date')
-    end_date_str = request.args.get('end_date')
+    start_date_str = request.args.get('start_date', 'all')
+    end_date_str = request.args.get('end_date', 'all')
+    filename = f"{type}_{start_date_str}_to_{end_date_str}.csv"
+    output = make_response(csv_data)
+    from urllib.parse import quote
+    filename_quoted = quote(filename)
+    
+    output.headers["Content-Disposition"] = f"attachment; filename*=UTF-8''{filename_quoted}"
+    output.headers["Content-type"] = "text/csv; charset=utf-8-sig"
+    return output
     
     # --- ЗАССАН ХЭСЭГ: Жижиглэн зарлага дотор Багцыг хамт оруулах ---
     if type == 'Жижиглэн зарлага':
@@ -1508,7 +1516,7 @@ def export_transactions(type):
             worksheet.set_column(col_num, col_num, 15)
 
     output.seek(0)
-    mgl_filename = f"{type}_Report.xlsx"
+    mgl_filename = f"{type} тайлан.xlsx"
     return send_file(output, as_attachment=True, download_name=mgl_filename)
     
 @app.route('/export-inventory-report')
