@@ -14,23 +14,6 @@
     .card { border-radius: 15px; border: none; }
     .bundle-item-row { border-bottom: 1px solid #eee; padding: 10px 0; }
     .bundle-item-row:last-child { border-bottom: none; }
-    
-    .template-scroll {
-        display: flex;
-        overflow-x: auto;
-        gap: 10px;
-        padding-bottom: 10px;
-        -webkit-overflow-scrolling: touch;
-    }
-    .template-card {
-        min-width: 140px;
-        background: white;
-        padding: 12px;
-        border-radius: 12px;
-        border: 1px solid #dee2e6;
-        text-align: center;
-        cursor: pointer;
-    }
 </style>
 
 <div class="sticky-bundle-search shadow-sm">
@@ -43,16 +26,16 @@
 <div class="row">
     <div class="col-12 col-lg-5 mb-3">
         <h6 class="fw-bold mb-3 text-uppercase small text-muted"><i class="bi bi-list-ul me-1"></i> Барааны жагсаалт</h6>
-        <div id="bundleProductList" style="max-height: 350px; overflow-y: auto; padding-right: 5px;">
+        <div id="bundleProductList" style="max-height: 450px; overflow-y: auto; padding-right: 5px;">
             {% for p in products %}
             <div class="card p-3 mb-2 shadow-sm bundle-product-card" data-name="{{ p.name }}" data-sku="{{ p.sku }}">
                 <div class="d-flex justify-content-between align-items-center">
-                    <div onclick="addItemToBundle('{{ p.id }}', '{{ p.name }}', {{ p.retail_price }})" style="cursor:pointer; flex: 1;">
+                    <div onclick="addItemToBundle('{{ p.id }}', '{{ p.name }}')" style="cursor:pointer; flex: 1;">
                         <span class="badge bg-dark mb-1">{{ p.sku }}</span>
                         <h6 class="mb-0 fw-bold">{{ p.name }}</h6>
                         <small class="text-muted">{{ "{:,.0f}".format(p.retail_price) }}₮ | Үлдэгдэл: {{ p.stock }}</small>
                     </div>
-                    <button class="btn btn-primary btn-sm rounded-3" onclick="addItemToBundle('{{ p.id }}', '{{ p.name }}', {{ p.retail_price }})">
+                    <button class="btn btn-primary btn-sm rounded-3" onclick="addItemToBundle('{{ p.id }}', '{{ p.name }}')">
                         <i class="bi bi-plus-lg"></i>
                     </button>
                 </div>
@@ -65,9 +48,15 @@
         <div class="card p-4 shadow-sm mb-4 border-top border-primary border-4">
             <h5 class="fw-bold mb-3"><i class="bi bi-cart-check-fill text-primary"></i> Багц бүрдүүлэлт</h5>
             
-            <div class="mb-3">
-                <label class="small fw-bold text-muted">БАГЦЫН НЭР</label>
-                <input type="text" id="bundleName" class="form-control border-2" placeholder="Жишээ: Комбо-1">
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label class="small fw-bold text-muted">БАГЦЫН НЭР</label>
+                    <input type="text" id="bundleName" class="form-control border-2" placeholder="Жишээ: Комбо-1">
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="small fw-bold text-muted">БАГЦЫН КОД (SKU)</label>
+                    <input type="text" id="bundleSKU" class="form-control border-2 text-uppercase" placeholder="Жишээ: BDL-001">
+                </div>
             </div>
 
             <div id="selectedItemsContainer" class="mb-4">
@@ -106,7 +95,7 @@ function filterBundleProducts() {
     });
 }
 
-function addItemToBundle(id, name, price) {
+function addItemToBundle(id, name) {
     let existing = selectedItems.find(i => i.product_id === id);
     if (existing) {
         existing.quantity += 1;
@@ -155,17 +144,19 @@ function removeItem(id) {
 
 function sellNow() {
     const name = document.getElementById('bundleName').value || "Шинэ багц";
+    const sku = document.getElementById('bundleSKU').value || "BDL-" + Date.now().toString().slice(-4);
     const price = document.getElementById('bundlePrice').value;
     
     if (selectedItems.length === 0 || !price) { 
-        alert("Бараа эсввал үнэ дутуу байна!"); 
+        alert("Бараа эсвэл үнэ дутуу байна!"); 
         return; 
     }
 
     let cart = JSON.parse(localStorage.getItem('myCart')) || [];
     
     cart.push({
-        product_id: "bundle_" + Date.now(),
+        product_id: 0, // Өгөгдлийн санд алдаа өгөхгүй байх үүднээс 0 (Integer) болгов
+        sku: sku,      // Таны өгсөн код энд хадгалагдана
         name: name,
         quantity: 1,
         type: "Багц",
@@ -175,7 +166,6 @@ function sellNow() {
     });
 
     localStorage.setItem('myCart', JSON.stringify(cart));
-    
     if (window.updateBadge) window.updateBadge();
     
     alert("Багц сагсанд нэмэгдлээ!");
@@ -185,12 +175,22 @@ function sellNow() {
 function saveBundle() {
     const name = document.getElementById('bundleName').value;
     const price = document.getElementById('bundlePrice').value;
-    if (!name || selectedItems.length === 0 || !price) { alert("Мэдээлэл дутуу!"); return; }
+    const sku = document.getElementById('bundleSKU').value;
+
+    if (!name || selectedItems.length === 0 || !price) { 
+        alert("Мэдээлэл дутуу!"); 
+        return; 
+    }
 
     fetch('/create_bundle', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ name: name, set_price: price, items: selectedItems })
+        body: JSON.stringify({ 
+            name: name, 
+            sku: sku, // SKU кодыг сервер рүү илгээж байна
+            set_price: price, 
+            items: selectedItems 
+        })
     }).then(res => res.json()).then(data => {
         if(data.status === 'success') location.reload();
         else alert(data.message);
