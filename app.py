@@ -521,11 +521,11 @@ def add_transaction_bulk():
                 bundle_name = item.get('name', 'Багц')
                 bundle_qty = float(item.get('quantity', 1))
                 
-                # A. Үндсэн гүйлгээг бүртгэх (Мөнгөн дүн, Нэр)
-                # product_id=None гэж өгнө (Алхам 1 дээр моделийг зассан тул алдаа гарахгүй)
+                # Transaction хүснэгтэд "product_id" нь NULL байна.
+                # Тиймээс багцын нэрийг "description" баганад хадгална.
                 new_tx = Transaction(
                     product_id=None, 
-                    description=f"🎁 {bundle_name} (Багц)", # Description руу нэрийг хийх нь илүү зөв
+                    description=f"🎁 {bundle_name}", # Тайланд харагдах нэр
                     quantity=bundle_qty,
                     price=float(item.get('price', 0)),
                     type="Багц зарлага",
@@ -534,7 +534,7 @@ def add_transaction_bulk():
                 )
                 db.session.add(new_tx)
 
-                # B. Багц доторх бараануудын үлдэгдлийг хасах
+                # Багц доторх бараануудын үлдэгдлийг агуулахаас хасах
                 bundle_items = item.get('bundle_items', [])
                 for b_item in bundle_items:
                     p_id = b_item.get('product_id')
@@ -543,18 +543,15 @@ def add_transaction_bulk():
                     if p_id and str(p_id).isdigit():
                         p = Product.query.get(int(p_id))
                         if p:
-                            # Багц доторх тоо * Багцын тоо
+                            # (Багц доторх тоо) * (Зарах багцын тоо)
                             items_to_deduct = float(b_item.get('quantity', 0)) * bundle_qty
                             p.stock -= items_to_deduct
-                            
-                            # (Сонголтоор) Бараа тус бүр дээр "Багцаар зарагдсан" гэж түүх үлдээж болно
-                            # Гэхдээ давхар гүйлгээ үүсгэхгүйн тулд зөвхөн Stock хасахад хангалттай.
             
             # --- 2. ЭНГИЙН БАРАА БОЛ ---
             else:
                 p_id = item.get('product_id')
                 
-                # Хэрэв ID нь "bundle_..." гэх мэт текст байвал (алдаанаас сэргийлж) алгасна
+                # ID нь текст (bundle_...) байвал алгасах (Хамгаалалт)
                 if not str(p_id).isdigit():
                     continue
 
@@ -565,7 +562,7 @@ def add_transaction_bulk():
                     
                     new_tx = Transaction(
                         product_id=product.id,
-                        # product_name багана Transaction-д байхгүй бол description-д бичнэ
+                        # Энгийн бараа бол description хоосон байж болно, эсвэл нэрийг нь бичиж болно
                         description=product.name, 
                         quantity=qty,
                         price=float(item.get('price', 0)),
@@ -580,7 +577,7 @@ def add_transaction_bulk():
 
     except Exception as e:
         db.session.rollback()
-        print(f"Transaction Error: {e}") # Лог харах
+        print(f"Transaction Error: {e}") 
         return jsonify({'status': 'error', 'message': str(e)}), 500
         
 @app.route('/special_transfer', methods=['GET', 'POST'])
