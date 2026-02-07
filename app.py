@@ -194,29 +194,32 @@ def add_product_page():
 @login_required
 def add_product():
     try:
+        # 1. Формоос өгөгдөл авах туслах функцүүд
         def get_float(field):
             val = request.form.get(field)
             return float(val) if val and val.strip() else 0.0
 
         def get_int(field):
             val = request.form.get(field)
-            return int(val) if val and val.strip() else 0
+            return int(float(val)) if val and val.strip() else 0
 
-        name = request.form.get('name', '').strip()
-        original_sku = request.form.get('sku', '').strip().upper()
-        
-        # Моделтойгоо тааруулж cost_price болгож авлаа
+        # Текст мэдээллүүд авах
+        name = (request.form.get('name') or "").strip()
+        original_sku = (request.form.get('sku') or "").strip().upper()
+        category = request.form.get('category')
+
+        # Үнийн мэдээллүүд (Таны модел cost_price гэж байгааг анхаарав)
         cost_price = get_float('purchase_price') 
         retail_price = get_float('retail_price')
         wholesale_price = get_float('wholesale_price')
         quantity = get_int('quantity')
-        category = request.form.get('category')
 
         if not name or not original_sku:
-            flash("Нэр болон SKU код заавал байх ёстой!")
+            flash("Барааны нэр болон кодыг заавал бөглөнө үү!")
             return redirect(url_for('add_product_page'))
 
-        # Шүүлт хийхдээ Product.cost_price-ийг ашиглана
+        # 2. Өгөгдлийн санд ижил бараа байгаа эсэхийг шалгах
+        # (Нэр, Код, Өртөг, Зарах үнэ бүгд таарвал үлдэгдэл нэмнэ)
         existing_product = Product.query.filter(
             func.lower(Product.sku) == original_sku.lower(),
             func.lower(Product.name) == name.lower(),
@@ -227,18 +230,20 @@ def add_product():
         if existing_product:
             existing_product.stock += quantity
             db.session.commit()
-            flash(f"'{name}' барааны үлдэгдэл нэмэгдлээ.")
+            flash(f"'{name}' барааны үлдэгдэл {quantity}ш-ээр нэмэгдлээ.")
         else:
+            # 3. Шинэ SKU код үүсгэх (Хэрэв SKU давхардвал -1, -2 гэж залгана)
             new_sku = original_sku
             counter = 1
             while Product.query.filter(func.lower(Product.sku) == new_sku.lower()).first():
                 new_sku = f"{original_sku}-{counter}"
                 counter += 1
             
+            # 4. Шинэ бараа үүсгэж хадгалах
             new_p = Product(
                 name=name,
                 sku=new_sku,
-                cost_price=cost_price, # Энд cost_price гэж засав
+                cost_price=cost_price,
                 retail_price=retail_price,
                 wholesale_price=wholesale_price,
                 stock=quantity,
@@ -246,13 +251,14 @@ def add_product():
             )
             db.session.add(new_p)
             db.session.commit()
-            flash(f"Шинэ бараа бүртгэгдлээ (Код: {new_sku})")
+            flash(f"Шинэ бараа амжилттай бүртгэгдлээ. (Код: {new_sku})")
 
     except Exception as e:
         db.session.rollback()
+        print(f"ADD PRODUCT ERROR: {str(e)}")
         flash(f"Алдаа гарлаа: {str(e)}")
-        print(f"ADD PRODUCT ERROR: {e}")
 
+    # 5. Буцаад БАРАА НЭМЭХ хуудас руугаа үсрэнэ (Тэр хуудсандаа үлдэнэ)
     return redirect(url_for('add_product_page'))
 
 @app.route('/edit-product/<int:id>', methods=['GET', 'POST'])
