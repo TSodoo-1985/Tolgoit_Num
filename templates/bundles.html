@@ -144,7 +144,8 @@ function removeItem(id) {
 
 function sellNow() {
     const name = document.getElementById('bundleName').value || "Шинэ багц";
-    const sku = document.getElementById('bundleSKU').value || "BDL-" + Date.now().toString().slice(-4);
+    // SKU дээр санамсаргүй тоо нэмэхгүй бол дараа нь давхардал үүснэ
+    const sku = document.getElementById('bundleSKU').value || "BDL-" + Math.floor(Math.random() * 10000);
     const price = document.getElementById('bundlePrice').value;
     
     if (selectedItems.length === 0 || !price) { 
@@ -154,24 +155,31 @@ function sellNow() {
 
     let cart = JSON.parse(localStorage.getItem('myCart')) || [];
     
+    // Багц бүрт давтагдахгүй ID өгөх (Unix timestamp ашиглав)
+    // Энэ нь сагсанд олон өөр багц хийх боломжийг олгоно.
+    let uniqueBundleId = "bundle_" + Date.now(); 
+
     cart.push({
-        product_id: 0, // Өгөгдлийн санд алдаа өгөхгүй байх үүднээс 0 (Integer) болгов
-        sku: sku,      // Таны өгсөн код энд хадгалагдана
+        product_id: uniqueBundleId, // Түр ID (String байж болно, Frontend дээр)
+        sku: sku,      
         name: name,
         quantity: 1,
         type: "Багц",
         price: Math.round(parseFloat(price)),
         is_bundle: true,
-        bundle_items: selectedItems
+        bundle_items: selectedItems // Сонгосон бараанууд [{product_id, quantity, name}...]
     });
 
     localStorage.setItem('myCart', JSON.stringify(cart));
+    
+    // Badge шинэчлэх (Хэрэв байгаа бол)
     if (window.updateBadge) window.updateBadge();
     
     alert("Багц сагсанд нэмэгдлээ!");
-    window.location.href = "/";
+    // Шууд сагс руу үсрэх
+    window.location.href = "/cart"; 
 }
-
+    
 function saveBundle() {
     const name = document.getElementById('bundleName').value;
     const price = document.getElementById('bundlePrice').value;
