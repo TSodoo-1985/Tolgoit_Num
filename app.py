@@ -1415,23 +1415,21 @@ def export_transactions(type):
     
     data = []
     for t in transactions:
+        # Багц эсвэл устгагдсан бараа бол өртөг 0 байна
         cost_price = t.product.cost_price if t.product else 0
         
         # --- ТУХАЙН ҮЕД ЗАРСАН ҮНИЙГ ШАЛГАХ ---
-        # 1. Transaction (t.price) хүснэгтэд үнэ хадгалагдсан уу?
-        # None биш, мөн 0-ээс их байвал энэ бол ТУХАЙН ҮЕД ЗАРСАН ҮНЭ мөн.
         if t.price is not None and t.price > 0:
             actual_sold_price = float(t.price)
         else:
-            # 2. Хэрэв Transaction дээр үнэ 0 байвал аргагүйн эрхэнд одоогийн үнийг авна.
-            # (Энэ нь хуучин гүйлгээн дээр үнэ хадгалаагүй үед гарна)
             if t.product:
                 if "Бөөний" in t.type:
                     actual_sold_price = float(t.product.wholesale_price)
-                else: # Жижиглэн гэж үзье
+                else: 
                     actual_sold_price = float(t.product.retail_price)
             else:
-                actual_sold_price = 0
+                # Хэрэв бараа байхгүй ч Transaction-д үнэ байгаа бол (Багц зарлага)
+                actual_sold_price = float(t.price) if t.price else 0
 
         # Нийт дүн бодох
         total_sales_amount = actual_sold_price * t.quantity
@@ -1440,15 +1438,27 @@ def export_transactions(type):
         unit_profit = actual_sold_price - cost_price
         total_profit = unit_profit * t.quantity
         
+        # --- БАГЦЫН НЭРШИЛ ШАЛГАХ ---
+        # Хэрэв t.product байхгүй бол энэ нь 'Багц' эсвэл 'Устгагдсан бараа'
+        if t.product:
+            p_category = t.product.category
+            p_sku = t.product.sku
+            p_name = t.product.name
+        else:
+            # Багц зарлагын үед бид description дээр нэрийг нь хадгалж байгаа
+            p_category = "Багц"
+            p_sku = "BUNDLE"
+            p_name = t.description if t.description else "Багц зарлага"
+        
         data.append({
             'Огноо': t.timestamp.strftime('%Y-%m-%d'),
-            'Ангилал': t.product.category if t.product else "-",
-            'Барааны код': t.product.sku if t.product else "-",
-            'Барааны нэр': t.product.name if t.product else "Устгагдсан",
+            'Ангилал': p_category,
+            'Барааны код': p_sku,
+            'Барааны нэр': p_name,
             'Гүйлгээний төрөл': t.type,
             'Тоо ширхэг': t.quantity,
             'Нэгж өртөг': float(cost_price),
-            'Зарсан үнэ': actual_sold_price, # Энд одоо тухайн үеийн үнэ гарна
+            'Зарсан үнэ': actual_sold_price,
             'Нийт дүн': total_sales_amount,
             'Нийт ашиг': total_profit,
             'Ажилтан': t.user.username if t.user else "-"
@@ -1494,7 +1504,6 @@ def export_transactions(type):
             for col_num in range(len(df.columns)):
                 val = df.iloc[row_num-1, col_num]
                 col_name = df.columns[col_num]
-                # 'өртөг', 'үнэ', 'ашиг', 'дүн' гэсэн багануудыг мөнгөн дүнгээр харуулна
                 if any(x in col_name for x in ['өртөг', 'үнэ', 'ашиг', 'дүн']):
                     worksheet.write(row_num, col_num, val, money_fmt)
                 else:
@@ -1506,7 +1515,11 @@ def export_transactions(type):
                 worksheet.write(last_row_idx, col_num, df.iloc[-1, col_num], total_row_fmt)
 
         for i, col in enumerate(df.columns):
-            column_len = max(df[col].astype(str).map(len).max(), len(col)) + 4
+            # df[col] хоосон байх үеийн алдаанаас хамгаалах
+            if not df[col].empty:
+                column_len = max(df[col].astype(str).map(len).max(), len(col)) + 4
+            else:
+                column_len = len(col) + 4
             worksheet.set_column(i, i, column_len)
             
         worksheet.freeze_panes(1, 0)
