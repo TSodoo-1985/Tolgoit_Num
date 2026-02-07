@@ -194,7 +194,6 @@ def add_product_page():
 @login_required
 def add_product():
     try:
-        # 1. Өгөгдлийг авахдаа хоосон эсэхийг нь шалгах функцүүд
         def get_float(field):
             val = request.form.get(field)
             return float(val) if val and val.strip() else 0.0
@@ -206,8 +205,8 @@ def add_product():
         name = request.form.get('name', '').strip()
         original_sku = request.form.get('sku', '').strip().upper()
         
-        # Энд алдаа гарч байсан хэсгийг аюулгүй болгов
-        purchase_price = get_float('purchase_price')
+        # Моделтойгоо тааруулж cost_price болгож авлаа
+        cost_price = get_float('purchase_price') 
         retail_price = get_float('retail_price')
         wholesale_price = get_float('wholesale_price')
         quantity = get_int('quantity')
@@ -217,11 +216,11 @@ def add_product():
             flash("Нэр болон SKU код заавал байх ёстой!")
             return redirect(url_for('add_product_page'))
 
-        # 2. Ижил бараа байгаа эсэхийг шалгах
+        # Шүүлт хийхдээ Product.cost_price-ийг ашиглана
         existing_product = Product.query.filter(
             func.lower(Product.sku) == original_sku.lower(),
             func.lower(Product.name) == name.lower(),
-            Product.purchase_price == purchase_price,
+            Product.cost_price == cost_price,
             Product.retail_price == retail_price
         ).first()
 
@@ -239,7 +238,7 @@ def add_product():
             new_p = Product(
                 name=name,
                 sku=new_sku,
-                purchase_price=purchase_price,
+                cost_price=cost_price, # Энд cost_price гэж засав
                 retail_price=retail_price,
                 wholesale_price=wholesale_price,
                 stock=quantity,
@@ -252,9 +251,9 @@ def add_product():
     except Exception as e:
         db.session.rollback()
         flash(f"Алдаа гарлаа: {str(e)}")
-        print(f"ADD PRODUCT ERROR: {e}") # Render-ийн лог дээр харагдана
+        print(f"ADD PRODUCT ERROR: {e}")
 
-    return redirect(url_for('inventory'))
+    return redirect(url_for('add_product_page'))
 
 @app.route('/edit-product/<int:id>', methods=['GET', 'POST'])
 @login_required
@@ -512,15 +511,11 @@ def add_transaction_bulk():
         for item in data['items']:
             is_bundle = item.get('is_bundle', False)
             
-            # 1. Хэрэв БАГЦ бол (Bundle)
             if is_bundle:
-                # Багцын ерөнхий гүйлгээг бүртгэх (Product_id-г None эсвэл 0-ээр илгээхэд алдаа өгөхгүй)
-                bundle_name = item.get('name', 'Багц')
-                bundle_sku = item.get('sku', 'BDL-AUTO')
-                
+                # 🎁 БАГЦ БОЛ: Product_id-аар хайхгүй, алгасна
                 new_tx = Transaction(
-                    product_id=None,  # Багц нь өөрөө нэг бараа биш тул None
-                    product_name=f"🎁 [БАГЦ: {bundle_sku}] {bundle_name}",
+                    product_id=None, # Текст ID (bundle_...) өгөхгүй, None болгоно
+                    product_name=f"[БАГЦ] {item.get('name')}",
                     quantity=float(item.get('quantity', 1)),
                     price=float(item.get('price', 0)),
                     type="Багц зарлага",
@@ -528,31 +523,25 @@ def add_transaction_bulk():
                 )
                 db.session.add(new_tx)
 
-                # Багц доторх бараа бүрийн үлдэгдлийг хасах
-                bundle_items = item.get('bundle_items', [])
-                for b_item in bundle_items:
-                    p_id = b_item.get('product_id')
-                    # ID-г заавал Integer эсэхийг шалгана
-                    if p_id and str(p_id).isdigit():
-                        p = Product.query.get(int(p_id))
-                        if p:
-                            p.stock -= float(b_item.get('quantity', 0))
-            
-            # 2. Хэрэв ЭНГИЙН БАРАА бол
+                # Багц доторх бараануудын үлдэгдлийг хасах
+                for b_item in item.get('bundle_items', []):
+                    p = Product.query.get(int(b_item['product_id']))
+                    if p:
+                        p.stock -= float(b_item['quantity'])
             else:
+                # 📦 ЭНГИЙН БАРАА БОЛ:
                 p_id = item.get('product_id')
-                # ID нь текст (жишээ нь 'bundle_...') байвал алгасах хамгаалалт
-                if not p_id or not str(p_id).isdigit():
+                # ID нь текст (bundle_...) байвал алгасах хамгаалалт
+                if not str(p_id).isdigit():
                     continue
-                    
-                product = Product.query.get(int(p_id))
-                if product:
+
+                p = Product.query.get(int(p_id))
+                if p:
                     qty = float(item.get('quantity', 0))
-                    product.stock -= qty
-                    
+                    p.stock -= qty
                     new_tx = Transaction(
-                        product_id=product.id,
-                        product_name=product.name,
+                        product_id=p.id,
+                        product_name=p.name,
                         quantity=qty,
                         price=float(item.get('price', 0)),
                         type=item.get('type', 'Зарлага'),
@@ -561,13 +550,11 @@ def add_transaction_bulk():
                     db.session.add(new_tx)
 
         db.session.commit()
-        return jsonify({'status': 'success', 'message': 'Амжилттай бүртгэгдлээ'})
-
+        return jsonify({'status': 'success'})
     except Exception as e:
         db.session.rollback()
-        print(f"Гүйлгээний алдаа: {str(e)}") # Лог дээр алдааг харах
         return jsonify({'status': 'error', 'message': str(e)}), 500
-
+        
 @app.route('/special_transfer', methods=['GET', 'POST'])
 @login_required
 def special_transfer():
