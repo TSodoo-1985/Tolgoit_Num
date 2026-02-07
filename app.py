@@ -40,15 +40,15 @@ class User(UserMixin, db.Model):
         return check_password_hash(self.password, password)
 
 class Product(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    sku = db.Column(db.String(50), unique=True, nullable=False)
-    name = db.Column(db.String(100), nullable=False)
-    category = db.Column(db.String(50))
-    purchase_price = db.Column(db.Float, default=0.0)
-    retail_price = db.Column(db.Float, default=0.0)
-    wholesale_price = db.Column(db.Float, default=0.0)
-    stock = db.Column(db.Float, default=0.0)
-    is_active = db.Column(db.Boolean, default=True)
+    id = db.Column(db.Integer, primary_key=True)
+    sku = db.Column(db.String(50), unique=True, nullable=False)
+    name = db.Column(db.String(100), nullable=False)
+    category = db.Column(db.String(50))
+    cost_price = db.Column(db.Float, default=0.0)
+    retail_price = db.Column(db.Float, default=0.0)
+    wholesale_price = db.Column(db.Float, default=0.0)
+    stock = db.Column(db.Float, default=0.0)
+    is_active = db.Column(db.Boolean, default=True)
 
 class Transaction(db.Model):
     id = db.Column(db.Integer, primary_key=True)
