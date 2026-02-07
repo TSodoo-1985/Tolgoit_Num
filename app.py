@@ -1395,61 +1395,54 @@ def export_transactions(type):
     start_date_str = request.args.get('start_date')
     end_date_str = request.args.get('end_date')
     
-    # 1. ШҮҮЛТҮҮР: Зарлага татахад 'Багц'-ыг хамт шүүнэ
-    if type == 'Зарлага':
+    # --- ЗАССАН ХЭСЭГ: Жижиглэн зарлага дотор Багцыг хамт оруулах ---
+    if type == 'Жижиглэн зарлага':
         query = Transaction.query.filter(
-            or_(Transaction.type == 'Зарлага', 
+            or_(
                 Transaction.type == 'Жижиглэн зарлага', 
+                Transaction.type == 'Багц', 
+                Transaction.type == 'Багц зарлага'
+            )
+        )
+    elif type == 'Бөөний зарлага':
+        query = Transaction.query.filter(
+            or_(
                 Transaction.type == 'Бөөний зарлага', 
-                Transaction.type == 'Багц зарлага',
-                Transaction.type == 'Багц')
+                Transaction.type == 'Багц'
+            )
         )
     else:
         query = Transaction.query.filter(Transaction.type == type)
-    
-    date_range_label = ""
+    # ---------------------------------------------------------
+
+    # Огноо шүүх хэсэг
     if start_date_str:
         start_date = datetime.strptime(start_date_str, '%Y-%m-%d')
         query = query.filter(Transaction.timestamp >= start_date)
-        date_range_label += start_date_str
-    
     if end_date_str:
         end_date = datetime.strptime(end_date_str, '%Y-%m-%d')
         query = query.filter(Transaction.timestamp < end_date + timedelta(days=1))
-        date_range_label += f"_to_{end_date_str}"
-    
-    if not date_range_label:
-        date_range_label = datetime.now().strftime('%Y-%m-%d')
 
     transactions = query.all()
-    
     data = []
+    
     for t in transactions:
-        # Багц эсвэл устгагдсан бараа бол өртөг 0
+        # Багц эсвэл устгагдсан барааны өртгийг 0 гэж үзнэ
         cost_price = t.product.cost_price if t.product else 0
         
-        # --- ЗАРСАН ҮНЭ ТОДОРХОЙЛОХ ---
-        if t.price is not None and t.price > 0:
-            actual_sold_price = float(t.price)
-        else:
-            if t.product:
-                if "Бөөний" in t.type:
-                    actual_sold_price = float(t.product.wholesale_price)
-                else: 
-                    actual_sold_price = float(t.product.retail_price)
-            else:
-                actual_sold_price = 0
-
-        # --- БАРААНЫ МЭДЭЭЛЭЛ (БАГЦ ШАЛГАХ) ---
+        # Барааны нэр болон код (Багц бол description-ээс авна)
         if t.product:
-            p_cat = t.product.category
-            p_sku = t.product.sku
             p_name = t.product.name
+            p_sku = t.product.sku
+            p_cat = t.product.category
         else:
-            # Багц бол description-д хадгалсан нэрийг харуулна
-            p_cat = "Багц"
+            # Таны bundles.html-ээс ирсэн нэр description-д хадгалагдсан байгаа
+            p_name = t.description if t.description else "Багц гүйлгээ"
             p_sku = "BUNDLE"
-            p_name = t.description if t.description else "Багц зарлага"
+            p_cat = "Багц"
+
+        # Үнэ тодорхойлох
+        actual_price = float(t.price) if t.price else 0
 
         data.append({
             'Огноо': t.timestamp.strftime('%Y-%m-%d'),
@@ -1459,75 +1452,51 @@ def export_transactions(type):
             'Гүйлгээний төрөл': t.type,
             'Тоо ширхэг': t.quantity,
             'Нэгж өртөг': float(cost_price),
-            'Зарсан үнэ': actual_sold_price,
-            'Нийт дүн': actual_sold_price * t.quantity,
-            'Нийт ашиг': (actual_sold_price - cost_price) * t.quantity,
+            'Зарсан үнэ': actual_price,
+            'Нийт дүн': actual_price * t.quantity,
+            'Нийт ашиг': (actual_price - cost_price) * t.quantity,
             'Ажилтан': t.user.username if t.user else "-"
         })
-        
-    df = pd.DataFrame(data)
 
-    # Баганын дараалал
+    df = pd.DataFrame(data)
+    
+    # Баганын дараалал тааруулах
     if not df.empty:
         order = ['Огноо', 'Ангилал', 'Барааны код', 'Барааны нэр', 'Гүйлгээний төрөл', 
                  'Тоо ширхэг', 'Нэгж өртөг', 'Зарсан үнэ', 'Нийт дүн', 'Нийт ашиг', 'Ажилтан']
         df = df[order]
 
-    # --- НИЙТ ДҮНГИЙН МӨР ---
-    if not df.empty and type != 'Орлого':
-        totals = {
-            'Огноо': 'НИЙТ ДҮН:', 'Ангилал': '', 'Барааны код': '', 'Барааны нэр': '', 'Гүйлгээний төрөл': '',
-            'Тоо ширхэг': df['Тоо ширхэг'].sum(),
-            'Нэгж өртөг': '', 'Зарсан үнэ': '', 
-            'Нийт дүн': df['Нийт дүн'].sum(),
-            'Нийт ашиг': df['Нийт ашиг'].sum(),
-            'Ажилтан': ''
-        }
-        df = pd.concat([df, pd.DataFrame([totals])], ignore_index=True)
-        
-    # --- EXCEL ФОРМАТ ---
+        # Нийт дүнгийн мөр нэмэх
+        if type != 'Орлого':
+            totals = {
+                'Огноо': 'НИЙТ ДҮН:', 'Ангилал': '', 'Барааны код': '', 'Барааны нэр': '', 'Гүйлгээний төрөл': '',
+                'Тоо ширхэг': df['Тоо ширхэг'].sum(),
+                'Нэгж өртөг': '', 'Зарсан үнэ': '', 
+                'Нийт дүн': df['Нийт дүн'].sum(),
+                'Нийт ашиг': df['Нийт ашиг'].sum(),
+                'Ажилтан': ''
+            }
+            df = pd.concat([df, pd.DataFrame([totals])], ignore_index=True)
+
+    # Excel файл үүсгэх
     output = BytesIO()
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
         sheet_name = f"{type} Тайлан"
         df.to_excel(writer, index=False, sheet_name=sheet_name[:31])
         
+        # Форматжуулалт (Мөнгөн дүн, Хүснэгтийн хүрээ)
         workbook = writer.book
         worksheet = writer.sheets[sheet_name[:31]]
+        money_fmt = workbook.add_format({'num_format': '#,##0', 'border': 1})
+        header_fmt = workbook.add_format({'bold': True, 'bg_color': '#D7E4BC', 'border': 1})
         
-        # Форматууд
-        header_fmt = workbook.add_format({'bold': True, 'bg_color': '#D7E4BC', 'border': 1, 'align': 'center'})
-        money_fmt = workbook.add_format({'num_format': '#,##0', 'border': 1, 'align': 'right'})
-        border_fmt = workbook.add_format({'border': 1, 'align': 'left'})
-        total_row_fmt = workbook.add_format({'bold': True, 'bg_color': '#FCE4D6', 'border': 1, 'num_format': '#,##0'})
-
         for col_num, value in enumerate(df.columns.values):
             worksheet.write(0, col_num, value, header_fmt)
-
-        for row_num in range(1, len(df)):
-            for col_num in range(len(df.columns)):
-                val = df.iloc[row_num-1, col_num]
-                col_name = df.columns[col_num]
-                if any(x in col_name for x in ['өртөг', 'үнэ', 'ашиг', 'дүн']):
-                    worksheet.write(row_num, col_num, val, money_fmt)
-                else:
-                    worksheet.write(row_num, col_num, val, border_fmt)
-
-        if not df.empty:
-            last_row_idx = len(df)
-            for col_num in range(len(df.columns)):
-                worksheet.write(last_row_idx, col_num, df.iloc[-1, col_num], total_row_fmt)
-
-        for i, col in enumerate(df.columns):
-            column_len = max(df[col].astype(str).map(len).max(), len(col)) + 4
-            worksheet.set_column(i, i, column_len)
-            
-        worksheet.freeze_panes(1, 0)
+            worksheet.set_column(col_num, col_num, 15)
 
     output.seek(0)
-    mgl_filename = f"{type}_Тайлан_{date_range_label}.xlsx"
-    response = send_file(output, as_attachment=True, download_name=mgl_filename)
-    response.headers["Content-Disposition"] = f"attachment; filename*=UTF-8''{quote(mgl_filename)}"
-    return response
+    mgl_filename = f"{type}_Report.xlsx"
+    return send_file(output, as_attachment=True, download_name=mgl_filename)
     
 @app.route('/export-inventory-report')
 @login_required
