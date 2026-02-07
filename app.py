@@ -5,7 +5,7 @@ from io import BytesIO
 from datetime import datetime, timedelta
 from flask import Flask, render_template, request, redirect, url_for, send_file, flash, session
 from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
 from urllib.parse import quote
@@ -1389,13 +1389,25 @@ def export_balance():
     response.headers["Content-Disposition"] = f"attachment; filename*=UTF-8''{quote(mgl_filename)}"
     return response
 
+from sqlalchemy import or_ # Файлын хамгийн дээр байгаа эсэхийг шалгаарай
+
 @app.route('/export-transactions/<type>')
 @login_required
 def export_transactions(type):
     start_date_str = request.args.get('start_date')
     end_date_str = request.args.get('end_date')
     
-    query = Transaction.query.filter(Transaction.type == type)
+    # 1. ШҮҮЛТҮҮР: Зарлага татахад 'Багц'-ыг хамт шүүнэ
+    if type == 'Зарлага':
+        query = Transaction.query.filter(
+            or_(Transaction.type == 'Зарлага', 
+                Transaction.type == 'Жижиглэн зарлага', 
+                Transaction.type == 'Бөөний зарлага', 
+                Transaction.type == 'Багц зарлага',
+                Transaction.type == 'Багц')
+        )
+    else:
+        query = Transaction.query.filter(Transaction.type == type)
     
     date_range_label = ""
     if start_date_str:
@@ -1415,10 +1427,10 @@ def export_transactions(type):
     
     data = []
     for t in transactions:
-        # Багц эсвэл устгагдсан бараа бол өртөг 0 байна
+        # Багц эсвэл устгагдсан бараа бол өртөг 0
         cost_price = t.product.cost_price if t.product else 0
         
-        # --- ТУХАЙН ҮЕД ЗАРСАН ҮНИЙГ ШАЛГАХ ---
+        # --- ЗАРСАН ҮНЭ ТОДОРХОЙЛОХ ---
         if t.price is not None and t.price > 0:
             actual_sold_price = float(t.price)
         else:
@@ -1428,39 +1440,30 @@ def export_transactions(type):
                 else: 
                     actual_sold_price = float(t.product.retail_price)
             else:
-                # Хэрэв бараа байхгүй ч Transaction-д үнэ байгаа бол (Багц зарлага)
-                actual_sold_price = float(t.price) if t.price else 0
+                actual_sold_price = 0
 
-        # Нийт дүн бодох
-        total_sales_amount = actual_sold_price * t.quantity
-        
-        # Ашиг бодох
-        unit_profit = actual_sold_price - cost_price
-        total_profit = unit_profit * t.quantity
-        
-        # --- БАГЦЫН НЭРШИЛ ШАЛГАХ ---
-        # Хэрэв t.product байхгүй бол энэ нь 'Багц' эсвэл 'Устгагдсан бараа'
+        # --- БАРААНЫ МЭДЭЭЛЭЛ (БАГЦ ШАЛГАХ) ---
         if t.product:
-            p_category = t.product.category
+            p_cat = t.product.category
             p_sku = t.product.sku
             p_name = t.product.name
         else:
-            # Багц зарлагын үед бид description дээр нэрийг нь хадгалж байгаа
-            p_category = "Багц"
+            # Багц бол description-д хадгалсан нэрийг харуулна
+            p_cat = "Багц"
             p_sku = "BUNDLE"
             p_name = t.description if t.description else "Багц зарлага"
-        
+
         data.append({
             'Огноо': t.timestamp.strftime('%Y-%m-%d'),
-            'Ангилал': p_category,
+            'Ангилал': p_cat,
             'Барааны код': p_sku,
             'Барааны нэр': p_name,
             'Гүйлгээний төрөл': t.type,
             'Тоо ширхэг': t.quantity,
             'Нэгж өртөг': float(cost_price),
             'Зарсан үнэ': actual_sold_price,
-            'Нийт дүн': total_sales_amount,
-            'Нийт ашиг': total_profit,
+            'Нийт дүн': actual_sold_price * t.quantity,
+            'Нийт ашиг': (actual_sold_price - cost_price) * t.quantity,
             'Ажилтан': t.user.username if t.user else "-"
         })
         
@@ -1471,7 +1474,7 @@ def export_transactions(type):
                  'Тоо ширхэг', 'Нэгж өртөг', 'Зарсан үнэ', 'Нийт дүн', 'Нийт ашиг', 'Ажилтан']
         df = df[order]
 
-    # --- НИЙТ ДҮНГИЙН МӨР ---
+    # --- НИЙТ ДҮНГИЙН МӨР (Доор нь нэмэх) ---
     if not df.empty and type != 'Орлого':
         totals = {
             'Огноо': 'НИЙТ ДҮН:', 'Ангилал': '', 'Барааны код': '', 'Барааны нэр': '', 'Гүйлгээний төрөл': '',
@@ -1497,29 +1500,31 @@ def export_transactions(type):
         money_fmt = workbook.add_format({'num_format': '#,##0', 'border': 1, 'align': 'right'})
         total_row_fmt = workbook.add_format({'bold': True, 'bg_color': '#FCE4D6', 'border': 1, 'num_format': '#,##0'})
 
+        # Header бичих
         for col_num, value in enumerate(df.columns.values):
             worksheet.write(0, col_num, value, header_fmt)
 
+        # Мэдээлэл бичих (Сүүлийн мөрнөөс бусдыг)
         for row_num in range(1, len(df)):
             for col_num in range(len(df.columns)):
                 val = df.iloc[row_num-1, col_num]
                 col_name = df.columns[col_num]
+                
+                # Мөнгөн дүн форматлах баганууд
                 if any(x in col_name for x in ['өртөг', 'үнэ', 'ашиг', 'дүн']):
                     worksheet.write(row_num, col_num, val, money_fmt)
                 else:
                     worksheet.write(row_num, col_num, val, border_fmt)
 
+        # Сүүлийн "НИЙТ ДҮН" мөрийг тусгай өнгөөр форматлах
         if not df.empty:
             last_row_idx = len(df)
             for col_num in range(len(df.columns)):
                 worksheet.write(last_row_idx, col_num, df.iloc[-1, col_num], total_row_fmt)
 
+        # Баганын өргөнийг тааруулах
         for i, col in enumerate(df.columns):
-            # df[col] хоосон байх үеийн алдаанаас хамгаалах
-            if not df[col].empty:
-                column_len = max(df[col].astype(str).map(len).max(), len(col)) + 4
-            else:
-                column_len = len(col) + 4
+            column_len = max(df[col].astype(str).map(len).max(), len(col)) + 4
             worksheet.set_column(i, i, column_len)
             
         worksheet.freeze_panes(1, 0)
