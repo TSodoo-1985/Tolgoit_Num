@@ -487,45 +487,69 @@ def cart_page():
 @app.route('/add_transaction_bulk', methods=['POST'])
 @login_required
 def add_transaction_bulk():
-    data = request.json
-    items = data.get('items', [])
-    if not items: return jsonify({"status": "error"}), 400
-    
-    for item in items:
-        product = Product.query.get(item['product_id'])
-        if product:
-            qty = float(item['quantity'])
-            
-            # --- 1. ТУХАЙН ҮЕИЙН ЗАРСАН ҮНИЙГ ТОДОРХОЙЛОХ ---
-            # Сагснаас зассан үнэ ирсэн бол тэрийг авна, ирээгүй бол үндсэн үнийг авна
-            actual_price = float(item.get('price') or 0)
-            if actual_price == 0:
-                if item['type'] == 'Бөөний':
-                    actual_price = product.wholesale_price
-                elif item['type'] == 'Өртгөөр':
-                    actual_price = product.cost_price
-                else: # Жижиглэн эсвэл бусад
-                    actual_price = product.retail_price
+    data = request.get_json()
+    if not data or 'items' not in data:
+        return jsonify({'status': 'error', 'message': 'Өгөгдөл хоосон байна'}), 400
 
-            # Үлдэгдэл тооцох
-            if item['type'] == 'Орлого':
-                product.stock += qty
+    try:
+        for item in data['items']:
+            is_bundle = item.get('is_bundle', False)
+            
+            # 1. Хэрэв БАГЦ бол (Bundle)
+            if is_bundle:
+                # Багцын ерөнхий гүйлгээг бүртгэх (Product_id-г None эсвэл 0-ээр илгээхэд алдаа өгөхгүй)
+                bundle_name = item.get('name', 'Багц')
+                bundle_sku = item.get('sku', 'BDL-AUTO')
+                
+                new_tx = Transaction(
+                    product_id=None,  # Багц нь өөрөө нэг бараа биш тул None
+                    product_name=f"🎁 [БАГЦ: {bundle_sku}] {bundle_name}",
+                    quantity=float(item.get('quantity', 1)),
+                    price=float(item.get('price', 0)),
+                    type="Багц зарлага",
+                    timestamp=datetime.now()
+                )
+                db.session.add(new_tx)
+
+                # Багц доторх бараа бүрийн үлдэгдлийг хасах
+                bundle_items = item.get('bundle_items', [])
+                for b_item in bundle_items:
+                    p_id = b_item.get('product_id')
+                    # ID-г заавал Integer эсэхийг шалгана
+                    if p_id and str(p_id).isdigit():
+                        p = Product.query.get(int(p_id))
+                        if p:
+                            p.stock -= float(b_item.get('quantity', 0))
+            
+            # 2. Хэрэв ЭНГИЙН БАРАА бол
             else:
-                product.stock -= qty
-            
-            # --- 2. ГҮЙЛГЭЭ ХАДГАЛАХ (ҮНЭТЭЙ НЬ ХАМТ) ---
-            db.session.add(Transaction(
-                product_id=product.id,
-                type=item['type'],
-                quantity=qty,
-                price=actual_price, # <--- ЭНЭ МӨРИЙГ НЭМСНЭЭР ҮНЭ БААЗАД ҮЛДЭНЭ
-                timestamp=datetime.now(), 
-                user_id=current_user.id
-            ))
-            
-    db.session.commit()
-    # Flash мессеж JSON хариунд шууд харагдахгүй тул хэрэггүй бол устгаж болно
-    return jsonify({"status": "success"}), 200
+                p_id = item.get('product_id')
+                # ID нь текст (жишээ нь 'bundle_...') байвал алгасах хамгаалалт
+                if not p_id or not str(p_id).isdigit():
+                    continue
+                    
+                product = Product.query.get(int(p_id))
+                if product:
+                    qty = float(item.get('quantity', 0))
+                    product.stock -= qty
+                    
+                    new_tx = Transaction(
+                        product_id=product.id,
+                        product_name=product.name,
+                        quantity=qty,
+                        price=float(item.get('price', 0)),
+                        type=item.get('type', 'Зарлага'),
+                        timestamp=datetime.now()
+                    )
+                    db.session.add(new_tx)
+
+        db.session.commit()
+        return jsonify({'status': 'success', 'message': 'Амжилттай бүртгэгдлээ'})
+
+    except Exception as e:
+        db.session.rollback()
+        print(f"Гүйлгээний алдаа: {str(e)}") # Лог дээр алдааг харах
+        return jsonify({'status': 'error', 'message': str(e)}), 500
 
 @app.route('/special_transfer', methods=['GET', 'POST'])
 @login_required
