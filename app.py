@@ -193,49 +193,68 @@ def add_product_page():
 @app.route('/add-product', methods=['POST'])
 @login_required
 def add_product():
-    name = request.form.get('name').strip()
-    # Том жижиг үсгийн асуудлыг шийдэхийн тулд кодыг том үсэг болгох
-    original_sku = request.form.get('sku').strip().upper() 
-    purchase_price = float(request.form.get('purchase_price'))
-    retail_price = float(request.form.get('retail_price'))
-    wholesale_price = float(request.form.get('wholesale_price'))
-    quantity = int(request.form.get('quantity'))
-    category = request.form.get('category')
-
-    # 1. Яг ижил (Нэр, Код, Үнүүд) бараа байгаа эсэхийг шалгах
-    existing_product = Product.query.filter(
-        func.lower(Product.sku) == original_sku.lower(),
-        func.lower(Product.name) == name.lower(),
-        Product.purchase_price == purchase_price,
-        Product.retail_price == retail_price
-    ).first()
-
-    if existing_product:
-        # Бүх зүйл ижил бол үлдэгдэл дээр нэмнэ
-        existing_product.stock += quantity
-        db.session.commit()
-        flash(f"'{name}' барааны үлдэгдэл нэмэгдлээ.")
-    else:
-        # 2. Нэр эсвэл Код адилхан боловч ҮНЭ өөр бол индекс нэмнэ
-        new_sku = original_sku
-        counter = 1
-        while Product.query.filter(func.lower(Product.sku) == new_sku.lower()).first():
-            # Код байгаад байвал -1, -2 гэж залгаж шалгана
-            new_sku = f"{original_sku}-{counter}"
-            counter += 1
+    try:
+        # Нэр болон SKU-г авах (Хоосон зайг арилгаж, SKU-г том үсгээр)
+        name = (request.form.get('name') or "").strip()
+        original_sku = (request.form.get('sku') or "").strip().upper()
         
-        new_p = Product(
-            name=name,
-            sku=new_sku,
-            purchase_price=purchase_price,
-            retail_price=retail_price,
-            wholesale_price=wholesale_price,
-            stock=quantity,
-            category=category
-        )
-        db.session.add(new_p)
-        db.session.commit()
-        flash(f"Шинэ бараа бүртгэгдлээ (Код: {new_sku})")
+        # Үнэ болон Тоо хэмжээг авах (Хамгаалалттай: Хоосон бол 0 эсвэл 0.0 болгоно)
+        def safe_float(val):
+            if not val or val.strip() == "": return 0.0
+            return float(val)
+
+        def safe_int(val):
+            if not val or val.strip() == "": return 0
+            return int(float(val)) # float-оор дамжуулж int болговол '1.0' гэх мэт утга дээр алдаа өгөхгүй
+
+        purchase_price = safe_float(request.form.get('purchase_price'))
+        retail_price = safe_float(request.form.get('retail_price'))
+        wholesale_price = safe_float(request.form.get('wholesale_price'))
+        quantity = safe_int(request.form.get('quantity'))
+        category = request.form.get('category')
+
+        if not name or not original_sku:
+            flash("Барааны нэр болон кодыг заавал бөглөнө үү!")
+            return redirect(url_for('inventory'))
+
+        # 1. Яг ижил (Нэр, Код, Үнүүд) бараа байгаа эсэхийг шалгах
+        existing_product = Product.query.filter(
+            func.lower(Product.sku) == original_sku.lower(),
+            func.lower(Product.name) == name.lower(),
+            Product.purchase_price == purchase_price,
+            Product.retail_price == retail_price
+        ).first()
+
+        if existing_product:
+            # Бүх зүйл ижил бол үлдэгдэл дээр нэмнэ
+            existing_product.stock += quantity
+            db.session.commit()
+            flash(f"'{name}' барааны үлдэгдэл нэмэгдлээ.")
+        else:
+            # 2. Нэр эсвэл Код адилхан боловч ҮНЭ өөр бол индекс нэмнэ
+            new_sku = original_sku
+            counter = 1
+            while Product.query.filter(func.lower(Product.sku) == new_sku.lower()).first():
+                new_sku = f"{original_sku}-{counter}"
+                counter += 1
+            
+            new_p = Product(
+                name=name,
+                sku=new_sku,
+                purchase_price=purchase_price,
+                retail_price=retail_price,
+                wholesale_price=wholesale_price,
+                stock=quantity,
+                category=category
+            )
+            db.session.add(new_p)
+            db.session.commit()
+            flash(f"Шинэ бараа бүртгэгдлээ (Код: {new_sku})")
+
+    except Exception as e:
+        db.session.rollback()
+        flash(f"Системийн алдаа: {str(e)}")
+        print(f"Error adding product: {str(e)}")
 
     return redirect(url_for('inventory'))
 
