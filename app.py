@@ -49,15 +49,14 @@ class Product(db.Model):
     wholesale_price = db.Column(db.Float, default=0.0)
     stock = db.Column(db.Float, default=0.0)
     is_active = db.Column(db.Boolean, default=True)
-    
+
 class Transaction(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    # ЭНД nullable=True болгож өөрчилнө (Багц зарахад ID байхгүй тул)
-    product_id = db.Column(db.Integer, db.ForeignKey('product.id'), nullable=True) 
+    product_id = db.Column(db.Integer, db.ForeignKey('product.id'), nullable=True)
     type = db.Column(db.String(50), nullable=False)
     quantity = db.Column(db.Float, nullable=False)
     price = db.Column(db.Float, nullable=True, default=0.0)
-    description = db.Column(db.Text, nullable=True) 
+    description = db.Column(db.Text, nullable=True)
     timestamp = db.Column(db.DateTime, default=datetime.now)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
     product = db.relationship('Product', backref='transactions')
@@ -65,7 +64,6 @@ class Transaction(db.Model):
 
 class Expense(db.Model):
     __tablename__ = 'expense'
-    __table_args__ = {'extend_existing': True}  # Энэ мөр давхардал алдаанаас хамгаална
     id = db.Column(db.Integer, primary_key=True)
     category = db.Column(db.String(50), nullable=False)
     amount = db.Column(db.Float, nullable=False)
@@ -76,12 +74,37 @@ class Expense(db.Model):
 
 class LaborFee(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    description = db.Column(db.String(200), nullable=False) # Хийсэн ажил
-    amount = db.Column(db.Float, nullable=False)           # Хөлс
-    staff_name = db.Column(db.String(100))                 # Ажилтан
+    description = db.Column(db.String(200), nullable=False)
+    amount = db.Column(db.Float, nullable=False)
+    staff_name = db.Column(db.String(100))
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
 
-# --- 1. MODEL ХЭСЭГТ НЭМЭХ ---
+# --- БАГЦЫН ЗАГВАР (sku хасагдсан) ---
+class Bundle(db.Model):
+    __tablename__ = 'bundle'
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    set_price = db.Column(db.Float, nullable=False)
+    # sku баганыг эндээс хассан
+    items = db.relationship('BundleItem', backref='bundle', cascade="all, delete-orphan", lazy=True)
+
+    @property
+    def items_json(self):
+        return [{
+            'product_id': item.product_id,
+            'name': item.product.name,
+            'quantity': item.quantity
+        } for item in self.items]
+
+class BundleItem(db.Model):
+    __tablename__ = 'bundle_item'
+    id = db.Column(db.Integer, primary_key=True)
+    bundle_id = db.Column(db.Integer, db.ForeignKey('bundle.id'), nullable=False)
+    product_id = db.Column(db.Integer, db.ForeignKey('product.id'), nullable=False)
+    quantity = db.Column(db.Float, nullable=False)
+    product = db.relationship('Product')
+
+# --- БУСАД ХҮСНЭГТҮҮД ---
 class Bow(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     product_name = db.Column(db.String(200), nullable=False)
@@ -91,15 +114,13 @@ class Bow(db.Model):
     retail_price = db.Column(db.Float)
     quantity = db.Column(db.Integer, default=1)
     date = db.Column(db.String(50))
-    # Шинээр нэмэх хэсэг:
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
-    user = db.relationship('User', backref='_bows')
 
 class EmployeeLoan(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     staff_name = db.Column(db.String(100), nullable=False)
-    loan_amount = db.Column(db.Float, default=0.0)      # Анх авсан зээл
-    total_paid = db.Column(db.Float, default=0.0)       # Буцааж төлсөн нийт дүн
+    loan_amount = db.Column(db.Float, default=0.0)
+    total_paid = db.Column(db.Float, default=0.0)
     description = db.Column(db.String(200))
     date = db.Column(db.DateTime, default=datetime.utcnow)
 
@@ -107,44 +128,26 @@ class EmployeeLoan(db.Model):
     def remaining_balance(self):
         return self.loan_amount - self.total_paid
 
-# --- ШИНЭ ХҮСНЭГТ (БАРАА ЗАДЛАХ ЛОГИК) ---
 class ProductLink(db.Model):
     __tablename__ = 'product_link'
     id = db.Column(db.Integer, primary_key=True)
-    parent_sku = db.Column(db.String(50), nullable=False, index=True) # Комны SKU
-    child_sku = db.Column(db.String(50), nullable=False)              # Сэлбэгийн SKU
+    parent_sku = db.Column(db.String(50), nullable=False, index=True)
+    child_sku = db.Column(db.String(50), nullable=False)
     quantity = db.Column(db.Float, default=1.0)
-    
-# Багцын ерөнхий мэдээлэл (Загвар)
-class Bundle(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(100), nullable=False) # Багцын нэр (Жишээ нь: 'Өглөөний цай')
-    set_price = db.Column(db.Float, nullable=False) # Багцын зарах үнэ
-    items = db.relationship('BundleItem', backref='bundle', cascade="all, delete-orphan")
-
-# Багц дотор орж байгаа бараанууд
-class BundleItem(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    bundle_id = db.Column(db.Integer, db.ForeignKey('bundle.id'), nullable=False)
-    product_id = db.Column(db.Integer, db.ForeignKey('product.id'), nullable=False)
-    quantity = db.Column(db.Float, nullable=False) # Хэдэн ширхэг орох вэ
-    product = db.relationship('Product')# Ширхэг
 
 class OldBow(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     product_name = db.Column(db.String(200), nullable=False)
     sku = db.Column(db.String(100))
-    purchase_price = db.Column(db.Float, nullable=False) # Авсан үнэ
-    retail_price = db.Column(db.Float, nullable=False)   # Зарах үнэ
+    purchase_price = db.Column(db.Float, nullable=False)
+    retail_price = db.Column(db.Float, nullable=False)
     quantity = db.Column(db.Integer, nullable=False)
     date = db.Column(db.String(100), nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
     user = db.relationship('User', backref='old_bow_entries')
-
 login_manager = LoginManager(app)
 login_manager.login_view = 'login'
 
-    
 @login_manager.user_loader
 def load_user(user_id):
     return User.query.get(int(user_id))
@@ -1069,47 +1072,57 @@ def complete_sale():
 @app.route('/create_bundle', methods=['POST'])
 @login_required
 def create_bundle():
-    data = request.json
-    name = data.get('name')
-    set_price = data.get('set_price')
-    items = data.get('items') # [{'product_id': 1, 'quantity': 2}, ...]
-
-    if not name or not items:
-        return jsonify({"status": "error", "message": "Мэдээлэл дутуу байна"}), 400
+    data = request.get_json()
+    if not data:
+        return jsonify({'success': False, 'message': 'Мэдээлэл хоосон байна'})
 
     try:
-        new_bundle = Bundle(name=name, set_price=float(set_price))
+        # 1. Шинэ багц үүсгэх (sku-г хасав)
+        new_bundle = Bundle(
+            name=data.get('name'),
+            set_price=float(data.get('set_price', 0))
+        )
         db.session.add(new_bundle)
-        db.session.flush() # ID-г нь авахын тулд түр хадгална
+        db.session.flush()
 
-        for item in items:
-            bundle_item = BundleItem(
+        # 2. Багцын орц бүрийг хадгалах
+        for item in data.get('items', []):
+            new_item = BundleItem(
                 bundle_id=new_bundle.id,
-                product_id=item['product_id'],
-                quantity=float(item['quantity'])
+                product_id=item.get('id'),
+                quantity=float(item.get('quantity', 1))
             )
-            db.session.add(bundle_item)
+            db.session.add(new_item)
 
         db.session.commit()
-        return jsonify({"status": "success", "message": "Багцын загвар хадгалагдлаа"})
+        return jsonify({'success': True})
+
     except Exception as e:
         db.session.rollback()
-        return jsonify({"status": "error", "message": str(e)}), 500
+        print(f"Bundle Error: {str(e)}")
+        return jsonify({'success': False, 'message': "Баазтай холбогдоход алдаа гарлаа: " + str(e)})
 
 @app.route('/bundles')
 @login_required
 def bundles_page():
-    # 1. Бүх бараануудыг жагсаалтаар авна (Багцад нэмэхийн тулд)
+    # Зүүн талын жагсаалтад зориулж бараануудыг авах
     products = Product.query.all()
-    
-    # 2. Өмнө нь хадгалсан багцуудыг (Templates) доторх бараануудтай нь цуг татаж авна
-    saved_bundles = Bundle.query.all()
-    
-    # 3. bundles.html руу өгөгдлүүдээ дамжуулна
-    return render_template('bundles.html', 
-                           products=products, 
-                           saved_bundles=saved_bundles)
+    # Багцуудыг баазаас татаж авах (sku хайхгүй)
+    bundles = Bundle.query.order_by(Bundle.id.desc()).all()
+    return render_template('bundles.html', products=products, bundles=bundles)
 
+@app.route('/delete_bundle/<int:id>', methods=['POST'])
+@login_required
+def delete_bundle(id):
+    bundle = Bundle.query.get_or_404(id)
+    try:
+        db.session.delete(bundle)
+        db.session.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': str(e)})
+        
 # --- САЛБАРЫН ОРЛОГО (BATCH ENTRY) ---
 
 @app.route('/internal-incomes')
