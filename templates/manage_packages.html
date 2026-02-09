@@ -1,37 +1,63 @@
 {% extends "layout.html" %}
 {% block content %}
 <div class="container mt-4">
-    <h3>📦 Багц / Ком задлах заавар бүртгэх</h3>
-    <div class="card p-4 mb-4">
+    <h3 class="fw-bold mb-4 text-primary"><i class="bi bi-box-seam me-2"></i>Багц задлах заавар</h3>
+    
+    {% if current_user.role in ['admin', 'staff'] %}
+    <div class="card p-4 mb-4 shadow-sm border-0 border-start border-4 border-primary bg-white">
         <form method="POST">
-            <div class="mb-3">
-                <label>Үндсэн Комын SKU:</label>
-                <input type="text" name="parent_sku" class="form-control" placeholder="Жишээ: DW172501" required>
+            <div class="row">
+                <div class="col-md-5 mb-3">
+                    <label class="small fw-bold text-muted mb-2">ҮНДСЭН КОМЫН SKU:</label>
+                    <input type="text" name="parent_sku" class="form-control form-control-lg border-2" placeholder="Жишээ: DW172501" required>
+                </div>
+                <div class="col-md-7 mb-3">
+                    <label class="small fw-bold text-muted mb-2">ЗАДРАХ СЭЛБЭГҮҮД (МӨР МӨРӨӨР):</label>
+                    <textarea name="child_skus" class="form-control border-2" rows="6" placeholder="Сэлбэгийн кодуудыг доош нь жагсааж бичнэ үү..."></textarea>
+                </div>
             </div>
-            <div class="mb-3">
-                <label>Задрах сэлбэгүүдийн SKU (таслалаар зааглана уу):</label>
-                <textarea name="child_skus" class="form-control" rows="3" placeholder="DW172509, DW172510, DW172511..."></textarea>
+            <div class="text-end">
+                <button type="submit" class="btn btn-primary px-5 py-2 fw-bold rounded-pill">ХАДГАЛАХ</button>
             </div>
-            <button type="submit" class="btn btn-primary">Хадгалах</button>
         </form>
     </div>
+    {% endif %}
 
-    <h4>Одоо байгаа зааврууд:</h4>
-    <table class="table">
-        <thead>
-            <tr>
-                <th>Комын SKU</th>
-                <th>Задрах сэлбэгүүд</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for parent, children in packages.items() %}
-            <tr>
-                <td><strong>{{ parent }}</strong></td>
-                <td>{{ children|join(', ') }}</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+    <div class="table-responsive">
+        <table class="table table-hover align-middle bg-white rounded shadow-sm">
+            <thead class="table-light">
+                <tr>
+                    <th class="ps-3">Үндсэн Ком (Mother)</th>
+                    <th>Задрах сэлбэгүүд (Children)</th>
+                    {% if current_user.role in ['admin', 'staff'] %}
+                    <th class="text-center">Үйлдэл</th>
+                    {% endif %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for parent, children in packages.items() %}
+                <tr>
+                    <td class="ps-3"><span class="badge bg-dark px-3 py-2 fs-6">{{ parent }}</span></td>
+                    <td>
+                        <div class="d-flex flex-column">
+                            {% for child in children %}
+                            <div class="py-1"><i class="bi bi-dot text-primary"></i> {{ child }}</div>
+                            {% endfor %}
+                        </div>
+                    </td>
+                    {% if current_user.role in ['admin', 'staff'] %}
+                    <td class="text-center">
+                        <form action="{{ url_for('delete_package_instruction', parent_sku=parent) }}" method="POST" onsubmit="return confirm('Энэ зааврыг устгах уу?')">
+                            <button type="submit" class="btn btn-outline-danger btn-sm border-0">
+                                <i class="bi bi-trash3-fill fs-5"></i>
+                            </button>
+                        </form>
+                    </td>
+                    {% endif %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
 </div>
 {% endblock %}
