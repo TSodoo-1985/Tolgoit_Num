@@ -903,33 +903,35 @@ def buy_old_bow():
 
     return render_template('buy_old_bow.html')
     
-@app.route('/manage-packages', methods=['GET', 'POST'])
+@app.route('/manage_packages', methods=['GET', 'POST'])
 @login_required
 def manage_packages():
+    # Admin болон Staff биш бол хандах эрхгүй
     if current_user.role not in ['admin', 'staff']:
-        flash("Хандах эрхгүй байна!")
-        return redirect(url_for('index'))
+        flash("Танд хандах эрх байхгүй!")
+        return redirect(url_for('dashboard'))
 
     if request.method == 'POST':
-        parent_sku = request.form.get('parent_sku')
-        child_skus = request.form.get('child_skus').split(',') # Таслалаар заагласан SKU-нүүд
+        parent_sku = request.form.get('parent_sku').strip().upper()
+        # Textarea-аас мөр мөрөөр нь салгаж авах
+        raw_child_skus = request.form.get('child_skus', '')
+        child_skus = [sku.strip().upper() for sku in raw_child_skus.split('\n') if sku.strip()]
 
-        # Хуучин заавар байвал устгаад шинэчлэх (Update logic)
-        ProductLink.query.filter_by(parent_sku=parent_sku).delete()
-        
-        for sku in child_skus:
-            sku = sku.strip()
-            if sku:
+        if parent_sku and child_skus:
+            # 1. Хуучин заавар байвал устгах
+            ProductLink.query.filter_by(parent_sku=parent_sku).delete()
+            
+            # 2. Шинэ заавруудыг нэмэх
+            for sku in child_skus:
                 new_link = ProductLink(parent_sku=parent_sku, child_sku=sku, quantity=1.0)
                 db.session.add(new_link)
-        
-        db.session.commit()
-        flash(f"{parent_sku} комын заавар амжилттай хадгалагдлаа.")
+            
+            db.session.commit()
+            flash(f"{parent_sku} комын заавар амжилттай хадгалагдлаа.")
         return redirect(url_for('manage_packages'))
 
-    # Бүх бүртгэлтэй багцуудыг харах
+    # Жагсаалтыг харуулах (Бүлэглэх)
     all_links = ProductLink.query.all()
-    # SKU-ээр нь бүлэглэж харуулах (Dictionary)
     packages = {}
     for link in all_links:
         if link.parent_sku not in packages:
@@ -937,6 +939,18 @@ def manage_packages():
         packages[link.parent_sku].append(link.child_sku)
         
     return render_template('manage_packages.html', packages=packages)
+
+# УСТГАХ ФУНКЦ (ШИНЭ)
+@app.route('/delete_package_instruction/<parent_sku>', methods=['POST'])
+@login_required
+def delete_package_instruction(parent_sku):
+    if current_user.role in ['admin', 'staff']:
+        ProductLink.query.filter_by(parent_sku=parent_sku).delete()
+        db.session.commit()
+        flash(f"{parent_sku} багцын заавар устлаа.")
+    else:
+        flash("Танд устгах эрх байхгүй!")
+    return redirect(url_for('manage_packages'))
 
 @app.route('/disassemble_simple', methods=['POST'])
 @login_required
