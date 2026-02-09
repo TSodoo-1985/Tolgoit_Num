@@ -1,63 +1,119 @@
 {% extends "layout.html" %}
 {% block content %}
+
+<style>
+    /* Багцын сэлбэгүүдийг хажуу тийш нь эвтэйхэн өрөх */
+    .bundle-badge-container {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 5px;
+        max-height: 100px; /* Олон сэлбэгтэй бол гүйлгэж харна */
+        overflow-y: auto;
+        padding: 5px;
+        background-color: #fcfcfc;
+        border-radius: 8px;
+    }
+    .child-badge {
+        background-color: #f0f2f5;
+        color: #495057;
+        padding: 2px 12px;
+        border-radius: 50px;
+        font-size: 11px;
+        border: 1px solid #dee2e6;
+        white-space: nowrap;
+        transition: 0.2s;
+    }
+    .child-badge:hover {
+        background-color: #e2e6ea;
+    }
+    .table-v-center td {
+        vertical-align: middle !important;
+    }
+    .form-section {
+        border-left: 4px solid #0d6efd;
+    }
+</style>
+
 <div class="container mt-4">
-    <h3 class="fw-bold mb-4 text-primary"><i class="bi bi-box-seam me-2"></i>Багц задлах заавар</h3>
+    <h3 class="fw-bold mb-4 text-primary">
+        <i class="bi bi-box-seam me-2"></i>Багц задлах заавар бүртгэх
+    </h3>
     
     {% if current_user.role in ['admin', 'staff'] %}
-    <div class="card p-4 mb-4 shadow-sm border-0 border-start border-4 border-primary bg-white">
+    <div class="card p-4 mb-5 shadow-sm border-0 form-section bg-white">
         <form method="POST">
             <div class="row">
-                <div class="col-md-5 mb-3">
-                    <label class="small fw-bold text-muted mb-2">ҮНДСЭН КОМЫН SKU:</label>
+                <div class="col-md-4 mb-3">
+                    <label class="small fw-bold text-muted mb-2 text-uppercase">Үндсэн Комын SKU:</label>
                     <input type="text" name="parent_sku" class="form-control form-control-lg border-2" placeholder="Жишээ: DW172501" required>
+                    <div class="form-text small">Задлах гэж буй эх барааны код</div>
                 </div>
-                <div class="col-md-7 mb-3">
-                    <label class="small fw-bold text-muted mb-2">ЗАДРАХ СЭЛБЭГҮҮД (МӨР МӨРӨӨР):</label>
-                    <textarea name="child_skus" class="form-control border-2" rows="6" placeholder="Сэлбэгийн кодуудыг доош нь жагсааж бичнэ үү..."></textarea>
+                <div class="col-md-8 mb-3">
+                    <label class="small fw-bold text-muted mb-2 text-uppercase">Задрах сэлбэгүүд (Баганаар бичнэ):</label>
+                    <textarea name="child_skus" class="form-control border-2" rows="5" placeholder="Сэлбэгүүдээ доош нь жагсааж бичнэ үү...&#10;DW123&#10;DW456" required></textarea>
+                    <div class="form-text small text-primary"><i class="bi bi-info-circle me-1"></i>Таслал хэрэггүй, Enter дарж доош нь бичнэ үү.</div>
                 </div>
             </div>
             <div class="text-end">
-                <button type="submit" class="btn btn-primary px-5 py-2 fw-bold rounded-pill">ХАДГАЛАХ</button>
+                <button type="submit" class="btn btn-primary px-5 py-2 fw-bold rounded-pill shadow-sm">ХАДГАЛАХ</button>
             </div>
         </form>
     </div>
     {% endif %}
 
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h5 class="fw-bold m-0 text-secondary">Бүртгэгдсэн зааврууд</h5>
+        <span class="badge bg-light text-dark border">{{ packages.items()|length }} заавар</span>
+    </div>
+
     <div class="table-responsive">
-        <table class="table table-hover align-middle bg-white rounded shadow-sm">
-            <thead class="table-light">
+        <table class="table table-hover table-v-center bg-white shadow-sm rounded">
+            <thead class="table-light small text-uppercase">
                 <tr>
-                    <th class="ps-3">Үндсэн Ком (Mother)</th>
-                    <th>Задрах сэлбэгүүд (Children)</th>
-                    {% if current_user.role in ['admin', 'staff'] %}
-                    <th class="text-center">Үйлдэл</th>
-                    {% endif %}
+                    <th style="width: 25%;" class="ps-3">Үндсэн Ком</th>
+                    <th style="width: 60%;">Задрах сэлбэгүүд (Орц)</th>
+                    <th style="width: 15%; text-align: center;">Үйлдэл</th>
                 </tr>
             </thead>
             <tbody>
                 {% for parent, children in packages.items() %}
                 <tr>
-                    <td class="ps-3"><span class="badge bg-dark px-3 py-2 fs-6">{{ parent }}</span></td>
+                    <td class="ps-3">
+                        <strong class="text-dark d-block">{{ parent }}</strong>
+                        <span class="text-muted" style="font-size: 11px;">
+                            <i class="bi bi-layers me-1"></i>{{ children|length }} төрлийн сэлбэг
+                        </span>
+                    </td>
                     <td>
-                        <div class="d-flex flex-column">
+                        <div class="bundle-badge-container">
                             {% for child in children %}
-                            <div class="py-1"><i class="bi bi-dot text-primary"></i> {{ child }}</div>
+                            <span class="child-badge">{{ child }}</span>
                             {% endfor %}
                         </div>
                     </td>
-                    {% if current_user.role in ['admin', 'staff'] %}
                     <td class="text-center">
+                        {% if current_user.role in ['admin', 'staff'] %}
                         <form action="{{ url_for('delete_package_instruction', parent_sku=parent) }}" method="POST" onsubmit="return confirm('Энэ зааврыг устгах уу?')">
-                            <button type="submit" class="btn btn-outline-danger btn-sm border-0">
+                            <button type="submit" class="btn btn-sm btn-outline-danger border-0">
                                 <i class="bi bi-trash3-fill fs-5"></i>
                             </button>
                         </form>
+                        {% else %}
+                        <span class="text-muted small">Эрхгүй</span>
+                        {% endif %}
                     </td>
-                    {% endif %}
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="3" class="text-center py-5 text-muted">
+                        <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+                        Одоогоор заавар бүртгэгдээгүй байна.
+                    </td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
 </div>
+
 {% endblock %}
