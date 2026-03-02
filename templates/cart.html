@@ -9,6 +9,25 @@
         <div id="cart-list" class="list-group list-group-flush">
             </div>
 
+        <div id="labor-section" class="p-3 bg-light border-top border-bottom" style="display:none;">
+            <h6 class="fw-bold mb-2 text-primary small text-uppercase">
+                <i class="bi bi-person-gear-fill me-1"></i> Ажлын хөлс нэмэх
+            </h6>
+            <div class="row g-2">
+                <div class="col-7">
+                    <input type="text" id="labor_desc" class="form-control form-control-sm border-2" placeholder="Ажлын тайлбар (жишээ: Засвар)">
+                </div>
+                <div class="col-5">
+                    <div class="input-group input-group-sm">
+                        <input type="number" id="labor_amt" class="form-control border-2 fw-bold" placeholder="Дүн">
+                        <button class="btn btn-primary" onclick="addLaborToCart()">
+                            <i class="bi bi-plus-lg"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div id="cart-summary" class="p-3 bg-light border-top border-bottom" style="display:none;">
             <div class="d-flex justify-content-between align-items-center mb-1">
                 <span class="text-muted small fw-bold text-uppercase">Нийт ширхэг:</span>
@@ -38,6 +57,35 @@
 </div>
 
 <script>
+    // --- ШИНЭ: АЖЛЫН ХӨЛСИЙГ САГСАНД НЭМЭХ ---
+    function addLaborToCart() {
+        const desc = document.getElementById('labor_desc').value;
+        const amount = document.getElementById('labor_amt').value;
+
+        if (!desc || !amount) {
+            alert("Ажлын тайлбар болон дүнг оруулна уу!");
+            return;
+        }
+
+        let cart = JSON.parse(localStorage.getItem('myCart')) || [];
+        
+        cart.push({
+            id: "LABOR_" + Date.now(),
+            name: "[АЖЛЫН ХӨЛС] " + desc,
+            price: parseFloat(amount),
+            quantity: 1,
+            is_labor: true  // Backend ялгахад ашиглана
+        });
+
+        localStorage.setItem('myCart', JSON.stringify(cart));
+        
+        document.getElementById('labor_desc').value = '';
+        document.getElementById('labor_amt').value = '';
+        
+        render(); 
+        if (window.updateBadge) window.updateBadge();
+    }
+
     // Үнийг гараараа өөрчлөх үед ажиллах функц
     function updateItemPrice(index, newPrice) {
         let cart = JSON.parse(localStorage.getItem('myCart')) || [];
@@ -51,18 +99,21 @@
         const list = document.getElementById('cart-list');
         const msg = document.getElementById('empty-msg');
         const summary = document.getElementById('cart-summary');
+        const laborSection = document.getElementById('labor-section'); // Шинэ
         const footer = document.querySelector('.card-footer');
 
         if(cart.length === 0) { 
             list.innerHTML = ''; 
             msg.style.display = 'block'; 
             summary.style.display = 'none';
+            laborSection.style.display = 'none'; // Шинэ
             footer.style.display = 'none';
             return; 
         }
         
         msg.style.display = 'none';
         summary.style.display = 'block';
+        laborSection.style.display = 'block'; // Шинэ
         footer.style.display = 'flex';
         
         let totalQty = 0;
@@ -73,7 +124,10 @@
             const price = parseFloat(item.price) || 0;
             const subtotal = qty * price;
             
-            totalQty += qty;
+            // Ажлын хөлсийг "Нийт ширхэг" дээр нэмэхгүй байх логик
+            if (!item.is_labor) {
+                totalQty += qty;
+            }
             totalPrice += subtotal;
 
             return `
@@ -86,10 +140,11 @@
                             <div style="min-width: 0;">
                                 <h6 class="mb-0 fw-bold text-truncate">${item.name}</h6>
                                 <small class="text-muted">
-                                    ${item.type === 'Орлого' ? '<span class="badge bg-success-subtle text-success">Орлого</span>' : 
+                                    ${item.is_labor ? '<span class="badge bg-info-subtle text-info">Ажлын хөлс</span>' : 
+                                      item.type === 'Орлого' ? '<span class="badge bg-success-subtle text-success">Орлого</span>' : 
                                       item.type === 'Өртгөөр зарлага' ? '<span class="badge bg-danger-subtle text-danger">Өртгөөр</span>' : 
                                       item.type === 'Бөөний зарлага' ? '<span class="badge bg-warning-subtle text-warning">Бөөний</span>' :
-                                      `<span class="badge bg-primary-subtle text-primary">${item.type}</span>`}
+                                      `<span class="badge bg-primary-subtle text-primary">${item.type || 'Зарлага'}</span>`}
                                 </small>
                             </div>
                         </div>
@@ -140,10 +195,12 @@
         let cart = JSON.parse(localStorage.getItem('myCart')) || [];
         if (cart.length === 0) return;
 
-        let totalQty = cart.reduce((acc, item) => acc + (parseFloat(item.quantity) || 0), 0);
+        let totalQty = cart.reduce((acc, item) => {
+            return acc + (item.is_labor ? 0 : (parseFloat(item.quantity) || 0));
+        }, 0);
         let totalPrice = cart.reduce((acc, item) => acc + (parseFloat(item.quantity) * parseFloat(item.price)), 0);
 
-        if(!confirm(`Нийт ${totalQty} ширхэг барааг ${totalPrice.toLocaleString()}₮-өөр хадгалах уу?`)) return;
+        if(!confirm(`Нийт ${totalQty} ш бараа + ажлын хөлсийг ${totalPrice.toLocaleString()}₮-өөр хадгалах уу?`)) return;
 
         const res = await fetch('/add_transaction_bulk', {
             method: 'POST',
