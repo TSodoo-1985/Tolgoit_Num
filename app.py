@@ -518,17 +518,29 @@ def add_transaction_bulk():
     try:
         for item in data['items']:
             is_bundle = item.get('is_bundle', False)
+            is_labor = item.get('is_labor', False) # Ажлын хөлс эсэхийг шалгах
             
-            # --- 1. ХЭРЭВ БАГЦ БОЛ (BUNDLE) ---
-            if is_bundle:
+            # --- 1. ХЭРЭВ АЖЛЫН ХӨЛС БОЛ (LABOR FEE) ---
+            if is_labor:
+                labor_name = item.get('name', 'Ажлын хөлс').replace("[АЖЛЫН ХӨЛС] ", "")
+                labor_amt = float(item.get('price', 0))
+                
+                new_labor = LaborFee(
+                    description=labor_name,
+                    amount=labor_amt,
+                    staff=current_user.username, # Нэвтэрсэн ажилтны нэр
+                    date=datetime.now()
+                )
+                db.session.add(new_labor)
+
+            # --- 2. ХЭРЭВ БАГЦ БОЛ (BUNDLE) ---
+            elif is_bundle:
                 bundle_name = item.get('name', 'Багц')
                 bundle_qty = float(item.get('quantity', 1))
                 
-                # Transaction хүснэгтэд "product_id" нь NULL байна.
-                # Тиймээс багцын нэрийг "description" баганад хадгална.
                 new_tx = Transaction(
                     product_id=None, 
-                    description=f"🎁 {bundle_name}", # Тайланд харагдах нэр
+                    description=f"🎁 {bundle_name}", 
                     quantity=bundle_qty,
                     price=float(item.get('price', 0)),
                     type="Багц зарлага",
@@ -537,46 +549,41 @@ def add_transaction_bulk():
                 )
                 db.session.add(new_tx)
 
-                # Багц доторх бараануудын үлдэгдлийг агуулахаас хасах
                 bundle_items = item.get('bundle_items', [])
                 for b_item in bundle_items:
                     p_id = b_item.get('product_id')
-                    
-                    # ID нь тоо мөн эсэхийг шалгах
                     if p_id and str(p_id).isdigit():
                         p = Product.query.get(int(p_id))
                         if p:
-                            # (Багц доторх тоо) * (Зарах багцын тоо)
                             items_to_deduct = float(b_item.get('quantity', 0)) * bundle_qty
                             p.stock -= items_to_deduct
             
-            # --- 2. ЭНГИЙН БАРАА БОЛ ---
+            # --- 3. ЭНГИЙН БАРАА БОЛ ---
             else:
                 p_id = item.get('product_id')
-                
-                # ID нь текст (bundle_...) байвал алгасах (Хамгаалалт)
-                if not str(p_id).isdigit():
-                    continue
-
-                product = Product.query.get(int(p_id))
-                if product:
-                    qty = float(item.get('quantity', 0))
-                    product.stock -= qty
-                    
-                    new_tx = Transaction(
-                        product_id=product.id,
-                        # Энгийн бараа бол description хоосон байж болно, эсвэл нэрийг нь бичиж болно
-                        description=product.name, 
-                        quantity=qty,
-                        price=float(item.get('price', 0)),
-                        type=item.get('type', 'Зарлага'),
-                        timestamp=datetime.now(),
-                        user_id=current_user.id
-                    )
-                    db.session.add(new_tx)
+                if p_id and str(p_id).isdigit():
+                    product = Product.query.get(int(p_id))
+                    if product:
+                        qty = float(item.get('quantity', 0))
+                        product.stock -= qty
+                        
+                        new_tx = Transaction(
+                            product_id=product.id,
+                            description=product.name, 
+                            quantity=qty,
+                            price=float(item.get('price', 0)),
+                            type=item.get('type', 'Зарлага'),
+                            timestamp=datetime.now(),
+                            user_id=current_user.id
+                        )
+                        db.session.add(new_tx)
 
         db.session.commit()
         return jsonify({'status': 'success', 'message': 'Амжилттай бүртгэгдлээ'})
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'status': 'error', 'message': f'Алдаа гарлаа: {str(e)}'}), 500
 
     except Exception as e:
         db.session.rollback()
