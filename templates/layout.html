@@ -113,8 +113,8 @@
                     </li>
                     <div id="sub-exp" class="submenu-container" style="display: none;">
                         <li><button class="dropdown-item submenu-item" onclick="handleExpenseDownload('Зардал')">Ерөнхий зардал</button></li>
-                        <li><button class="dropdown-item submenu-item" onclick="handleLaborDownload()">Ажлын хөлс</button></li>
-                        <li><button class="dropdown-item submenu-item fw-bold" onclick="handleSalaryDownload()">Ажилчдын цалин</button></li>
+                        <li><button class="dropdown-item submenu-item" onclick="handleExpenseDownload('Ажлын хөлс')">Ажлын хөлс</button></li>
+                        <li><button class="dropdown-item submenu-item fw-bold" onclick="handleExpenseDownload('Цалин')">Ажилчдын цалин</button></li>
                     </div>
 
                     <li>
@@ -124,7 +124,7 @@
                         </button>
                     </li>
                     <div id="sub-inv" class="submenu-container" style="display: none;">
-                        <li><button class="dropdown-item submenu-item" onclick="handleInventoryDownload()">Тооллого татах</button></li>
+                        <li><button class="dropdown-item submenu-item" onclick="handleDownload('inventory')">Тооллого татах</button></li>
                         <li><a class="dropdown-item submenu-item" href="{{ url_for('export_balance') }}">Үлдэгдэл татах</a></li>
                     </div>
 
@@ -206,12 +206,7 @@
             url = `/export-old-bow?start_date=${s}&end_date=${e}`;
         } else if (type === 'inventory') {
             url = `/export-inventory-report?start_date=${s}&end_date=${e}`;
-        } else if (type === 'labor') {
-            url = `/export-labor-report?start_date=${s}&end_date=${e}`;
-        } else if (type === 'salary') {
-            url = `/export-salary-report?start_date=${s}&end_date=${e}`;
         } else if (type === 'Орлого') {
-        // Шинээр нэмэгдсэн хэсэг: Салбарын орлогын тайлан
             url = `/export-internal-income?start_date=${s}&end_date=${e}`;
         } else {
             // Бусад гүйлгээнүүд (Жижиглэн, Бөөний гм)
