@@ -76,8 +76,8 @@ class LaborFee(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     description = db.Column(db.String(200), nullable=False)
     amount = db.Column(db.Float, nullable=False)
-    staff = db.Column(db.String(100))
-    date = db.Column(db.DateTime, default=datetime.utcnow)
+    staff_name = db.Column(db.String(100)) # 'staff' биш 'staff_name'
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow) # 'date' биш 'timestamp'
 
 # --- БАГЦЫН ЗАГВАР (sku хасагдсан) ---
 class Bundle(db.Model):
@@ -528,8 +528,8 @@ def add_transaction_bulk():
                 new_labor = LaborFee(
                     description=labor_name,
                     amount=labor_amt,
-                    staff=current_user.username, # Нэвтэрсэн ажилтны нэр
-                    date=datetime.now()
+                    staff_name=current_user.username, # staff= биш staff_name=
+                    timestamp=datetime.now()          # date= биш timestamp=
                 )
                 db.session.add(new_labor)
 
