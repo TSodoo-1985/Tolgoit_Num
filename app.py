@@ -76,7 +76,7 @@ class LaborFee(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     description = db.Column(db.String(200), nullable=False)
     amount = db.Column(db.Float, nullable=False)
-    staff_name = db.Column(db.String(100))
+    staff = db.Column(db.String(100))
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
 
 # --- БАГЦЫН ЗАГВАР (sku хасагдсан) ---
