@@ -9,7 +9,7 @@
         <div id="cart-list" class="list-group list-group-flush">
             </div>
 
-        <div id="labor-section" class="p-3 bg-light border-top border-bottom" style="display:none;">
+        <div id="labor-section" class="p-3 bg-light border-top border-bottom">
             <h6 class="fw-bold mb-2 text-primary small text-uppercase">
                 <i class="bi bi-person-gear-fill me-1"></i> Ажлын хөлс нэмэх
             </h6>
@@ -42,11 +42,11 @@
         <div id="empty-msg" class="text-center py-5" style="display:none;">
             <i class="bi bi-cart-x display-1 text-muted"></i>
             <h5 class="text-muted mt-3">Сагс хоосон байна.</h5>
-            <a href="{{ url_for('dashboard') }}" class="btn btn-primary mt-3 rounded-pill px-4">Бараа сонгох</a>
+            <p class="text-muted small">Дээрх хэсэгт ажлын хөлс нэмж бүртгэх боломжтой.</p>
         </div>
     </div>
 
-    <div class="card-footer bg-white p-3 d-flex justify-content-between align-items-center">
+    <div class="card-footer bg-white p-3 d-flex justify-content-between align-items-center" id="cart-footer" style="display:none !important;">
         <button onclick="clearAll()" class="btn btn-outline-danger btn-sm">
             <i class="bi bi-trash"></i> Цэвэрлэх
         </button>
@@ -57,7 +57,7 @@
 </div>
 
 <script>
-    // --- ШИНЭ: АЖЛЫН ХӨЛСИЙГ САГСАНД НЭМЭХ ---
+    // --- АЖЛЫН ХӨЛСИЙГ САГСАНД НЭМЭХ ---
     function addLaborToCart() {
         const desc = document.getElementById('labor_desc').value;
         const amount = document.getElementById('labor_amt').value;
@@ -74,7 +74,7 @@
             name: "[АЖЛЫН ХӨЛС] " + desc,
             price: parseFloat(amount),
             quantity: 1,
-            is_labor: true  // Backend ялгахад ашиглана
+            is_labor: true 
         });
 
         localStorage.setItem('myCart', JSON.stringify(cart));
@@ -86,12 +86,11 @@
         if (window.updateBadge) window.updateBadge();
     }
 
-    // Үнийг гараараа өөрчлөх үед ажиллах функц
     function updateItemPrice(index, newPrice) {
         let cart = JSON.parse(localStorage.getItem('myCart')) || [];
         cart[index].price = parseFloat(newPrice) || 0;
         localStorage.setItem('myCart', JSON.stringify(cart));
-        render(); // Нийт дүнг дахин бодож харуулах
+        render(); 
     }
 
     function render() {
@@ -99,22 +98,19 @@
         const list = document.getElementById('cart-list');
         const msg = document.getElementById('empty-msg');
         const summary = document.getElementById('cart-summary');
-        const laborSection = document.getElementById('labor-section'); // Шинэ
-        const footer = document.querySelector('.card-footer');
+        const footer = document.getElementById('cart-footer');
 
         if(cart.length === 0) { 
             list.innerHTML = ''; 
             msg.style.display = 'block'; 
             summary.style.display = 'none';
-            laborSection.style.display = 'none'; // Шинэ
-            footer.style.display = 'none';
+            footer.setAttribute("style", "display: none !important");
             return; 
         }
         
         msg.style.display = 'none';
         summary.style.display = 'block';
-        laborSection.style.display = 'block'; // Шинэ
-        footer.style.display = 'flex';
+        footer.setAttribute("style", "display: flex !important");
         
         let totalQty = 0;
         let totalPrice = 0;
@@ -124,7 +120,6 @@
             const price = parseFloat(item.price) || 0;
             const subtotal = qty * price;
             
-            // Ажлын хөлсийг "Нийт ширхэг" дээр нэмэхгүй байх логик
             if (!item.is_labor) {
                 totalQty += qty;
             }
@@ -200,7 +195,9 @@
         }, 0);
         let totalPrice = cart.reduce((acc, item) => acc + (parseFloat(item.quantity) * parseFloat(item.price)), 0);
 
-        if(!confirm(`Нийт ${totalQty} ш бараа + ажлын хөлсийг ${totalPrice.toLocaleString()}₮-өөр хадгалах уу?`)) return;
+        let confirmMsg = totalQty > 0 ? `Нийт ${totalQty} ш бараа + ажлын хөлсийг ${totalPrice.toLocaleString()}₮-өөр хадгалах уу?` : `Нийт ${totalPrice.toLocaleString()}₮-ийн ажлын хөлсийг хадгалах уу?`;
+
+        if(!confirm(confirmMsg)) return;
 
         const res = await fetch('/add_transaction_bulk', {
             method: 'POST',
