@@ -6,6 +6,7 @@
     .badge-labor { background-color: #3b82f6; color: white; }   /* Цэнхэр - Ажлын хөлс */
     .badge-salary { background-color: #f59e0b; color: white; }  /* Улбар шар - Цалин */
     .badge-expense { background-color: #ef4444; color: white; } /* Улаан - Зардал */
+    .badge-sale { background-color: #10b981; color: white; }    /* Ногоон - Барааны борлуулалт */
     .table-hover tbody tr:hover { background-color: #f1f5f9; }
 </style>
 
@@ -83,6 +84,8 @@
                                 <td>
                                     {% if item.category == 'Ажлын хөлс' %}
                                         <span class="badge badge-labor rounded-pill px-3">Ажлын хөлс</span>
+                                    {% elif item.category == 'Барааны борлуулалт' %}
+                                        <span class="badge badge-sale rounded-pill px-3">Борлуулалт</span>
                                     {% elif item.category == 'Цалин' %}
                                         <span class="badge badge-salary rounded-pill px-3">Цалин</span>
                                     {% else %}
@@ -97,7 +100,7 @@
                                     </small>
                                     {% endif %}
                                 </td>
-                                <td class="text-end fw-bold {% if item.category == 'Ажлын хөлс' %}text-primary{% else %}text-danger{% endif %}">
+                                <td class="text-end fw-bold {% if item.category == 'Ажлын хөлс' %}text-primary{% elif item.category == 'Барааны борлуулалт' %}text-success{% else %}text-danger{% endif %}">
                                     {{ "{:,.0f}".format(item.amount) }}₮
                                 </td>
                             </tr>
