@@ -28,7 +28,7 @@
             </div>
         </div>
 
-        <div id="cart-summary" class="p-3 bg-light border-top border-bottom" style="display:none;">
+        <div id="cart-summary" class="p-3 bg-white border-bottom" style="display:none;">
             <div class="d-flex justify-content-between align-items-center mb-1">
                 <span class="text-muted small fw-bold text-uppercase">Нийт ширхэг:</span>
                 <span id="total-qty" class="fw-bold text-dark">0</span>
@@ -42,7 +42,7 @@
         <div id="empty-msg" class="text-center py-5" style="display:none;">
             <i class="bi bi-cart-x display-1 text-muted"></i>
             <h5 class="text-muted mt-3">Сагс хоосон байна.</h5>
-            <p class="text-muted small">Дээрх хэсэгт ажлын хөлс нэмж бүртгэх боломжтой.</p>
+            <p class="text-muted small">Дээрх хэсэгт ажлын хөлс нэмж бүртгэнэ үү.</p>
         </div>
     </div>
 
@@ -57,7 +57,6 @@
 </div>
 
 <script>
-    // --- АЖЛЫН ХӨЛСИЙГ САГСАНД НЭМЭХ ---
     function addLaborToCart() {
         const desc = document.getElementById('labor_desc').value;
         const amount = document.getElementById('labor_amt').value;
@@ -69,20 +68,20 @@
 
         let cart = JSON.parse(localStorage.getItem('myCart')) || [];
         
+        // Серверт (Backend) алдаа өгөхгүй байхын тулд бүх талбарыг бөглөнө
         cart.push({
             id: "LABOR_" + Date.now(),
             name: "[АЖЛЫН ХӨЛС] " + desc,
             price: parseFloat(amount),
             quantity: 1,
-            is_labor: true 
+            type: "Зарлага", // Сервер заавал төрөл шаарддаг тул нэмэв
+            is_labor: true
         });
 
         localStorage.setItem('myCart', JSON.stringify(cart));
-        
         document.getElementById('labor_desc').value = '';
         document.getElementById('labor_amt').value = '';
-        
-        render(); 
+        render();
         if (window.updateBadge) window.updateBadge();
     }
 
@@ -90,7 +89,7 @@
         let cart = JSON.parse(localStorage.getItem('myCart')) || [];
         cart[index].price = parseFloat(newPrice) || 0;
         localStorage.setItem('myCart', JSON.stringify(cart));
-        render(); 
+        render();
     }
 
     function render() {
@@ -100,12 +99,12 @@
         const summary = document.getElementById('cart-summary');
         const footer = document.getElementById('cart-footer');
 
-        if(cart.length === 0) { 
-            list.innerHTML = ''; 
-            msg.style.display = 'block'; 
+        if(cart.length === 0) {
+            list.innerHTML = '';
+            msg.style.display = 'block';
             summary.style.display = 'none';
             footer.setAttribute("style", "display: none !important");
-            return; 
+            return;
         }
         
         msg.style.display = 'none';
@@ -120,9 +119,7 @@
             const price = parseFloat(item.price) || 0;
             const subtotal = qty * price;
             
-            if (!item.is_labor) {
-                totalQty += qty;
-            }
+            if (!item.is_labor) totalQty += qty;
             totalPrice += subtotal;
 
             return `
@@ -134,12 +131,9 @@
                             </div>
                             <div style="min-width: 0;">
                                 <h6 class="mb-0 fw-bold text-truncate">${item.name}</h6>
-                                <small class="text-muted">
-                                    ${item.is_labor ? '<span class="badge bg-info-subtle text-info">Ажлын хөлс</span>' : 
-                                      item.type === 'Орлого' ? '<span class="badge bg-success-subtle text-success">Орлого</span>' : 
-                                      item.type === 'Өртгөөр зарлага' ? '<span class="badge bg-danger-subtle text-danger">Өртгөөр</span>' : 
-                                      item.type === 'Бөөний зарлага' ? '<span class="badge bg-warning-subtle text-warning">Бөөний</span>' :
-                                      `<span class="badge bg-primary-subtle text-primary">${item.type || 'Зарлага'}</span>`}
+                                <small>
+                                    ${item.is_labor ? '<span class="badge bg-info text-white">Үйлчилгээ</span>' : 
+                                    `<span class="badge bg-primary-subtle text-primary">${item.type || 'Зарлага'}</span>`}
                                 </small>
                             </div>
                         </div>
@@ -147,23 +141,16 @@
                             <i class="bi bi-x-lg"></i>
                         </button>
                     </div>
-                    
                     <div class="d-flex justify-content-between align-items-center bg-light p-2 rounded-3">
                         <div class="d-flex align-items-center gap-2">
-                            <span class="small fw-bold text-muted text-uppercase" style="font-size: 10px;">Үнэ:</span>
-                            <input type="number" 
-                                   class="form-control form-control-sm border-primary fw-bold text-primary" 
-                                   style="width: 110px;" 
-                                   value="${price}" 
-                                   onchange="updateItemPrice(${i}, this.value)">
+                            <span class="small fw-bold text-muted" style="font-size: 10px;">ДҮН:</span>
+                            <input type="number" class="form-control form-control-sm border-primary fw-bold text-primary" style="width: 110px;" value="${price}" onchange="updateItemPrice(${i}, this.value)">
                         </div>
                         <div class="text-end">
-                            <span class="badge bg-primary rounded-pill px-3">${qty} ш</span>
-                            <div class="small fw-bold text-dark mt-1">${subtotal.toLocaleString()}₮</div>
+                            <div class="fw-bold text-dark">${subtotal.toLocaleString()}₮</div>
                         </div>
                     </div>
-                </div>
-            `;
+                </div>`;
         }).join('');
 
         document.getElementById('total-qty').innerText = totalQty.toLocaleString();
@@ -174,14 +161,14 @@
         let cart = JSON.parse(localStorage.getItem('myCart')) || [];
         cart.splice(i, 1);
         localStorage.setItem('myCart', JSON.stringify(cart));
-        render(); 
+        render();
         if (window.updateBadge) window.updateBadge();
     }
 
     function clearAll() {
-        if(confirm("Сагсыг бүрэн цэвэрлэх үү?")) {
+        if(confirm("Сагсыг цэвэрлэх үү?")) {
             localStorage.removeItem('myCart');
-            render(); 
+            render();
             if (window.updateBadge) window.updateBadge();
         }
     }
@@ -190,27 +177,26 @@
         let cart = JSON.parse(localStorage.getItem('myCart')) || [];
         if (cart.length === 0) return;
 
-        let totalQty = cart.reduce((acc, item) => {
-            return acc + (item.is_labor ? 0 : (parseFloat(item.quantity) || 0));
-        }, 0);
         let totalPrice = cart.reduce((acc, item) => acc + (parseFloat(item.quantity) * parseFloat(item.price)), 0);
+        if(!confirm(`Нийт ${totalPrice.toLocaleString()}₮-ийн тооцоог батлах уу?`)) return;
 
-        let confirmMsg = totalQty > 0 ? `Нийт ${totalQty} ш бараа + ажлын хөлсийг ${totalPrice.toLocaleString()}₮-өөр хадгалах уу?` : `Нийт ${totalPrice.toLocaleString()}₮-ийн ажлын хөлсийг хадгалах уу?`;
+        try {
+            const res = await fetch('/add_transaction_bulk', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ items: cart })
+            });
 
-        if(!confirm(confirmMsg)) return;
-
-        const res = await fetch('/add_transaction_bulk', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ items: cart })
-        });
-
-        if(res.ok) {
-            localStorage.removeItem('myCart');
-            alert("Амжилттай хадгалагдлаа!");
-            window.location.href = "{{ url_for('dashboard') }}";
-        } else {
-            alert("Хадгалахад алдаа гарлаа!");
+            if(res.ok) {
+                localStorage.removeItem('myCart');
+                alert("Амжилттай бүртгэгдлээ!");
+                window.location.href = "{{ url_for('dashboard') }}";
+            } else {
+                const err = await res.json();
+                alert("Серверийн алдаа: " + (err.message || "Мэдээлэл дутуу байна"));
+            }
+        } catch (e) {
+            alert("Холболтын алдаа гарлаа!");
         }
     }
 
