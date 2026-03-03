@@ -77,7 +77,7 @@ class LaborFee(db.Model):
     description = db.Column(db.String(200), nullable=False)
     amount = db.Column(db.Float, nullable=False)
     staff = db.Column(db.String(100))
-    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+    date = db.Column(db.DateTime, default=datetime.utcnow)
 
 # --- БАГЦЫН ЗАГВАР (sku хасагдсан) ---
 class Bundle(db.Model):
