@@ -518,20 +518,35 @@ def add_transaction_bulk():
     try:
         for item in data['items']:
             is_bundle = item.get('is_bundle', False)
-            is_labor = item.get('is_labor', False) # Ажлын хөлс эсэхийг шалгах
+            is_labor = item.get('is_labor', False) 
             
-            # --- 1. ХЭРЭВ АЖЛЫН ХӨЛС БОЛ (LABOR FEE) ---
+            # --- 1. ХЭРЭВ АЖЛЫН ХӨЛС ЭСВЭЛ БҮРТГЭЛГҮЙ БАРАА БОЛ ---
             if is_labor:
-                labor_name = item.get('name', 'Ажлын хөлс').replace("[АЖЛЫН ХӨЛС] ", "")
+                raw_name = item.get('name', 'Ажлын хөлс')
+                labor_name = raw_name.replace("[АЖЛЫН ХӨЛС] ", "")
                 labor_amt = float(item.get('price', 0))
                 
+                # LaborFee-д бүртгэх (Санхүүгийн бүртгэлд харагдана)
                 new_labor = LaborFee(
                     description=labor_name,
                     amount=labor_amt,
-                    staff_name=current_user.username, # staff= биш staff_name=
-                    timestamp=datetime.now()          # date= биш timestamp=
+                    staff_name=current_user.username,
+                    timestamp=datetime.now()
                 )
                 db.session.add(new_labor)
+
+                # Хэрэв бүртгэлгүй бараа бол Transaction-д давхар бүртгэх (Тайланд харагдана)
+                if "[БҮРТГЭЛГҮЙ]" in raw_name:
+                    new_tx = Transaction(
+                        product_id=None,
+                        description=labor_name, # [БҮРТГЭЛГҮЙ] гэдгийг хасаад цэвэр нэрийг хадгална
+                        quantity=1,
+                        price=labor_amt,
+                        type="Жижиглэн", # Тайлан дээр Жижиглэн гэж гарна
+                        timestamp=datetime.now(),
+                        user_id=current_user.id
+                    )
+                    db.session.add(new_tx)
 
             # --- 2. ХЭРЭВ БАГЦ БОЛ (BUNDLE) ---
             elif is_bundle:
@@ -583,12 +598,8 @@ def add_transaction_bulk():
         
     except Exception as e:
         db.session.rollback()
-        return jsonify({'status': 'error', 'message': f'Алдаа гарлаа: {str(e)}'}), 500
-
-    except Exception as e:
-        db.session.rollback()
         print(f"Transaction Error: {e}") 
-        return jsonify({'status': 'error', 'message': str(e)}), 500
+        return jsonify({'status': 'error', 'message': f'Алдаа гарлаа: {str(e)}'}), 500
         
 @app.route('/special_transfer', methods=['GET', 'POST'])
 @login_required
