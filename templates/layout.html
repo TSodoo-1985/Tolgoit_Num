@@ -32,15 +32,15 @@
 </head>
 <body>
 
-<nav class="navbar navbar-dark sticky-top">
+    <nav class="navbar navbar-dark sticky-top">
     <div class="container-fluid d-flex align-items-center">
         <a class="navbar-brand fw-bold d-flex align-items-center" href="{{ url_for('dashboard') }}">
             <i class="bi bi-box-seam-fill text-primary me-2"></i>
-            <span>Толгойт Нум</span>
+            <span>Жанжин Нум Сервис</span>
         </a>
 
         <div class="d-flex gap-2 align-items-center ms-auto">
-            
+
             {% if current_user.role != 'viewer' %}
             <a href="{{ url_for('cart_page') }}" class="btn btn-outline-primary btn-sm rounded-3 position-relative mx-1">
                 <i class="bi bi-cart3"></i>
@@ -76,7 +76,6 @@
                     <i class="bi bi-file-earmark-excel-fill"></i> <span class="nav-text ms-1">Тайлан</span>
                 </button>
                 <ul class="dropdown-menu dropdown-menu-end p-3 shadow-lg" style="min-width: 300px;">
-                    
                     <li><h6 class="dropdown-header text-dark fw-bold px-0 mb-2 small text-uppercase"><i class="bi bi-calendar3 me-2"></i>Огноо сонгох</h6></li>
                     <div class="row g-2 mb-3">
                         <div class="col-6">
@@ -97,22 +96,24 @@
                         </button>
                     </li>
                     <div id="sub-trans" class="submenu-container" style="display: none;">
-                        <li><button class="dropdown-item submenu-item" onclick="handleDownload('Жижиглэн зарлага')">Жижиглэн зарлага</button></li>
-                        <li><button class="dropdown-item submenu-item" onclick="handleDownload('Бөөний зарлага')">Бөөний зарлага</button></li>
-                        <li><button class="dropdown-item submenu-item" onclick="handleDownload('Орлого')">Орлого салбараар</button></li>
-                        <li><button class="dropdown-item submenu-item" onclick="handleDownload('Өртгөөр зарлага')">Шилжүүлэг тайлан</button></li>
-                        <li><button class="dropdown-item submenu-item" onclick="handleDownload('буцаалт')">Буцаалтын тайлан</button></li>
-                        <li><button class="dropdown-item submenu-item" onclick="handleDownload('Хуучин нум')">Хуучин нум авалт</button></li>
+                        <li><button class="submenu-item" onclick="handleDownload('Жижиглэн зарлага')">Жижиглэн зарлага</button></li>
+                        <li><button class="submenu-item" onclick="handleDownload('Бөөний зарлага')">Бөөний зарлага</button></li>
+                        <li><button class="submenu-item" onclick="handleDownload('Орлого')">Орлого салбараар</button></li>
+                        <li><button class="submenu-item" onclick="handleDownload('Өртгөөр зарлага')">Шилжүүлэг тайлан</button></li>
+                        <li><button class="submenu-item" onclick="handleDownload('буцаалт')">Буцаалтын тайлан</button></li>
+                        <li><button class="submenu-item" onclick="handleDownload('Хуучин нум')">Хуучин нум авалт</button></li>
                     </div>
 
                     <li>
-                        <button class="dropdown-item d-flex justify-content-between align-items-center menu-header-btn py-2 mt-1" type="button" onclick="toggleSubMenu('sub-exp')">
+                        <button class="dropdown-item d-flex justify-content-between align-items-center menu-header-btn py-2 mt-1" type="button" onclick="toggleSubMenu('sub-exp-new')">
                             <span class="text-danger fw-bold"><i class="bi bi-wallet2 me-2"></i>Зардал & Цалин</span>
                             <i class="bi bi-chevron-down text-muted"></i>
                         </button>
                     </li>
-                    <div id="sub-exp" class="submenu-container" style="display: none;"
-                        <li><button class="dropdown-item submenu-item fw-bold" onclick="handleExpenseDownload('Цалин')">Ажилчдын цалин</button></li>
+                    <div id="sub-exp-new" class="submenu-container" style="display: none;">
+                        <li><button class="submenu-item" onclick="handleExpenseDownload('Зардал')">Ерөнхий зардал</button></li>
+                        <li><button class="submenu-item" onclick="handleDownload('labor')">Ажлын хөлс</button></li>
+                        <li><button class="submenu-item fw-bold text-dark" onclick="handleDownload('salary')">Ажилчдын цалин</button></li>
                     </div>
 
                     <li>
@@ -122,10 +123,9 @@
                         </button>
                     </li>
                     <div id="sub-inv" class="submenu-container" style="display: none;">
-                        <li><button class="dropdown-item submenu-item" onclick="handleDownload('inventory')">Тооллого татах</button></li>
+                        <li><button class="submenu-item" onclick="handleDownload('inventory')">Тооллого татах</button></li>
                         <li><a class="dropdown-item submenu-item" href="{{ url_for('export_balance') }}">Үлдэгдэл татах</a></li>
                     </div>
-
                 </ul>
             </div>
             {% endif %}
@@ -135,11 +135,8 @@
                     <div class="user-avatar shadow-sm">{{ current_user.username[0] | upper }}</div>
                 </button>
                 <ul class="dropdown-menu dropdown-menu-end shadow-lg mt-2">
-                    <li class="px-3 py-2 bg-light rounded-top small fw-bold text-dark border-bottom mb-2 text-center">
-                         {{ current_user.username }}
-                    </li>
+                    <li class="px-3 py-2 bg-light rounded-top small fw-bold text-dark border-bottom mb-2 text-center">{{ current_user.username }}</li>
                     <li><a class="dropdown-item py-2" href="{{ url_for('change_password') }}"><i class="bi bi-key-fill text-warning me-2"></i>Нууц үг солих</a></li>
-                    
                     {% if current_user.role == 'admin' %}
                     <li><a class="dropdown-item py-2" href="{{ url_for('users_list') }}"><i class="bi bi-people-fill text-primary me-2"></i>Хэрэглэгчид</a></li>
                     <li><a class="dropdown-item py-2 fw-bold text-primary" href="{{ url_for('import_products_page') }}">Бараа бөөнөөр оруулах</a></li>
@@ -158,6 +155,7 @@
         {{ m }} <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
     </div>
     {% endfor %}{% endif %}{% endwith %}
+    
     {% block content %}{% endblock %}
 </div>
 
@@ -171,10 +169,12 @@
             badge.style.display = cart.length > 0 ? 'block' : 'none';
         }
     }
-    
+
     function toggleSubMenu(id) {
         const el = document.getElementById(id);
-        el.style.display = (el.style.display === 'none' || el.style.display === '') ? 'block' : 'none';
+        const isVisible = el.style.display === 'block';
+        document.querySelectorAll('.submenu-container').forEach(menu => menu.style.display = 'none');
+        el.style.display = isVisible ? 'none' : 'block';
         event.stopPropagation();
         event.preventDefault();
     }
@@ -193,7 +193,6 @@
         }
     });
 
-    // Нэгдсэн татан авалтын функц
     function handleDownload(type) {
         const s = document.getElementById('start_date_input').value;
         const e = document.getElementById('end_date_input').value;
@@ -204,10 +203,14 @@
             url = `/export-old-bow?start_date=${s}&end_date=${e}`;
         } else if (type === 'inventory') {
             url = `/export-inventory-report?start_date=${s}&end_date=${e}`;
+        } else if (type === 'labor') {
+            // Ажлын хөлсний тайланд 'exclude_unregistered=true' шүүлтүүр нэмсэн
+            url = `/export-labor-report?start_date=${s}&end_date=${e}&exclude_unregistered=true`;
+        } else if (type === 'salary') {
+            url = `/export-salary-report?start_date=${s}&end_date=${e}`;
         } else if (type === 'Орлого') {
             url = `/export-internal-income?start_date=${s}&end_date=${e}`;
         } else {
-            // Бусад гүйлгээнүүд (Жижиглэн, Бөөний гм)
             url = `/export-transactions/${type}?start_date=${s}&end_date=${e}`;
         }
         window.location.href = url;
