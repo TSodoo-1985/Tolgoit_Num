@@ -29,6 +29,8 @@
         box-shadow: 0 10px 20px rgba(0,0,0,0.1) !important;
         transform: translateY(-5px);
     }
+    /* Toast стилийг дээгүүр харагдуулах */
+    .toast-container { z-index: 1060; }
 </style>
 
 <div class="container-fluid">
@@ -104,6 +106,17 @@
     </div>
 </div>
 
+<div class="toast-container position-fixed bottom-0 end-0 p-3">
+    <div id="addToast" class="toast align-items-center text-white bg-success border-0" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="d-flex">
+            <div class="toast-body">
+                <i class="bi bi-check-circle me-2"></i> <span id="toastMsg">Бараа нэмэгдлээ</span>
+            </div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+    </div>
+</div>
+
 <div class="modal fade" id="productPickerModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content rounded-4 border-0 shadow-lg">
@@ -121,9 +134,10 @@
                     <div class="d-flex justify-content-between align-items-center p-3 border-bottom product-item-row" 
                          style="cursor:pointer;" 
                          data-name="{{ p.name }}"
-                         onclick="addItemToBundle('{{ p.id }}', '{{ p.name }}')">
+                         onclick="addItemToBundle('{{ p.id }}', '{{ p.name }}', '{{ p.sku }}')">
                         <div>
                             <div class="fw-bold small">{{ p.name }}</div>
+                            <div class="text-primary small" style="font-size: 0.75rem;">Код: {{ p.sku }}</div>
                             <div class="text-muted small">{{ "{:,.0f}".format(p.retail_price) }}₮</div>
                         </div>
                         <i class="bi bi-plus-circle text-primary fs-5"></i>
@@ -139,19 +153,13 @@
 let selectedItems = [];
 
 function filterModalProducts() {
-    // 1. Хайлтын утгыг авах
     let input = document.getElementById('modalSearch');
     let filter = input.value.toLowerCase();
-    
-    // 2. Жагсаалтын чингэлэгийг авах
     let list = document.getElementById('modalProductList');
-    
-    // 3. Доторх бүх барааны мөрийг олох
     let rows = list.getElementsByClassName('product-item-row');
 
-    // 4. Мөр бүрээр гүйж, хайлттай таарч байгааг нь харуулах
     for (let i = 0; i < rows.length; i++) {
-        let nameElement = rows[i].querySelector('.fw-bold.small'); // Барааны нэр байгаа хэсэг
+        let nameElement = rows[i].querySelector('.fw-bold.small'); 
         if (nameElement) {
             let nameText = nameElement.textContent || nameElement.innerText;
             if (nameText.toLowerCase().indexOf(filter) > -1) {
@@ -163,12 +171,22 @@ function filterModalProducts() {
     }
 }
 
-// Бараа нэмэх
-function addItemToBundle(id, name) {
+// Бараа нэмэх (SKU болон Toast нэмэгдсэн)
+function addItemToBundle(id, name, sku) {
     let existing = selectedItems.find(i => i.product_id === id);
-    if (existing) { existing.quantity += 1; } 
-    else { selectedItems.push({ product_id: id, name: name, quantity: 1 }); }
+    if (existing) { 
+        existing.quantity += 1; 
+    } else { 
+        selectedItems.push({ product_id: id, name: name, sku: sku, quantity: 1 }); 
+    }
+    
     renderBundle();
+    
+    // Toast мэдэгдэл харуулах
+    document.getElementById('toastMsg').innerText = name + " багцад нэмэгдлээ";
+    const toastEl = document.getElementById('addToast');
+    const toast = new bootstrap.Toast(toastEl, { delay: 1500 });
+    toast.show();
 }
 
 function renderBundle() {
@@ -179,9 +197,12 @@ function renderBundle() {
     }
     container.innerHTML = selectedItems.map(item => `
         <div class="selected-item-row d-flex justify-content-between align-items-center">
-            <span class="small fw-bold text-truncate" style="max-width: 180px;">${item.name}</span>
+            <div>
+                <span class="small fw-bold text-truncate d-block" style="max-width: 150px;">${item.name}</span>
+                <span class="text-muted" style="font-size: 0.7rem;">${item.sku || ''}</span>
+            </div>
             <div class="d-flex align-items-center">
-                <input type="number" class="form-control form-control-sm text-center border-0 fw-bold" value="${item.quantity}" onchange="updateQty('${item.product_id}', this.value)" style="width: 50px;">
+                <input type="number" class="form-control form-control-sm text-center border-0 fw-bold" value="${item.quantity}" onchange="updateQty('${item.product_id}', this.value)" style="width: 50px; background: transparent;">
                 <i class="bi bi-trash text-danger ms-2 cursor-pointer" onclick="removeItem('${item.product_id}')"></i>
             </div>
         </div>`).join('');
@@ -197,12 +218,9 @@ function removeItem(id) {
     renderBundle();
 }
 
-// ХАМГИЙН ЧУХАЛ: Загвараас сагслах функц
 function useBundle(id, name, price, bundleId) {
     try {
         let cart = JSON.parse(localStorage.getItem('myCart')) || [];
-        
-        // Өгөгдлийг HTML доторх script tag-аас найдвартай унших
         let itemsRaw = document.getElementById('bundle-data-' + bundleId).textContent;
         let items = JSON.parse(itemsRaw.replace(/'/g, '"'));
 
@@ -226,11 +244,11 @@ function useBundle(id, name, price, bundleId) {
         if (window.updateBadge) window.updateBadge();
         
         alert(name + " сагсанд нэмэгдлээ.");
-        window.location.href = "/cart"; // Шууд шалгахын тулд сагс руу шилжинэ
+        window.location.href = "/cart"; 
 
     } catch (e) {
         console.error("Сагслах алдаа:", e);
-        alert("Өгөгдөл уншихад алдаа гарлаа. Консол шалгана уу.");
+        alert("Өгөгдөл уншихад алдаа гарлаа.");
     }
 }
 
@@ -239,7 +257,6 @@ function sellNow() {
     const price = document.getElementById('bundlePrice').value;
     if (selectedItems.length === 0 || !price) return alert("Орц эсвэл үнэ дутуу!");
     
-    // Шууд сагслах үед selectedItems-ийг шууд ашиглана
     let cart = JSON.parse(localStorage.getItem('myCart')) || [];
     cart.push({
         product_id: "bundle_new_" + Date.now(),
