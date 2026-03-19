@@ -104,7 +104,7 @@
         if (window.updateBadge) window.updateBadge();
     }
 
-    // Бүртгэлгүй бараа нэмэх функц (ШИНЭЭР НЭМЭВ)
+    // Бүртгэлгүй бараа нэмэх функц
     function addMiscToCart() {
         const name = document.getElementById('misc_name').value;
         const price = document.getElementById('misc_price').value;
@@ -122,12 +122,33 @@
             price: parseFloat(price),
             quantity: 1,
             type: "Зарлага",
-            is_labor: true // Сервер дээр LaborFee руу шууд хадгалахын тулд
+            is_labor: true 
         });
 
         localStorage.setItem('myCart', JSON.stringify(cart));
         document.getElementById('misc_name').value = '';
         document.getElementById('misc_price').value = '';
+        render();
+        if (window.updateBadge) window.updateBadge();
+    }
+
+    // Тоо ширхэг өөрчлөх функцууд (ШИНЭ)
+    function updateQty(index, delta) {
+        let cart = JSON.parse(localStorage.getItem('myCart')) || [];
+        let newQty = (parseInt(cart[index].quantity) || 1) + delta;
+        if (newQty < 1) newQty = 1;
+        cart[index].quantity = newQty;
+        localStorage.setItem('myCart', JSON.stringify(cart));
+        render();
+        if (window.updateBadge) window.updateBadge();
+    }
+
+    function changeQty(index, value) {
+        let cart = JSON.parse(localStorage.getItem('myCart')) || [];
+        let newQty = parseInt(value) || 1;
+        if (newQty < 1) newQty = 1;
+        cart[index].quantity = newQty;
+        localStorage.setItem('myCart', JSON.stringify(cart));
         render();
         if (window.updateBadge) window.updateBadge();
     }
@@ -162,11 +183,11 @@
         let totalPrice = 0;
 
         list.innerHTML = cart.map((item, i) => {
-            const qty = parseFloat(item.quantity) || 0;
+            const qty = parseFloat(item.quantity) || 1;
             const price = parseFloat(item.price) || 0;
             const subtotal = qty * price;
             
-            if (!item.is_labor) totalQty += qty;
+            totalQty += qty;
             totalPrice += subtotal;
 
             let badgeClass = "bg-primary-subtle text-primary";
@@ -198,12 +219,24 @@
                             <i class="bi bi-x-lg"></i>
                         </button>
                     </div>
-                    <div class="d-flex justify-content-between align-items-center bg-light p-2 rounded-3">
-                        <div class="d-flex align-items-center gap-2">
-                            <span class="small fw-bold text-muted" style="font-size: 10px;">ДҮН:</span>
-                            <input type="number" class="form-control form-control-sm border-primary fw-bold text-primary" style="width: 110px;" value="${price}" onchange="updateItemPrice(${i}, this.value)">
+                    
+                    <div class="row g-2 align-items-center bg-light p-2 rounded-3 mx-0">
+                        <div class="col-4">
+                            <span class="small fw-bold text-muted d-block" style="font-size: 10px;">ҮНЭ:</span>
+                            <input type="number" class="form-control form-control-sm border-primary fw-bold text-primary" value="${price}" onchange="updateItemPrice(${i}, this.value)">
                         </div>
-                        <div class="text-end">
+                        
+                        <div class="col-4">
+                            <span class="small fw-bold text-muted d-block" style="font-size: 10px;">ТОО:</span>
+                            <div class="input-group input-group-sm">
+                                <button class="btn btn-outline-secondary px-1" onclick="updateQty(${i}, -1)"><i class="bi bi-dash"></i></button>
+                                <input type="number" class="form-control form-control-sm text-center px-0 fw-bold" value="${qty}" onchange="changeQty(${i}, this.value)">
+                                <button class="btn btn-outline-secondary px-1" onclick="updateQty(${i}, 1)"><i class="bi bi-plus"></i></button>
+                            </div>
+                        </div>
+
+                        <div class="col-4 text-end">
+                            <span class="small fw-bold text-muted d-block" style="font-size: 10px;">НИЙТ:</span>
                             <div class="fw-bold text-dark">${subtotal.toLocaleString()}₮</div>
                         </div>
                     </div>
