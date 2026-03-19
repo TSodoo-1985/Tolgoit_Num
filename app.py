@@ -1239,7 +1239,7 @@ def statistics():
     # 1. Огноо болон Борлуулалтын төрлийн шүүлтүүр авах
     start_date_str = request.args.get('start_date')
     end_date_str = request.args.get('end_date')
-    sale_type = request.args.get('sale_type', 'Бүгд') # Шинэ: Борлуулалтын төрөл
+    sale_type = request.args.get('sale_type', 'Бүгд')
 
     # Огнооны логик
     if start_date_str and end_date_str:
@@ -1257,13 +1257,11 @@ def statistics():
 
     # 2. Графикийн өгөгдөл боловсруулах (Өдөр бүрээр)
     for date_str in dates:
-        # Тухайн өдрийн зарлагын гүйлгээнүүд
         query = Transaction.query.filter(
             Transaction.type.like('%зарлага%'),
             db.func.date(Transaction.timestamp) == date_str
         )
 
-        # Хэрэв борлуулалтын төрөл сонгосон бол графикийг бас шүүнэ
         if sale_type == 'Бөөний':
             query = query.filter(Transaction.type == 'Бөөний зарлага')
         elif sale_type == 'Жижиглэн':
@@ -1275,29 +1273,42 @@ def statistics():
         daily_cost = 0
 
         for t in day_transactions:
-            # Зарсан үнэ (Гараар зассан үнэ эсвэл үндсэн үнэ)
+            # --- БОРЛУУЛАЛТЫН ҮНЭ ТОГТООХ ---
             sell_price = t.price if (t.price and t.price > 0) else 0
-            if sell_price == 0 and t.product:
-                if "Бөөний" in t.type:
-                    sell_price = t.product.wholesale_price
-                else:
-                    sell_price = t.product.retail_price
+            if sell_price == 0:
+                if t.bundle:
+                    sell_price = t.bundle.price
+                elif t.product:
+                    sell_price = t.product.wholesale_price if "Бөөний" in t.type else t.product.retail_price
 
-            # Өртөг
-            cost_price = t.product.cost_price if t.product else 0
+            # --- ӨРТӨГ (COST) ТООЦООЛОХ (БАГЦЫГ ОРОЛЦУУЛАХ) ---
+            unit_cost = 0
+            if t.bundle:
+                # Багцыг бүрдүүлэгч бараа бүрийн (өртөг * тоо ширхэг)-ийг нэмж нийт өртгийг гаргана
+                for item in t.bundle.items:
+                    if item.product:
+                        unit_cost += (item.product.cost_price or 0) * item.quantity
+            elif t.product:
+                # Энгийн бараа бол өөрийнх нь өртгийг авна
+                unit_cost = t.product.cost_price or 0
 
             daily_sales += sell_price * t.quantity
-            daily_cost += cost_price * t.quantity
+            daily_cost += unit_cost * t.quantity
 
-        # Зардал (Daily Expenses)
+        # Зардал (Зээл олголтыг статистикт оруулахгүй байх шүүлтүүртэй)
         daily_expense = db.session.query(db.func.sum(Expense.amount)).\
-            filter(Expense.category != "Ажлын хөлс", db.func.date(Expense.date) == date_str).scalar() or 0
+            filter(
+                Expense.category != "Ажлын хөлс", 
+                Expense.category != "Loan_Disbursement", # Зээл олголтыг хасах
+                db.func.date(Expense.date) == date_str
+            ).scalar() or 0
 
         sales_data.append(float(daily_sales))
         expense_data.append(float(daily_expense))
+        # Цэвэр ашиг = Борлуулалт - Өртөг - Зардал
         profit_data.append(float(daily_sales - daily_cost - daily_expense))
 
-    # 3. Нийт ТОП 5 бараа (Дугуй график зориулсан)
+    # 3. Нийт ТОП 5 бараа
     top_query = db.session.query(Product.name, db.func.sum(Transaction.quantity)).\
         join(Transaction).filter(Transaction.type.like('%зарлага%'))
 
@@ -1311,13 +1322,12 @@ def statistics():
     top_labels = [p[0] for p in top_products_all]
     top_values = [int(p[1]) for p in top_products_all]
 
-    # 4. АНГИЛАЛ БҮРИЙН ТОП 5 (Чиний хүссэн хэсэг)
+    # 4. Ангилал бүрийн ТОП 5
     categories = db.session.query(Product.category).distinct().all()
     stats_data = {}
 
     for cat in categories:
         category_name = cat[0] if cat[0] else "Ангилалгүй"
-
         cat_top_query = db.session.query(
             Product.name,
             db.func.sum(Transaction.quantity).label('total')
@@ -1326,14 +1336,12 @@ def statistics():
             Transaction.type.like('%зарлага%')
         )
 
-        # Төрлөөр шүүх логик
         if sale_type == 'Бөөний':
             cat_top_query = cat_top_query.filter(Transaction.type == 'Бөөний зарлага')
         elif sale_type == 'Жижиглэн':
             cat_top_query = cat_top_query.filter(Transaction.type == 'Жижиглэн зарлага')
 
         category_top = cat_top_query.group_by(Product.name).order_by(db.desc('total')).limit(5).all()
-
         if category_top:
             stats_data[category_name] = category_top
 
@@ -1344,11 +1352,10 @@ def statistics():
                            expenses=expense_data,
                            top_labels=top_labels,
                            top_values=top_values,
-                           stats_data=stats_data, # Ангилал бүрийн дата
-                           sale_type=sale_type,   # Сонгосон төрөл
+                           stats_data=stats_data,
+                           sale_type=sale_type,
                            start_date=start_date_str or "",
                            end_date=end_date_str or "")
-
 @app.route('/export-loans')
 @login_required
 def export_loans():
@@ -1375,7 +1382,7 @@ def export_loans():
         df.to_excel(writer, index=False, sheet_name='Зээлийн тайлан')
     output.seek(0)
 
-    filename = f"Loan_Report_{datetime.now().strftime('%Y%m%d')}.xlsx"
+    filename = f"Жанжин ажилчдын зээл {datetime.now().strftime('%Y%m%d')}.xlsx"
 
     return send_file(output,
                      download_name=filename,
@@ -1448,7 +1455,7 @@ def export_balance():
 
     output.seek(0)
 
-    mgl_filename = f"Үлдэгдэл_Тайлан_{datetime.now().strftime('%Y%m%d')}.xlsx"
+    mgl_filename = f"Жанжин Үлдэгдэл{datetime.now().strftime('%Y%m%d')}.xlsx"
     response = send_file(
         output,
         as_attachment=True,
@@ -1500,8 +1507,6 @@ def export_transactions(type):
     data = []
 
     for t in transactions:
-        cost_price = t.product.cost_price if t.product else 0
-
         # --- Багц ID болон Нэрийг салгах логик ---
         desc = t.description if t.description else ""
         batch_no = "-"
@@ -1509,26 +1514,36 @@ def export_transactions(type):
 
         if desc.startswith("[") and "]" in desc:
             batch_no = desc[desc.find("[")+1 : desc.find("]")]
-            clean_name = desc[desc.find("]")+2:] # Код болон хоосон зайг хасах
+            clean_name = desc[desc.find("]")+2:] 
+
+        # --- НЭГЖ ӨРТӨГ ТООЦООЛОХ ЛОГИК ---
+        calculated_cost = 0
+        if t.product:
+            calculated_cost = float(t.product.cost_price or 0)
+        else:
+            bundle_obj = Bundle.query.filter_by(name=clean_name).first()
+            if bundle_obj:
+                for item in bundle_obj.items:
+                    if item.product:
+                        calculated_cost += (item.product.cost_price or 0) * item.quantity
 
         # Ангилал болон SKU тодорхойлох
         if t.product:
             p_sku = t.product.sku
             p_cat = t.product.category
+            clean_name = t.product.name
         else:
             if "[БҮРТГЭЛГҮЙ]" in clean_name:
-                p_sku = "MISC"
-                p_cat = "Бүртгэлгүй бараа"
+                p_sku = "MISC"; p_cat = "Бүртгэлгүй бараа"
                 clean_name = clean_name.replace("[БҮРТГЭЛГҮЙ] ", "")
             elif "[АЖЛЫН ХӨЛС]" in clean_name:
-                p_sku = "FEE"
-                p_cat = "Ажлын хөлс"
+                p_sku = "FEE"; p_cat = "Ажлын хөлс"
                 clean_name = clean_name.replace("[АЖЛЫН ХӨЛС] ", "")
             else:
-                p_sku = "BUNDLE"
-                p_cat = "Багц"
+                p_sku = "BUNDLE"; p_cat = "Багц"
 
         actual_price = float(t.price) if t.price else 0
+        
         data.append({
             'Огноо': t.timestamp.strftime('%Y-%m-%d %H:%M'),
             'Гүйлгээ №': batch_no,
@@ -1537,10 +1552,10 @@ def export_transactions(type):
             'Барааны нэр': clean_name,
             'Гүйлгээний төрөл': t.type,
             'Тоо ширхэг': t.quantity,
-            'Нэгж өртөг': float(cost_price),
+            'Нэгж өртөг': calculated_cost,
             'Зарсан үнэ': actual_price,
             'Нийт дүн': actual_price * t.quantity,
-            'Нийт ашиг': (actual_price - cost_price) * t.quantity,
+            'Нийт ашиг': (actual_price - calculated_cost) * t.quantity,
             'Ажилтан': t.user.username if t.user else "-"
         })
 
@@ -1548,14 +1563,14 @@ def export_transactions(type):
         return "Тухайн хугацаанд гүйлгээ олдсонгүй", 404
 
     df = pd.DataFrame(data)
-
-    # Баганын дараалал (Гүйлгээ № нэмэгдсэн)
     order = ['Огноо', 'Гүйлгээ №', 'Ангилал', 'Барааны код', 'Барааны нэр', 'Гүйлгээний төрөл',
              'Тоо ширхэг', 'Нэгж өртөг', 'Зарсан үнэ', 'Нийт дүн', 'Нийт ашиг', 'Ажилтан']
     df = df[order]
 
-    # Нийт дүнгийн мөрийг нэмэх
+    # Нийт дүнгийн мөрийг бэлдэх
+    has_totals = False
     if type != 'Орлого':
+        has_totals = True
         totals = {
             'Огноо': 'НИЙТ ДҮН:', 'Гүйлгээ №': '', 'Ангилал': '', 'Барааны код': '', 'Барааны нэр': '', 'Гүйлгээний төрөл': '',
             'Тоо ширхэг': df['Тоо ширхэг'].sum(),
@@ -1564,39 +1579,63 @@ def export_transactions(type):
             'Нийт ашиг': df['Нийт ашиг'].sum(),
             'Ажилтан': ''
         }
-        df = pd.concat([df, pd.DataFrame([totals])], ignore_index=True)
 
     # Excel үүсгэх
     output = BytesIO()
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
         sheet_name = f"{type} Тайлан"[:31]
+        # index=False, өгөгдлийг хүрээгүй бичнэ (дараа нь форматлана)
         df.to_excel(writer, index=False, sheet_name=sheet_name)
 
         workbook = writer.book
         worksheet = writer.sheets[sheet_name]
 
-        # ФОРМАТУУД
-        money_fmt = workbook.add_format({'num_format': '#,##0', 'border': 1})
-        normal_fmt = workbook.add_format({'border': 1})
-        header_fmt = workbook.add_format({'bold': True, 'bg_color': '#D7E4BC', 'border': 1})
+        # --- ФОРМАТУУД ---
+        money_fmt = workbook.add_format({'num_format': '#,##0', 'border': 1, 'align': 'center', 'valign': 'vcenter'})
+        normal_fmt = workbook.add_format({'border': 1, 'align': 'center', 'valign': 'vcenter'})
+        header_fmt = workbook.add_format({'bold': True, 'bg_color': '#D7E4BC', 'border': 1, 'align': 'center'})
 
-        # Баганы өргөн сунгах болон Мянгатын таслал оноох
+        # 1. Өгөгдөлтэй хэсэгт хүрээ зурах болон утга бичих
+        last_row = len(df)
+        for row_num in range(last_row):
+            for col_num, col_name in enumerate(df.columns):
+                val = df.iloc[row_num, col_num]
+                fmt = money_fmt if col_name in ['Нэгж өртөг', 'Зарсан үнэ', 'Нийт дүн', 'Нийт ашиг'] else normal_fmt
+                worksheet.write(row_num + 1, col_num, val, fmt)
+
+        # 2. Нийт дүнгийн мөрийг нэмэх (Зөвхөн өгөгдлийн төгсгөлд)
+        if has_totals:
+            for col_num, col_name in enumerate(df.columns):
+                val = totals.get(col_name, '')
+                fmt = money_fmt if col_name in ['Тоо ширхэг', 'Нийт дүн', 'Нийт ашиг'] else normal_fmt
+                worksheet.write(last_row + 1, col_num, val, fmt)
+
+        # 3. Баганын өргөн болон толгойг тохируулах
         for i, col in enumerate(df.columns):
             max_len = max(df[col].astype(str).map(len).max(), len(col)) + 2
+            worksheet.set_column(i, i, max_len)
+            worksheet.freeze_panes(1, 0)
 
-            if col in ['Нэгж өртөг', 'Зарсан үнэ', 'Нийт дүн', 'Нийт ашиг']:
-                worksheet.set_column(i, i, max_len, money_fmt)
-            else:
-                worksheet.set_column(i, i, max_len, normal_fmt)
-
-        # Толгой хэсгийг дахин бичиж форматлах
-        for col_num, value in enumerate(df.columns.values):
-            worksheet.write(0, col_num, value, header_fmt)
+        # 4. Гүйлгээний дугаар (Batch No) ижил байгаа мөрүүдийг нэгтгэх
+        batch_col_idx = df.columns.get_loc('Гүйлгээ №')
+        start_row = 1
+        while start_row <= last_row:
+            end_row = start_row
+            current_batch = str(df.iloc[start_row-1, batch_col_idx])
+            
+            if current_batch != "-":
+                while end_row < last_row and str(df.iloc[end_row, batch_col_idx]) == current_batch:
+                    end_row += 1
+                
+                if end_row > start_row:
+                    worksheet.merge_range(start_row, batch_col_idx, end_row, batch_col_idx, current_batch, normal_fmt)
+            
+            start_row = end_row + 1
 
     output.seek(0)
     display_start = start_date_str if start_date_str else "all"
     display_end = end_date_str if end_date_str else "today"
-    filename = f"{type}_tailan_{display_start}_to_{display_end}.xlsx"
+    filename = quote(f"{type}_JanJin_{display_start}_to_{display_end}.xlsx")
 
     return send_file(
         output, as_attachment=True, download_name=filename,
@@ -1725,7 +1764,7 @@ def export_expense_report(category):
     output.seek(0)
 
     # Файлын нэрийг бэлдэх
-    filename = f"{category}_Report_{date_range_label}.xlsx"
+    filename = f"{category} Жанжин {date_range_label}.xlsx"
     response = send_file(
         output,
         as_attachment=True,
@@ -1747,7 +1786,7 @@ def export_labor_report():
     start_date = request.args.get('start_date')
     end_date = request.args.get('end_date')
 
-    # Огноо сонгоогүй бол бүх өгөгдлийг шүүнэ
+    # Өгөгдлийн сангаас шүүх
     query = LaborFee.query
     if start_date and end_date:
         query = query.filter(
@@ -1759,8 +1798,9 @@ def export_labor_report():
 
     data = []
     total_sum = 0
+
     for f in fees:
-        # ШИНЭЭР НЭМСЭН ШҮҮЛТҮҮР: Хэрэв тайлбар нь 'Бүртгэлгүй бараа' бол тайлан руу оруулахгүй
+        # ШҮҮЛТҮҮР: Хэрэв тайлбар нь 'Бүртгэлгүй бараа' бол алгасах
         if f.description == "Бүртгэлгүй бараа":
             continue
 
@@ -1772,11 +1812,12 @@ def export_labor_report():
         })
         total_sum += f.amount
 
+    # Pandas DataFrame үүсгэх
     df = pd.DataFrame(data)
 
-    # Хамгийн доор нь нийт дүнг нэмэх
+    # Хамгийн доор нь НИЙТ ДҮН-г нэмэх (Бүртгэлгүй барааны дүн ороогүй нийлбэр)
     if not df.empty:
-        summary = pd.DataFrame([{'Огноо': 'НИЙТ ДҮН:', 'Дүн': total_sum}])
+        summary = pd.DataFrame([{'Огноо': 'НИЙТ ДҮН:', 'Ажлын тайлбар': '', 'Ажилтан': '', 'Дүн': total_sum}])
         df = pd.concat([df, summary], ignore_index=True)
 
     output = BytesIO()
@@ -1784,7 +1825,8 @@ def export_labor_report():
         df.to_excel(writer, index=False, sheet_name='Salary')
 
     output.seek(0)
-    filename = f"Ажлын хөлсний тайлан_{start_date if start_date else 'All'}.xlsx"
+    filename = f"Жанжин ажлын хөлсний {start_date if start_date else 'All'}.xlsx"
+
     return send_file(output, download_name=filename, as_attachment=True)
 
 @app.route('/export-salary-report')
@@ -1829,7 +1871,7 @@ def export_salary_report():
     output.seek(0)
 
     # 4. Файлын нэрийг Монгол болгох
-    filename = f"Tsalingiin_Tailan_{datetime.now().strftime('%Y%m%d')}.xlsx"
+    filename = f"Жанжин ажилчдын цалин {datetime.now().strftime('%Y%m%d')}.xlsx"
 
     return send_file(
         output,
@@ -1903,7 +1945,7 @@ def export_return_report():
         output,
         mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         as_attachment=True,
-        download_name=f"Return_Report_{start_date if start_date else 'all'}.xlsx"
+        download_name=f"Жанжин бараа буцаалт {start_date if start_date else 'all'}.xlsx"
     )
 
 # --- 1. ХУУЧИН НУМ ТАЙЛАН (НИЙТ ДҮНТЭЙ) ---
@@ -1984,7 +2026,7 @@ def export_old_bow():
         output.seek(0)
         return send_file(
             output,
-            download_name=f"Хуучин нум {datetime.now().strftime('%Y%m%d')}.xlsx",
+            download_name=f"Жажин Хуучин нум {datetime.now().strftime('%Y%m%d')}.xlsx",
             as_attachment=True
         )
 
@@ -2087,7 +2129,7 @@ def export_internal_income():
 
         output.seek(0)
         return send_file(output,
-                         download_name=f"САЛБАРЫН ОРЛОГО_{datetime.now().strftime('%Y%m%d')}.xlsx",
+                         download_name=f"ЖАНЖИН САЛБАРЫН ОРЛОГО_{datetime.now().strftime('%Y%m%d')}.xlsx",
                          as_attachment=True,
                          mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
     except Exception as e:
@@ -2169,23 +2211,6 @@ def change_password():
         flash('Нууц үг зөрүүтэй байна!')
     return render_template('change_password.html')
 
-@app.route('/reset-database-secure-99')
-@login_required
-def reset_db():
-    if current_user.role == 'admin':
-        try:
-            # Дарааллаар нь устгах (Хамааралтай өгөгдлүүдээс эхэлнэ)
-            Transaction.query.delete()
-            Expense.query.delete()
-            LaborFee.query.delete()
-            Product.query.delete() # Хамгийн сүүлд бараагаа устгана
-
-            db.session.commit()
-            return "Мэдээллийн сан амжилттай цэвэрлэгдлээ. Одоо шинээр бараагаа оруулна уу."
-        except Exception as e:
-            db.session.rollback()
-            return f"Алдаа гарлаа: {str(e)}"
-    return "Эрх хүрэхгүй байна", 403
 
 if __name__ == "__main__":
     with app.app_context():
