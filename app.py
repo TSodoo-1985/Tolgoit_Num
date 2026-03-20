@@ -380,55 +380,62 @@ def inventory():
     # 1. Бүх барааг авах
     products = Product.query.all()
 
-    # 2. Түүх харуулах хэсэг (Алдаанаас сэргийлж түр хоосон жагсаалт болгов)
-    # Хэрэв таны түүх хадгалдаг модель 'Transaction' бол Transaction.query... гэж бичнэ
-    history = []
+    # 2. Түүх харуулах (Тооллоготой холбоотой сүүлийн 20 гүйлгээ)
+    history = Transaction.query.filter(Transaction.type.like('Тооллого%'))\
+                               .order_by(Transaction.timestamp.desc())\
+                               .limit(20).all()
 
-    # 3. Багц тохиргоонд орсон бараануудыг шүүж авах
+    # 3. Багц тохиргоотой бараанууд
     try:
         package_skus = [link.parent_sku for link in ProductLink.query.with_entities(ProductLink.parent_sku).distinct().all()]
         package_products = [p for p in products if p.sku in package_skus]
     except:
-        package_products = [] # Хэрэв ProductLink хүснэгт байхгүй бол алдаа заахгүй
+        package_products = []
 
-    return render_template('inventory.html',
-                           products=products,
-                           package_products=package_products,
-                           history=history)
+    return render_template('inventory.html', 
+                           products=products, 
+                           history=history, 
+                           package_products=package_products)
 
 @app.route('/do_inventory', methods=['POST'])
 @login_required
 def do_inventory():
     product_id = request.form.get('product_id')
-    new_quantity = request.form.get('quantity')
-
-    if not product_id or not new_quantity:
-        flash('Бараа болон тоо хэмжээг бүрэн бөглөнө үү!')
+    try:
+        new_stock = float(request.form.get('quantity', 0))
+    except:
+        flash("Тоо хэмжээг зөв оруулна уу.")
         return redirect(url_for('inventory'))
 
     product = Product.query.get_or_404(product_id)
-    old_stock = product.stock or 0
-    new_stock = float(new_quantity)
+    old_stock = product.stock
     diff = new_stock - old_stock
 
-    # 1. Барааны үлдэгдлийг шинэчлэх
-    product.stock = new_stock
+    if diff == 0:
+        flash("Үлдэгдэл зөрүүгүй байна.")
+        return redirect(url_for('inventory'))
 
-    # 2. Гүйлгээний түүхэнд бүртгэх
-    # Таны Transaction моделд 'price' болон 'note' байхгүй тул тэдгээрийг хаслаа.
-    # Хэрэв зөрүүг харахыг хүсвэл 'type' баганад нь тайлбар болгож хадгалж болно.
-    transaction = Transaction(
-        product_id=product.id,
-        quantity=new_stock, # Тоолсон бодит тоо
-        type=f"Тооллого (Зөрүү: {'+' if diff >= 0 else ''}{diff})",
-        timestamp=datetime.now(),
-        user_id=current_user.id
-    )
+    try:
+        product.stock = new_stock
+        
+        # ТАЙЛАНД БҮРТГЭХ
+        tx_type = f"Тооллого ({'+' if diff > 0 else '-'})"
+        new_tx = Transaction(
+            product_id=product.id,
+            type=tx_type,
+            quantity=abs(diff),
+            price=product.purchase_price or 0,
+            description=f"Тооллогын зөрүү: {old_stock} -> {new_stock}",
+            user_id=current_user.id,
+            timestamp=datetime.now()
+        )
+        db.session.add(new_tx)
+        db.session.commit()
+        flash(f"{product.sku} амжилттай тоологдлоо.")
+    except Exception as e:
+        db.session.rollback()
+        flash(f"Алдаа: {str(e)}")
 
-    db.session.add(transaction)
-    db.session.commit()
-
-    flash(f'{product.name} амжилттай тоологдлоо. Шинэ үлдэгдэл: {new_stock}')
     return redirect(url_for('inventory'))
 
 @app.route('/expenses', methods=['GET', 'POST'])
@@ -997,7 +1004,7 @@ def delete_package_instruction(parent_sku):
 @app.route('/disassemble_simple', methods=['POST'])
 @login_required
 def disassemble_simple():
-    if current_user.role not in ['admin', 'staff']:
+    if current_user.role not in ['admin', 'user']:
         flash("Танд энэ үйлдлийг хийх эрх байхгүй.")
         return redirect(url_for('inventory'))
 
@@ -1276,20 +1283,20 @@ def statistics():
             # --- БОРЛУУЛАЛТЫН ҮНЭ ТОГТООХ ---
             sell_price = t.price if (t.price and t.price > 0) else 0
             if sell_price == 0:
-                if t.bundle:
+                # АЮУЛГҮЙ ШАЛГАЛТ: bundle attribute байгаа эсэхийг шалгах
+                if hasattr(t, 'bundle') and t.bundle:
                     sell_price = t.bundle.price
                 elif t.product:
                     sell_price = t.product.wholesale_price if "Бөөний" in t.type else t.product.retail_price
 
             # --- ӨРТӨГ (COST) ТООЦООЛОХ (БАГЦЫГ ОРОЛЦУУЛАХ) ---
             unit_cost = 0
-            if t.bundle:
-                # Багцыг бүрдүүлэгч бараа бүрийн (өртөг * тоо ширхэг)-ийг нэмж нийт өртгийг гаргана
+            # АЮУЛГҮЙ ШАЛГАЛТ: bundle attribute байгаа эсэхийг шалгах
+            if hasattr(t, 'bundle') and t.bundle:
                 for item in t.bundle.items:
                     if item.product:
                         unit_cost += (item.product.cost_price or 0) * item.quantity
             elif t.product:
-                # Энгийн бараа бол өөрийнх нь өртгийг авна
                 unit_cost = t.product.cost_price or 0
 
             daily_sales += sell_price * t.quantity
@@ -1299,13 +1306,12 @@ def statistics():
         daily_expense = db.session.query(db.func.sum(Expense.amount)).\
             filter(
                 Expense.category != "Ажлын хөлс", 
-                Expense.category != "Loan_Disbursement", # Зээл олголтыг хасах
+                Expense.category != "Loan_Disbursement", 
                 db.func.date(Expense.date) == date_str
             ).scalar() or 0
 
         sales_data.append(float(daily_sales))
         expense_data.append(float(daily_expense))
-        # Цэвэр ашиг = Борлуулалт - Өртөг - Зардал
         profit_data.append(float(daily_sales - daily_cost - daily_expense))
 
     # 3. Нийт ТОП 5 бараа
@@ -1346,16 +1352,17 @@ def statistics():
             stats_data[category_name] = category_top
 
     return render_template('statistics.html',
-                           dates=dates,
-                           sales=sales_data,
-                           profit=profit_data,
-                           expenses=expense_data,
-                           top_labels=top_labels,
-                           top_values=top_values,
-                           stats_data=stats_data,
-                           sale_type=sale_type,
-                           start_date=start_date_str or "",
-                           end_date=end_date_str or "")
+                            dates=dates,
+                            sales=sales_data,
+                            profit=profit_data,
+                            expenses=expense_data,
+                            top_labels=top_labels,
+                            top_values=top_values,
+                            stats_data=stats_data,
+                            sale_type=sale_type,
+                            start_date=start_date_str or "",
+                            end_date=end_date_str or "")
+
 @app.route('/export-loans')
 @login_required
 def export_loans():
@@ -1382,7 +1389,7 @@ def export_loans():
         df.to_excel(writer, index=False, sheet_name='Зээлийн тайлан')
     output.seek(0)
 
-    filename = f"Жанжин ажилчдын зээл {datetime.now().strftime('%Y%m%d')}.xlsx"
+    filename = f"Толгойт ажилчдын зээл {datetime.now().strftime('%Y%m%d')}.xlsx"
 
     return send_file(output,
                      download_name=filename,
@@ -1455,7 +1462,7 @@ def export_balance():
 
     output.seek(0)
 
-    mgl_filename = f"Жанжин Үлдэгдэл{datetime.now().strftime('%Y%m%d')}.xlsx"
+    mgl_filename = f"Толгойт Үлдэгдэл{datetime.now().strftime('%Y%m%d')}.xlsx"
     response = send_file(
         output,
         as_attachment=True,
@@ -1635,7 +1642,7 @@ def export_transactions(type):
     output.seek(0)
     display_start = start_date_str if start_date_str else "all"
     display_end = end_date_str if end_date_str else "today"
-    filename = quote(f"{type}_JanJin_{display_start}_to_{display_end}.xlsx")
+    filename = quote(f"{type}_Толгойт_{display_start}_to_{display_end}.xlsx")
 
     return send_file(
         output, as_attachment=True, download_name=filename,
@@ -1764,7 +1771,7 @@ def export_expense_report(category):
     output.seek(0)
 
     # Файлын нэрийг бэлдэх
-    filename = f"{category} Жанжин {date_range_label}.xlsx"
+    filename = f"{category} Толгойт {date_range_label}.xlsx"
     response = send_file(
         output,
         as_attachment=True,
@@ -1825,7 +1832,7 @@ def export_labor_report():
         df.to_excel(writer, index=False, sheet_name='Salary')
 
     output.seek(0)
-    filename = f"Жанжин ажлын хөлсний {start_date if start_date else 'All'}.xlsx"
+    filename = f"Толгойт ажлын хөлсний {start_date if start_date else 'All'}.xlsx"
 
     return send_file(output, download_name=filename, as_attachment=True)
 
@@ -1871,7 +1878,7 @@ def export_salary_report():
     output.seek(0)
 
     # 4. Файлын нэрийг Монгол болгох
-    filename = f"Жанжин ажилчдын цалин {datetime.now().strftime('%Y%m%d')}.xlsx"
+    filename = f"Толгойт ажилчдын цалин {datetime.now().strftime('%Y%m%d')}.xlsx"
 
     return send_file(
         output,
@@ -1945,7 +1952,7 @@ def export_return_report():
         output,
         mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         as_attachment=True,
-        download_name=f"Жанжин бараа буцаалт {start_date if start_date else 'all'}.xlsx"
+        download_name=f"Толгойт бараа буцаалт {start_date if start_date else 'all'}.xlsx"
     )
 
 # --- 1. ХУУЧИН НУМ ТАЙЛАН (НИЙТ ДҮНТЭЙ) ---
@@ -2129,7 +2136,7 @@ def export_internal_income():
 
         output.seek(0)
         return send_file(output,
-                         download_name=f"ЖАНЖИН САЛБАРЫН ОРЛОГО_{datetime.now().strftime('%Y%m%d')}.xlsx",
+                         download_name=f"Толгойт САЛБАРЫН ОРЛОГО_{datetime.now().strftime('%Y%m%d')}.xlsx",
                          as_attachment=True,
                          mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
     except Exception as e:
@@ -2211,6 +2218,89 @@ def change_password():
         flash('Нууц үг зөрүүтэй байна!')
     return render_template('change_password.html')
 
+# 1. Нийлүүлэгчээс авах хуудас
+@app.route('/import_purchase', methods=['GET', 'POST'])
+@login_required
+def import_purchase():
+    if request.method == 'POST':
+        data = request.get_json()
+        product = Product.query.get(data.get('product_id'))
+        qty = float(data.get('quantity', 0))
+        
+        # Өртөг тооцоолол (Юань -> Төгрөг + Тээвэр)
+        cny_price = float(data.get('price_cny', 0))
+        rate = float(data.get('rate', 1))
+        weight = float(data.get('weight_kg', 0))
+        ship_per_kg = float(data.get('shipping_per_kg', 0))
+        
+        new_unit_cost = (cny_price * rate) + (weight * ship_per_kg)
+
+        # Өртөг дундажлах
+        if product.stock > 0:
+            old_total = product.stock * (product.purchase_price or 0)
+            new_total = qty * new_unit_cost
+            product.purchase_price = (old_total + new_total) / (product.stock + qty)
+        else:
+            product.purchase_price = new_unit_cost
+
+        product.stock += qty
+        
+        db.session.add(Transaction(
+            product_id=product.id,
+            type="Нийлүүлэгч (Орлого)",
+            quantity=qty,
+            price=new_unit_cost,
+            description=f"Юань: {cny_price}¥, Ханш: {rate}₮, Тээвэр: {weight}кг",
+            user_id=current_user.id
+        ))
+        db.session.commit()
+        return jsonify({'success': True})
+
+    products = Product.query.all()
+    return render_template('import_purchase.html', products=products)
+
+@app.route('/export-inventory-report')
+@login_required
+def export_inventory_report():
+    start_date = request.args.get('start_date')
+    end_date = request.args.get('end_date')
+    
+    # Хугацаагаар шүүх
+    query = Transaction.query.filter(Transaction.type.like('Тооллого%'))
+    if start_date:
+        query = query.filter(Transaction.timestamp >= datetime.strptime(start_date, '%Y-%m-%d'))
+    if end_date:
+        # Өдрийн төгсгөл хүртэл авахын тулд +1 өдөр
+        end_dt = datetime.strptime(end_date, '%Y-%m-%d') + timedelta(days=1)
+        query = query.filter(Transaction.timestamp < end_dt)
+        
+    transactions = query.order_by(Transaction.timestamp.desc()).all()
+    
+    # Excel файл үүсгэх өгөгдөл
+    data = []
+    for tx in transactions:
+        data.append({
+            'Огноо': tx.timestamp.strftime('%Y-%m-%d %H:%M'),
+            'SKU': tx.product.sku,
+            'Барааны нэр': tx.product.name,
+            'Төрөл/Зөрүү': tx.type,
+            'Тоо/Ш': tx.quantity,
+            'Хариуцсан': tx.user.username if tx.user else 'Unknown'
+        })
+    
+    if not data:
+        flash("Сонгосон хугацаанд тооллогын мэдээлэл олдсонгүй.")
+        return redirect(url_for('inventory'))
+        
+    df = pd.DataFrame(data)
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+        df.to_excel(writer, index=False, sheet_name='Тооллогын тайлан')
+    output.seek(0)
+    
+    return send_file(output, 
+                     download_name=f"Тооллого_ТОЛГОЙТ {datetime.now().strftime('%Y%m%d')}.xlsx",
+                     as_attachment=True)
 
 if __name__ == "__main__":
     with app.app_context():
