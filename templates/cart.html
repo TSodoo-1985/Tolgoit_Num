@@ -69,9 +69,45 @@
         <button onclick="clearAll()" class="btn btn-outline-danger btn-sm">
             <i class="bi bi-trash"></i> Цэвэрлэх
         </button>
-        <button onclick="save()" class="btn btn-success px-4 fw-bold shadow-sm">
+        <button type="button" class="btn btn-success px-4 fw-bold shadow-sm" data-bs-toggle="modal" data-bs-target="#paymentModal">
             <i class="bi bi-check-circle-fill"></i> БАТЛАХ
         </button>
+    </div>
+</div>
+
+<div class="modal fade" id="paymentModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-dark text-white">
+                <h5 class="modal-title fw-bold"><i class="bi bi-wallet2 me-2"></i>Төлбөр сонгох</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4 text-center">
+                <p class="text-muted mb-4">Та төлбөр хүлээн авсан сувгаа сонгоно уу.</p>
+                <div class="row g-3">
+                    <div class="col-6">
+                        <button class="btn btn-outline-success w-100 py-3 fw-bold" onclick="saveWithMethod('Бэлэн')">
+                            <i class="bi bi-cash-stack d-block fs-3 mb-2"></i> БЭЛЭН
+                        </button>
+                    </div>
+                    <div class="col-6">
+                        <button class="btn btn-outline-primary w-100 py-3 fw-bold" onclick="saveWithMethod('Картаар')">
+                            <i class="bi bi-credit-card d-block fs-3 mb-2"></i> КАРТААР
+                        </button>
+                    </div>
+                    <div class="col-6">
+                        <button class="btn btn-outline-info w-100 py-3 fw-bold" onclick="saveWithMethod('Дансаар')">
+                            <i class="bi bi-bank d-block fs-3 mb-2"></i> ДАНСААР
+                        </button>
+                    </div>
+                    <div class="col-6">
+                        <button class="btn btn-outline-warning w-100 py-3 fw-bold" onclick="saveWithMethod('Компани')">
+                            <i class="bi bi-building d-block fs-3 mb-2"></i> КОМПАНИ
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -132,7 +168,7 @@
         if (window.updateBadge) window.updateBadge();
     }
 
-    // Тоо ширхэг өөрчлөх функцууд (ШИНЭ)
+    // Тоо ширхэг өөрчлөх функцууд
     function updateQty(index, delta) {
         let cart = JSON.parse(localStorage.getItem('myCart')) || [];
         let newQty = (parseInt(cart[index].quantity) || 1) + delta;
@@ -263,23 +299,30 @@
         }
     }
 
-    async function save() {
+    // Төлбөрийн төрлийг дамжуулж хадгалах шинэ функц
+    async function saveWithMethod(method) {
         let cart = JSON.parse(localStorage.getItem('myCart')) || [];
         if (cart.length === 0) return;
 
         let totalPrice = cart.reduce((acc, item) => acc + (parseFloat(item.quantity) * parseFloat(item.price)), 0);
-        if(!confirm(`Нийт ${totalPrice.toLocaleString()}₮-ийн тооцоог батлах уу?`)) return;
+        if(!confirm(`Төлбөр: ${method}\nНийт ${totalPrice.toLocaleString()}₮-ийн тооцоог батлах уу?`)) return;
+
+        // Сагсан дахь бүх барааны төрлийг (Type) сонгосон төлбөрийн хэлбэрээр солих
+        const updatedItems = cart.map(item => ({
+            ...item,
+            type: `Зарлага (${method})`
+        }));
 
         try {
             const res = await fetch('/add_transaction_bulk', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ items: cart })
+                body: JSON.stringify({ items: updatedItems })
             });
 
             if(res.ok) {
                 localStorage.removeItem('myCart');
-                alert("Амжилттай бүртгэгдлээ!");
+                alert(`Амжилттай бүртгэгдлээ! (${method})`);
                 window.location.href = "{{ url_for('dashboard') }}";
             } else {
                 const err = await res.json();
