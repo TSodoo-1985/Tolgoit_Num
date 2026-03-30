@@ -16,28 +16,44 @@
 
         <form method="POST">
             <div class="row g-3">
-                <div class="col-md-6">
-                    <label class="form-label fw-bold">Нумын нэр</label>
-                    <input type="text" name="name" class="form-control" placeholder="Жишээ: Prius 20 хойд нум" required>
+                <div class="col-md-12">
+                    <label class="form-label fw-bold">Манайд бүртгэлтэй хуучин нумнаас сонгох</label>
+                    <select name="product_id" id="productSelect" class="form-select form-select-lg border-success-subtle shadow-sm" onchange="handleBowSelection()">
+                        <option value="">-- Жагсаалтаас сонгох --</option>
+                        {% for p in products %}
+                        <option value="{{ p.id }}" 
+                                data-sku="{{ p.sku }}" 
+                                data-retail="{{ p.price }}" 
+                                data-cost="{{ p.cost_price }}">
+                            {{ p.name }} ({{ p.sku }})
+                        </option>
+                        {% endfor %}
+                        <option value="other" class="text-primary fw-bold">++ Жагсаалтад байхгүй (Гараар бичих) ++</option>
+                    </select>
                 </div>
+
+                <div id="manualInputArea" class="col-md-6" style="display: none;">
+                    <label class="form-label fw-bold text-primary">Нумын нэр (Шинээр)</label>
+                    <input type="text" name="name" id="manualName" class="form-control" placeholder="Жишээ: Prius 20 нум">
+                </div>
+
                 <div class="col-md-6">
                     <label class="form-label fw-bold">Код (SKU)</label>
-                    <input type="text" name="sku" class="form-control" placeholder="Байхгүй бол хоосон үлдээж болно">
+                    <input type="text" name="sku" id="targetSku" class="form-control">
                 </div>
                 
                 <div class="col-md-4">
                     <label class="form-label fw-bold text-danger">Авсан үнэ (Өртөг)</label>
                     <div class="input-group">
-                        <input type="number" name="cost_price" class="form-control" required>
+                        <input type="number" name="cost_price" id="targetCost" class="form-control" required>
                         <span class="input-group-text">₮</span>
                     </div>
-                    <small class="text-muted">Үйлчлүүлэгчид өгсөн мөнгө</small>
                 </div>
                 
                 <div class="col-md-4">
                     <label class="form-label fw-bold text-success">Зарах үнэ</label>
                     <div class="input-group">
-                        <input type="number" name="retail_price" class="form-control" required>
+                        <input type="number" name="retail_price" id="targetRetail" class="form-control" required>
                         <span class="input-group-text">₮</span>
                     </div>
                 </div>
@@ -50,10 +66,34 @@
 
             <hr class="my-4">
             
-            <button type="submit" class="btn btn-success w-100 py-2 fw-bold rounded-3">
+            <button type="submit" class="btn btn-success w-100 py-3 fw-bold rounded-3 fs-5">
                 <i class="bi bi-check-circle-fill me-2"></i>Худалдаж авах / Бүртгэх
             </button>
         </form>
     </div>
 </div>
+
+<script>
+// buy_old_bow.html доторх JS хэсэгт:
+function handleBowSelection() {
+    const select = document.getElementById('productSelect');
+    const selectedOption = select.options[select.selectedIndex];
+    
+    const targetSku = document.getElementById('targetSku');
+    const targetCost = document.getElementById('targetCost');
+    const targetRetail = document.getElementById('targetRetail');
+
+    if (select.value === 'other') {
+        document.getElementById('manualInputArea').style.display = 'block';
+        // Утгуудыг цэвэрлэх
+        targetSku.value = ''; targetCost.value = ''; targetRetail.value = '';
+    } else if (select.value !== "") {
+        document.getElementById('manualInputArea').style.display = 'none';
+        // Утгуудыг автоматаар бөглөх
+        targetSku.value = selectedOption.getAttribute('data-sku') || '';
+        targetCost.value = selectedOption.getAttribute('data-cost') || '';
+        targetRetail.value = selectedOption.getAttribute('data-retail') || ''; // Энд 'data-retail' байгааг шалгаарай
+    }
+}
+</script>
 {% endblock %}
