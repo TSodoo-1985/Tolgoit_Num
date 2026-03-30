@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>📦 Толгойт Нум Сервис</title>
+    <title>Толгойт Нум Сервис</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
     <style>
@@ -11,28 +11,49 @@
         .navbar { background-color: #1a202c !important; border-bottom: 2px solid #0d6efd; padding: 8px 0; z-index: 1030; }
         .dropdown-menu { border-radius: 12px; border: none; box-shadow: 0 10px 30px rgba(0,0,0,0.15); padding: 12px; }
         .user-avatar { width: 32px; height: 32px; background: #0d6efd; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 12px; }
-        
-        /* Дэд цэсний загвар - ҮСГИЙН ХЭМЖЭЭГ ТОМОРГОСОН */
+
+        /* Дэд цэсний загвар */
         .submenu-container { background-color: #f8f9fa; border-radius: 8px; margin-top: 5px; margin-bottom: 5px; overflow: hidden; border: 1px solid #dee2e6; }
-        .submenu-item { 
-            font-size: 1rem !important; /* Стандарт том хэмжээ */
-            padding: 10px 20px !important; 
-            color: #333 !important; 
-            font-weight: 500; 
+        .submenu-item {
+            font-size: 1rem !important;
+            padding: 10px 20px !important;
+            color: #333 !important;
+            font-weight: 500;
             border-bottom: 1px solid #f1f1f1;
+            width: 100%;
+            text-align: left;
+            background: none;
+            border-left: none;
+            border-right: none;
+            border-top: none;
         }
         .submenu-item:last-child { border-bottom: none; }
         .submenu-item:hover { background-color: #e9ecef; color: #000 !important; }
-        
+
         /* Үндсэн гарчиг */
-        .menu-header-btn { font-size: 1.05rem !important; } 
-        
-        @media (max-width: 576px) { .nav-text { display: none; } }
+        .menu-header-btn { font-size: 1.05rem !important; }
+
+        /* STICKY ХАЙЛТЫН ХЭСЭГ */
+        .sticky-search-bar {
+            position: -webkit-sticky;
+            position: sticky;
+            top: 54px;
+            z-index: 1020;
+            background-color: #f0f2f5;
+            padding-top: 10px;
+            padding-bottom: 10px;
+            margin-bottom: 10px;
+        }
+
+        @media (max-width: 576px) {
+            .nav-text { display: none; }
+            .sticky-search-bar { top: 54px; }
+        }
     </style>
 </head>
 <body>
 
-    <nav class="navbar navbar-dark sticky-top">
+<nav class="navbar navbar-dark sticky-top">
     <div class="container-fluid d-flex align-items-center">
         <a class="navbar-brand fw-bold d-flex align-items-center" href="{{ url_for('dashboard') }}">
             <i class="bi bi-box-seam-fill text-primary me-2"></i>
@@ -42,6 +63,11 @@
         <div class="d-flex gap-2 align-items-center ms-auto">
 
             {% if current_user.role != 'viewer' %}
+            
+            <a href="{{ url_for('reports') }}" class="btn btn-outline-info btn-sm rounded-3 shadow-sm px-2">
+                <i class="bi bi-bar-chart-line-fill text-info"></i> <span class="nav-text ms-1">Тайлан</span>
+            </a>
+
             <a href="{{ url_for('cart_page') }}" class="btn btn-outline-primary btn-sm rounded-3 position-relative mx-1">
                 <i class="bi bi-cart3"></i>
                 <span id="cart-count-badge" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style="display: none;">0</span>
@@ -73,7 +99,7 @@
 
             <div class="dropdown">
                 <button class="btn btn-success btn-sm rounded-3 shadow-sm" type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside">
-                    <i class="bi bi-file-earmark-excel-fill"></i> <span class="nav-text ms-1">Тайлан</span>
+                    <i class="bi bi-file-earmark-excel-fill"></i> <span class="nav-text ms-1">Excel</span>
                 </button>
                 <ul class="dropdown-menu dropdown-menu-end p-3 shadow-lg" style="min-width: 300px;">
                     <li><h6 class="dropdown-header text-dark fw-bold px-0 mb-2 small text-uppercase"><i class="bi bi-calendar3 me-2"></i>Огноо сонгох</h6></li>
@@ -155,7 +181,7 @@
         {{ m }} <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
     </div>
     {% endfor %}{% endif %}{% endwith %}
-    
+
     {% block content %}{% endblock %}
 </div>
 
@@ -204,7 +230,6 @@
         } else if (type === 'inventory') {
             url = `/export-inventory-report?start_date=${s}&end_date=${e}`;
         } else if (type === 'labor') {
-            // Ажлын хөлсний тайланд 'exclude_unregistered=true' шүүлтүүр нэмсэн
             url = `/export-labor-report?start_date=${s}&end_date=${e}&exclude_unregistered=true`;
         } else if (type === 'salary') {
             url = `/export-salary-report?start_date=${s}&end_date=${e}`;
