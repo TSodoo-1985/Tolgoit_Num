@@ -1,8 +1,13 @@
 {% extends "layout.html" %}
+
 {% block content %}
 <div class="card shadow-sm border-0 rounded-4">
-    <div class="card-header bg-white py-3">
+    <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
         <h5 class="fw-bold mb-0 text-primary"><i class="bi bi-cart-fill"></i> Миний сагс</h5>
+        <button class="btn btn-outline-primary btn-sm fw-bold position-relative" data-bs-toggle="modal" data-bs-target="#heldCartsModal" onclick="loadHeldCarts()">
+            <i class="bi bi-clock-history"></i> Хүлээгдэж буй
+            <span id="heldCountBadge" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style="display:none;">0</span>
+        </button>
     </div>
     
     <div class="card-body p-0">
@@ -58,20 +63,36 @@
             </div>
         </div>
 
-        <div id="empty-msg" class="text-center py-5" style="display:none;">
+        <div id="empty-msg" class="text-center py-5">
             <i class="bi bi-cart-x display-1 text-muted"></i>
             <h5 class="text-muted mt-3">Сагс хоосон байна.</h5>
             <p class="text-muted small">Дээрх хэсэгт ажлын хөлс эсвэл бүртгэлгүй бараа нэмнэ үү.</p>
         </div>
     </div>
 
-    <div class="card-footer bg-white p-3 d-flex justify-content-between align-items-center" id="cart-footer" style="display:none !important;">
+    <div class="card-footer bg-white p-3 d-flex gap-2 justify-content-between" id="cart-footer" style="display:none;">
         <button onclick="clearAll()" class="btn btn-outline-danger btn-sm">
-            <i class="bi bi-trash"></i> Цэвэрлэх
+            <i class="bi bi-trash"></i>
+        </button>
+        <button onclick="holdCurrentCart()" class="btn btn-warning btn-sm fw-bold flex-grow-1">
+            <i class="bi bi-pause-circle"></i> ТҮР ХАДГАЛАХ
         </button>
         <button type="button" class="btn btn-success px-4 fw-bold shadow-sm" data-bs-toggle="modal" data-bs-target="#paymentModal">
             <i class="bi bi-check-circle-fill"></i> БАТЛАХ
         </button>
+    </div>
+</div>
+
+<div class="modal fade" id="heldCartsModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title fw-bold"><i class="bi bi-clock-history me-2"></i>Хүлээгдэж буй сагс</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-0" id="heldCartsList">
+                </div>
+        </div>
     </div>
 </div>
 
@@ -112,27 +133,105 @@
 </div>
 
 <script>
-    // Ажлын хөлс нэмэх функц
-    function addLaborToCart() {
-        const desc = document.getElementById('labor_desc').value;
-        const amount = document.getElementById('labor_amt').value;
+    // --- ТҮР ХАДГАЛАХ ЛОГИК ---
+    function holdCurrentCart() {
+        let cart = JSON.parse(localStorage.getItem('myCart')) || [];
+        if (cart.length === 0) return alert("Сагс хоосон байна!");
 
-        if (!desc || !amount) {
-            alert("Ажлын тайлбар болон дүнг оруулна уу!");
+        let label = prompt("Энэ сагсыг юу гэж нэрлэх вэ? (Жишээ: Ажлын хөлс 35к, Машины дугаар гм):");
+        if (label === null) return;
+        if (label.trim() === "") label = "Нэргүй сагс";
+
+        let heldCarts = JSON.parse(localStorage.getItem('heldCarts')) || [];
+        heldCarts.push({
+            id: "HOLD_" + Date.now(),
+            label: label,
+            items: cart,
+            time: new Date().toLocaleTimeString('mn-MN', {hour: '2-digit', minute:'2-digit'}),
+            total: cart.reduce((sum, i) => sum + (i.price * i.quantity), 0)
+        });
+
+        localStorage.setItem('heldCarts', JSON.stringify(heldCarts));
+        localStorage.removeItem('myCart');
+        
+        alert(`"${label}" нэрээр түр хадгалагдлаа.`);
+        render();
+        loadHeldCarts();
+        if (window.updateBadge) window.updateBadge();
+    }
+
+    function loadHeldCarts() {
+        const heldCarts = JSON.parse(localStorage.getItem('heldCarts')) || [];
+        const list = document.getElementById('heldCartsList');
+        const badge = document.getElementById('heldCountBadge');
+
+        badge.innerText = heldCarts.length;
+        badge.style.display = heldCarts.length > 0 ? 'inline' : 'none';
+
+        if (heldCarts.length === 0) {
+            list.innerHTML = '<div class="p-5 text-center text-muted">Хүлээгдэж буй сагс байхгүй.</div>';
             return;
         }
 
-        let cart = JSON.parse(localStorage.getItem('myCart')) || [];
-        
-        cart.push({
-            id: "LABOR_" + Date.now(),
-            name: "[АЖЛЫН ХӨЛС] " + desc,
-            price: parseFloat(amount),
-            quantity: 1,
-            type: "Зарлага",
-            is_labor: true
-        });
+        list.innerHTML = heldCarts.map((c, index) => `
+            <div class="list-group-item p-3 d-flex justify-content-between align-items-center">
+                <div>
+                    <h6 class="mb-0 fw-bold text-primary">${c.label}</h6>
+                    <small class="text-muted">${c.time} | ${c.items.length} бараа | <strong>${c.total.toLocaleString()}₮</strong></small>
+                </div>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-sm btn-outline-danger" onclick="deleteHeldCart(${index})"><i class="bi bi-trash"></i></button>
+                    <button class="btn btn-sm btn-success fw-bold" onclick="restoreCart(${index})">СЭРГЭЭХ</button>
+                </div>
+            </div>
+        `).join('');
+    }
 
+    function restoreCart(index) {
+        let heldCarts = JSON.parse(localStorage.getItem('heldCarts')) || [];
+        let currentCart = JSON.parse(localStorage.getItem('myCart')) || [];
+
+        if (currentCart.length > 0) {
+            if (!confirm("Одоогийн сагс хоосон биш байна. Хадгалсан сагсыг нэмэх үү?")) return;
+            localStorage.setItem('myCart', JSON.stringify([...currentCart, ...heldCarts[index].items]));
+        } else {
+            localStorage.setItem('myCart', JSON.stringify(heldCarts[index].items));
+        }
+
+        heldCarts.splice(index, 1);
+        localStorage.setItem('heldCarts', JSON.stringify(heldCarts));
+        
+        const modalEl = document.getElementById('heldCartsModal');
+        const modal = bootstrap.Modal.getInstance(modalEl);
+        if (modal) modal.hide();
+
+        render();
+        loadHeldCarts();
+        if (window.updateBadge) window.updateBadge();
+    }
+
+    function deleteHeldCart(index) {
+        if (!confirm("Устгах уу?")) return;
+        let heldCarts = JSON.parse(localStorage.getItem('heldCarts')) || [];
+        heldCarts.splice(index, 1);
+        localStorage.setItem('heldCarts', JSON.stringify(heldCarts));
+        loadHeldCarts();
+    }
+
+    // --- ҮНДСЭН САГСНЫ ФУНКЦҮҮД ---
+    function addLaborToCart() {
+        const desc = document.getElementById('labor_desc').value;
+        const amount = document.getElementById('labor_amt').value;
+        if (!desc || !amount) { alert("Ажлын тайлбар болон дүнг оруулна уу!"); return; }
+        let cart = JSON.parse(localStorage.getItem('myCart')) || [];
+        cart.push({ 
+            id: "LABOR_" + Date.now(), 
+            name: "[АЖЛЫН ХӨЛС] " + desc, 
+            price: parseFloat(amount), 
+            quantity: 1, 
+            type: "Жижиглэн", // "Зарлага" биш "Жижиглэн" болгож засав
+            is_labor: true 
+        });
         localStorage.setItem('myCart', JSON.stringify(cart));
         document.getElementById('labor_desc').value = '';
         document.getElementById('labor_amt').value = '';
@@ -140,27 +239,19 @@
         if (window.updateBadge) window.updateBadge();
     }
 
-    // Бүртгэлгүй бараа нэмэх функц
     function addMiscToCart() {
         const name = document.getElementById('misc_name').value;
         const price = document.getElementById('misc_price').value;
-
-        if (!name || !price) {
-            alert("Барааны нэр болон үнийг оруулна уу!");
-            return;
-        }
-
+        if (!name || !price) { alert("Барааны нэр болон үнийг оруулна уу!"); return; }
         let cart = JSON.parse(localStorage.getItem('myCart')) || [];
-        
-        cart.push({
-            id: "MISC_" + Date.now(),
-            name: "[БҮРТГЭЛГҮЙ] " + name,
-            price: parseFloat(price),
-            quantity: 1,
-            type: "Зарлага",
-            is_labor: true 
+        cart.push({ 
+            id: "MISC_" + Date.now(), 
+            name: "[БҮРТГЭЛГҮЙ] " + name, 
+            price: parseFloat(price), 
+            quantity: 1, 
+            type: "Жижиглэн", // "Зарлага" биш "Жижиглэн" болгож засав
+            is_labor: false 
         });
-
         localStorage.setItem('myCart', JSON.stringify(cart));
         document.getElementById('misc_name').value = '';
         document.getElementById('misc_price').value = '';
@@ -168,25 +259,22 @@
         if (window.updateBadge) window.updateBadge();
     }
 
-    // Тоо ширхэг өөрчлөх функцууд
     function updateQty(index, delta) {
         let cart = JSON.parse(localStorage.getItem('myCart')) || [];
-        let newQty = (parseInt(cart[index].quantity) || 1) + delta;
-        if (newQty < 1) newQty = 1;
+        let newQty = (parseFloat(cart[index].quantity) || 1) + delta;
+        if (newQty < 0.1) newQty = 0.1;
         cart[index].quantity = newQty;
         localStorage.setItem('myCart', JSON.stringify(cart));
         render();
-        if (window.updateBadge) window.updateBadge();
     }
 
     function changeQty(index, value) {
         let cart = JSON.parse(localStorage.getItem('myCart')) || [];
-        let newQty = parseInt(value) || 1;
-        if (newQty < 1) newQty = 1;
+        let newQty = parseFloat(value) || 1;
+        if (newQty < 0.1) newQty = 0.1;
         cart[index].quantity = newQty;
         localStorage.setItem('myCart', JSON.stringify(cart));
         render();
-        if (window.updateBadge) window.updateBadge();
     }
 
     function updateItemPrice(index, newPrice) {
@@ -203,17 +291,19 @@
         const summary = document.getElementById('cart-summary');
         const footer = document.getElementById('cart-footer');
 
+        loadHeldCarts();
+
         if(cart.length === 0) {
             list.innerHTML = '';
             msg.style.display = 'block';
             summary.style.display = 'none';
-            footer.setAttribute("style", "display: none !important");
+            footer.style.display = 'none';
             return;
         }
         
         msg.style.display = 'none';
         summary.style.display = 'block';
-        footer.setAttribute("style", "display: flex !important");
+        footer.style.display = 'flex';
         
         let totalQty = 0;
         let totalPrice = 0;
@@ -222,58 +312,43 @@
             const qty = parseFloat(item.quantity) || 1;
             const price = parseFloat(item.price) || 0;
             const subtotal = qty * price;
-            
             totalQty += qty;
             totalPrice += subtotal;
 
             let badgeClass = "bg-primary-subtle text-primary";
-            let typeLabel = item.type || 'Зарлага';
+            let typeLabel = item.type ? item.type.replace(" зарлага", "") : "Жижиглэн"; 
             
-            if (item.name.includes("[АЖЛЫН ХӨЛС]")) {
-                badgeClass = "bg-info text-white";
-                typeLabel = "Үйлчилгээ";
-            } else if (item.name.includes("[БҮРТГЭЛГҮЙ]")) {
-                badgeClass = "bg-success text-white";
-                typeLabel = "Шууд орлого";
+            if (item.name.includes("[АЖЛЫН ХӨЛС]")) { 
+                badgeClass = "bg-info text-white"; 
+            } else if (item.name.includes("[БҮРТГЭЛГҮЙ]")) { 
+                badgeClass = "bg-success text-white"; 
             }
 
             return `
-                <div class="list-group-item p-3">
+                <div class="list-group-item p-3 border-bottom">
                     <div class="d-flex justify-content-between align-items-start mb-2">
                         <div class="d-flex align-items-center gap-3">
-                            <div class="bg-light rounded-circle d-flex align-items-center justify-content-center text-primary fw-bold" style="width: 35px; height: 35px; min-width: 35px;">
-                                ${i + 1}
-                            </div>
+                            <div class="bg-light rounded-circle d-flex align-items-center justify-content-center text-primary fw-bold" style="width: 30px; height: 30px; min-width: 30px;">${i + 1}</div>
                             <div style="min-width: 0;">
-                                <h6 class="mb-0 fw-bold text-truncate">${item.name}</h6>
-                                <small>
-                                    <span class="badge ${badgeClass}">${typeLabel}</span>
-                                </small>
+                                <h6 class="mb-0 fw-bold text-truncate" style="max-width: 180px;">${item.name}</h6>
+                                <span class="badge ${badgeClass}" style="font-size: 10px;">${typeLabel}</span>
                             </div>
                         </div>
-                        <button class="btn btn-link text-danger p-0" onclick="remove(${i})">
-                            <i class="bi bi-x-lg"></i>
-                        </button>
+                        <button class="btn btn-link text-danger p-0" onclick="remove(${i})"><i class="bi bi-x-lg"></i></button>
                     </div>
-                    
                     <div class="row g-2 align-items-center bg-light p-2 rounded-3 mx-0">
                         <div class="col-4">
-                            <span class="small fw-bold text-muted d-block" style="font-size: 10px;">ҮНЭ:</span>
                             <input type="number" class="form-control form-control-sm border-primary fw-bold text-primary" value="${price}" onchange="updateItemPrice(${i}, this.value)">
                         </div>
-                        
                         <div class="col-4">
-                            <span class="small fw-bold text-muted d-block" style="font-size: 10px;">ТОО:</span>
                             <div class="input-group input-group-sm">
                                 <button class="btn btn-outline-secondary px-1" onclick="updateQty(${i}, -1)"><i class="bi bi-dash"></i></button>
                                 <input type="number" class="form-control form-control-sm text-center px-0 fw-bold" value="${qty}" onchange="changeQty(${i}, this.value)">
                                 <button class="btn btn-outline-secondary px-1" onclick="updateQty(${i}, 1)"><i class="bi bi-plus"></i></button>
                             </div>
                         </div>
-
                         <div class="col-4 text-end">
-                            <span class="small fw-bold text-muted d-block" style="font-size: 10px;">НИЙТ:</span>
-                            <div class="fw-bold text-dark">${subtotal.toLocaleString()}₮</div>
+                            <div class="fw-bold text-dark small">${subtotal.toLocaleString()}₮</div>
                         </div>
                     </div>
                 </div>`;
@@ -299,19 +374,21 @@
         }
     }
 
-    // Төлбөрийн төрлийг дамжуулж хадгалах шинэ функц
     async function saveWithMethod(method) {
         let cart = JSON.parse(localStorage.getItem('myCart')) || [];
         if (cart.length === 0) return;
-
+        
         let totalPrice = cart.reduce((acc, item) => acc + (parseFloat(item.quantity) * parseFloat(item.price)), 0);
         if(!confirm(`Төлбөр: ${method}\nНийт ${totalPrice.toLocaleString()}₮-ийн тооцоог батлах уу?`)) return;
 
-        // Сагсан дахь бүх барааны төрлийг (Type) сонгосон төлбөрийн хэлбэрээр солих
-        const updatedItems = cart.map(item => ({
-            ...item,
-            type: `Зарлага (${method})`
-        }));
+        // "Зарлага" гэдэг үгийг хасаж, цэвэр төрөл + төлбөрийн хэлбэрээр хадгалах
+        const updatedItems = cart.map(item => {
+            let baseType = item.type ? item.type.replace(" зарлага", "") : "Жижиглэн";
+            return { 
+                ...item, 
+                type: `${baseType} (${method})` 
+            };
+        });
 
         try {
             const res = await fetch('/add_transaction_bulk', {
@@ -319,17 +396,16 @@
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({ items: updatedItems })
             });
-
             if(res.ok) {
                 localStorage.removeItem('myCart');
                 alert(`Амжилттай бүртгэгдлээ! (${method})`);
                 window.location.href = "{{ url_for('dashboard') }}";
             } else {
                 const err = await res.json();
-                alert("Серверийн алдаа: " + (err.message || "Мэдээлэл дутуу байна"));
+                alert("Алдаа: " + (err.message || "Серверт алдаа гарлаа"));
             }
-        } catch (e) {
-            alert("Холболтын алдаа гарлаа!");
+        } catch (e) { 
+            alert("Холболтын алдаа гарлаа!"); 
         }
     }
 
