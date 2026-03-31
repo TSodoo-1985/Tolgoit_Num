@@ -116,7 +116,7 @@
 </div>
 
 <script>
-    // --- ТҮР ХАДГАЛАХ ЛОГИК (Хэвээрээ) ---
+    // --- ТҮР ХАДГАЛАХ ЛОГИК ---
     function holdCurrentCart() {
         let cart = JSON.parse(localStorage.getItem('myCart')) || [];
         if (cart.length === 0) return alert("Сагс хоосон байна!");
@@ -185,7 +185,7 @@
         loadHeldCarts();
     }
 
-    // --- ҮНДСЭН САГСНЫ ФУНКЦҮҮД (Засагдсан) ---
+    // --- ҮНДСЭН САГСНЫ ФУНКЦҮҮД ---
     function addLaborToCart() {
         const desc = document.getElementById('labor_desc').value;
         const amount = document.getElementById('labor_amt').value;
@@ -249,12 +249,22 @@
             const subtotal = qty * price;
             totalQty += qty;
             totalPrice += subtotal;
+            
             let typeLabel = item.type ? item.type.replace(" зарлага", "") : "Жижиглэн"; 
-            let badgeClass = "bg-primary-subtle text-primary";
-            if (item.name.includes("[АЖЛЫН ХӨЛС]")) badgeClass = "bg-info text-white"; 
-            else if (item.name.includes("[БҮРТГЭЛГҮЙ]")) badgeClass = "bg-success text-white"; 
-            else if (typeLabel.includes("Бөөний")) badgeClass = "bg-danger text-white";
-            else if (typeLabel.includes("Жижиглэн")) badgeClass = "bg-primary text-white";
+            let badgeClass = "bg-primary text-white"; // Default
+
+            // БАГЦ БАРАА БОЛОН ТӨРӨЛ ТАНЬЖ ӨНГӨ ӨГӨХ
+            if (item.is_bundle) {
+                badgeClass = "bg-dark text-white";
+                typeLabel = "Багц бараа";
+            } else if (item.name.includes("[АЖЛЫН ХӨЛС]")) {
+                badgeClass = "bg-info text-white";
+            } else if (item.name.includes("[БҮРТГЭЛГҮЙ]")) {
+                badgeClass = "bg-success text-white";
+            } else if (typeLabel.includes("Бөөний")) {
+                badgeClass = "bg-danger text-white";
+            }
+
             return `
                 <div class="list-group-item p-3 border-bottom">
                     <div class="d-flex justify-content-between align-items-start mb-2">
@@ -330,15 +340,14 @@
         let totalPrice = cart.reduce((acc, item) => acc + (parseFloat(item.quantity) * parseFloat(item.price)), 0);
         if(!confirm(`Төлбөр: ${method}\nНийт ${totalPrice.toLocaleString()}₮-ийн тооцоог батлах уу?`)) return;
 
-        // ЭНД ЗАСВАР ОРСОН: Бүртгэлгүй бараа болон Ажлын хөлсөнд "Жижиглэн" төрөл онооно
         const updatedItems = cart.map(item => {
-            let baseType = "Жижиглэн"; // Default утга
+            let baseType = "Жижиглэн"; // Default
 
-            if (item.type) {
-                // Хэрэв сагсанд төрөл нь байгаа бол (бүртгэлтэй бараа) түүнийг ашиглана
+            if (item.is_bundle) {
+                baseType = "Жижиглэн"; // Багц барааг Жижиглэн төрлөөр явуулна
+            } else if (item.type) {
                 baseType = item.type.replace(" зарлага", "");
-            } else if (item.is_labor || item.name.includes("[БҮРТГЭЛГҮЙ]")) {
-                // Хэрэв төрөлгүй боловч Ажлын хөлс эсвэл Бүртгэлгүй бол "Жижиглэн" гэнэ
+            } else if (item.is_labor || (item.name && item.name.includes("[БҮРТГЭЛГҮЙ]"))) {
                 baseType = "Жижиглэн";
             }
 
