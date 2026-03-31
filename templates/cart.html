@@ -90,8 +90,7 @@
                 <h5 class="modal-title fw-bold"><i class="bi bi-clock-history me-2"></i>Хүлээгдэж буй сагс</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
-            <div class="modal-body p-0" id="heldCartsList">
-                </div>
+            <div class="modal-body p-0" id="heldCartsList"></div>
         </div>
     </div>
 </div>
@@ -106,26 +105,10 @@
             <div class="modal-body p-4 text-center">
                 <p class="text-muted mb-4">Та төлбөр хүлээн авсан сувгаа сонгоно уу.</p>
                 <div class="row g-3">
-                    <div class="col-6">
-                        <button class="btn btn-outline-success w-100 py-3 fw-bold" onclick="saveWithMethod('Бэлэн')">
-                            <i class="bi bi-cash-stack d-block fs-3 mb-2"></i> БЭЛЭН
-                        </button>
-                    </div>
-                    <div class="col-6">
-                        <button class="btn btn-outline-primary w-100 py-3 fw-bold" onclick="saveWithMethod('Картаар')">
-                            <i class="bi bi-credit-card d-block fs-3 mb-2"></i> КАРТААР
-                        </button>
-                    </div>
-                    <div class="col-6">
-                        <button class="btn btn-outline-info w-100 py-3 fw-bold" onclick="saveWithMethod('Дансаар')">
-                            <i class="bi bi-bank d-block fs-3 mb-2"></i> ДАНСААР
-                        </button>
-                    </div>
-                    <div class="col-6">
-                        <button class="btn btn-outline-warning w-100 py-3 fw-bold" onclick="saveWithMethod('Компани')">
-                            <i class="bi bi-building d-block fs-3 mb-2"></i> КОМПАНИ
-                        </button>
-                    </div>
+                    <div class="col-6"><button class="btn btn-outline-success w-100 py-3 fw-bold" onclick="saveWithMethod('Бэлэн')"><i class="bi bi-cash-stack d-block fs-3 mb-2"></i> БЭЛЭН</button></div>
+                    <div class="col-6"><button class="btn btn-outline-primary w-100 py-3 fw-bold" onclick="saveWithMethod('Картаар')"><i class="bi bi-credit-card d-block fs-3 mb-2"></i> КАРТААР</button></div>
+                    <div class="col-6"><button class="btn btn-outline-info w-100 py-3 fw-bold" onclick="saveWithMethod('Дансаар')"><i class="bi bi-bank d-block fs-3 mb-2"></i> ДАНСААР</button></div>
+                    <div class="col-6"><button class="btn btn-outline-warning w-100 py-3 fw-bold" onclick="saveWithMethod('Компани')"><i class="bi bi-building d-block fs-3 mb-2"></i> КОМПАНИ</button></div>
                 </div>
             </div>
         </div>
@@ -133,15 +116,13 @@
 </div>
 
 <script>
-    // --- ТҮР ХАДГАЛАХ ЛОГИК ---
+    // --- ТҮР ХАДГАЛАХ ЛОГИК (Хэвээрээ) ---
     function holdCurrentCart() {
         let cart = JSON.parse(localStorage.getItem('myCart')) || [];
         if (cart.length === 0) return alert("Сагс хоосон байна!");
-
-        let label = prompt("Энэ сагсыг юу гэж нэрлэх вэ? (Жишээ: Ажлын хөлс 35к, Машины дугаар гм):");
+        let label = prompt("Энэ сагсыг юу гэж нэрлэх вэ?:");
         if (label === null) return;
         if (label.trim() === "") label = "Нэргүй сагс";
-
         let heldCarts = JSON.parse(localStorage.getItem('heldCarts')) || [];
         heldCarts.push({
             id: "HOLD_" + Date.now(),
@@ -150,29 +131,22 @@
             time: new Date().toLocaleTimeString('mn-MN', {hour: '2-digit', minute:'2-digit'}),
             total: cart.reduce((sum, i) => sum + (i.price * i.quantity), 0)
         });
-
         localStorage.setItem('heldCarts', JSON.stringify(heldCarts));
         localStorage.removeItem('myCart');
-        
-        alert(`"${label}" нэрээр түр хадгалагдлаа.`);
         render();
         loadHeldCarts();
-        if (window.updateBadge) window.updateBadge();
     }
 
     function loadHeldCarts() {
         const heldCarts = JSON.parse(localStorage.getItem('heldCarts')) || [];
         const list = document.getElementById('heldCartsList');
         const badge = document.getElementById('heldCountBadge');
-
         badge.innerText = heldCarts.length;
         badge.style.display = heldCarts.length > 0 ? 'inline' : 'none';
-
         if (heldCarts.length === 0) {
             list.innerHTML = '<div class="p-5 text-center text-muted">Хүлээгдэж буй сагс байхгүй.</div>';
             return;
         }
-
         list.innerHTML = heldCarts.map((c, index) => `
             <div class="list-group-item p-3 d-flex justify-content-between align-items-center">
                 <div>
@@ -190,24 +164,17 @@
     function restoreCart(index) {
         let heldCarts = JSON.parse(localStorage.getItem('heldCarts')) || [];
         let currentCart = JSON.parse(localStorage.getItem('myCart')) || [];
-
         if (currentCart.length > 0) {
-            if (!confirm("Одоогийн сагс хоосон биш байна. Хадгалсан сагсыг нэмэх үү?")) return;
+            if (!confirm("Одоогийн сагс хоосон биш байна. Нэмэх үү?")) return;
             localStorage.setItem('myCart', JSON.stringify([...currentCart, ...heldCarts[index].items]));
         } else {
             localStorage.setItem('myCart', JSON.stringify(heldCarts[index].items));
         }
-
         heldCarts.splice(index, 1);
         localStorage.setItem('heldCarts', JSON.stringify(heldCarts));
-        
-        const modalEl = document.getElementById('heldCartsModal');
-        const modal = bootstrap.Modal.getInstance(modalEl);
+        const modal = bootstrap.Modal.getInstance(document.getElementById('heldCartsModal'));
         if (modal) modal.hide();
-
         render();
-        loadHeldCarts();
-        if (window.updateBadge) window.updateBadge();
     }
 
     function deleteHeldCart(index) {
@@ -218,7 +185,7 @@
         loadHeldCarts();
     }
 
-    // --- ҮНДСЭН САГСНЫ ФУНКЦҮҮД ---
+    // --- ҮНДСЭН САГСНЫ ФУНКЦҮҮД (Засагдсан) ---
     function addLaborToCart() {
         const desc = document.getElementById('labor_desc').value;
         const amount = document.getElementById('labor_amt').value;
@@ -229,14 +196,13 @@
             name: "[АЖЛЫН ХӨЛС] " + desc, 
             price: parseFloat(amount), 
             quantity: 1, 
-            type: "Жижиглэн", // "Зарлага" биш "Жижиглэн" болгож засав
+            type: "Жижиглэн", 
             is_labor: true 
         });
         localStorage.setItem('myCart', JSON.stringify(cart));
         document.getElementById('labor_desc').value = '';
         document.getElementById('labor_amt').value = '';
         render();
-        if (window.updateBadge) window.updateBadge();
     }
 
     function addMiscToCart() {
@@ -249,14 +215,73 @@
             name: "[БҮРТГЭЛГҮЙ] " + name, 
             price: parseFloat(price), 
             quantity: 1, 
-            type: "Жижиглэн", // "Зарлага" биш "Жижиглэн" болгож засав
+            type: "Жижиглэн", 
             is_labor: false 
         });
         localStorage.setItem('myCart', JSON.stringify(cart));
         document.getElementById('misc_name').value = '';
         document.getElementById('misc_price').value = '';
         render();
-        if (window.updateBadge) window.updateBadge();
+    }
+
+    function render() {
+        let cart = JSON.parse(localStorage.getItem('myCart')) || [];
+        const list = document.getElementById('cart-list');
+        const msg = document.getElementById('empty-msg');
+        const summary = document.getElementById('cart-summary');
+        const footer = document.getElementById('cart-footer');
+        loadHeldCarts();
+        if(cart.length === 0) {
+            list.innerHTML = '';
+            msg.style.display = 'block';
+            summary.style.display = 'none';
+            footer.style.display = 'none';
+            return;
+        }
+        msg.style.display = 'none';
+        summary.style.display = 'block';
+        footer.style.display = 'flex';
+        let totalQty = 0;
+        let totalPrice = 0;
+        list.innerHTML = cart.map((item, i) => {
+            const qty = parseFloat(item.quantity) || 1;
+            const price = parseFloat(item.price) || 0;
+            const subtotal = qty * price;
+            totalQty += qty;
+            totalPrice += subtotal;
+            let typeLabel = item.type ? item.type.replace(" зарлага", "") : "Жижиглэн"; 
+            let badgeClass = "bg-primary-subtle text-primary";
+            if (item.name.includes("[АЖЛЫН ХӨЛС]")) badgeClass = "bg-info text-white"; 
+            else if (item.name.includes("[БҮРТГЭЛГҮЙ]")) badgeClass = "bg-success text-white"; 
+            else if (typeLabel.includes("Бөөний")) badgeClass = "bg-danger text-white";
+            else if (typeLabel.includes("Жижиглэн")) badgeClass = "bg-primary text-white";
+            return `
+                <div class="list-group-item p-3 border-bottom">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <div class="d-flex align-items-center gap-3">
+                            <div class="bg-light rounded-circle d-flex align-items-center justify-content-center text-primary fw-bold" style="width:30px; height:30px;">${i+1}</div>
+                            <div>
+                                <h6 class="mb-0 fw-bold text-truncate" style="max-width:180px;">${item.name}</h6>
+                                <span class="badge ${badgeClass}" style="font-size:10px;">${typeLabel}</span>
+                            </div>
+                        </div>
+                        <button class="btn btn-link text-danger p-0" onclick="remove(${i})"><i class="bi bi-x-lg"></i></button>
+                    </div>
+                    <div class="row g-2 align-items-center bg-light p-2 rounded-3 mx-0">
+                        <div class="col-4"><input type="number" class="form-control form-control-sm border-primary fw-bold text-primary" value="${price}" onchange="updateItemPrice(${i}, this.value)"></div>
+                        <div class="col-4">
+                            <div class="input-group input-group-sm">
+                                <button class="btn btn-outline-secondary px-1" onclick="updateQty(${i}, -1)"><i class="bi bi-dash"></i></button>
+                                <input type="number" class="form-control form-control-sm text-center px-0 fw-bold" value="${qty}" onchange="changeQty(${i}, this.value)">
+                                <button class="btn btn-outline-secondary px-1" onclick="updateQty(${i}, 1)"><i class="bi bi-plus"></i></button>
+                            </div>
+                        </div>
+                        <div class="col-4 text-end"><div class="fw-bold text-dark small">${subtotal.toLocaleString()}₮</div></div>
+                    </div>
+                </div>`;
+        }).join('');
+        document.getElementById('total-qty').innerText = totalQty.toLocaleString();
+        document.getElementById('total-price').innerText = totalPrice.toLocaleString() + '₮';
     }
 
     function updateQty(index, delta) {
@@ -284,106 +309,39 @@
         render();
     }
 
-    function render() {
-        let cart = JSON.parse(localStorage.getItem('myCart')) || [];
-        const list = document.getElementById('cart-list');
-        const msg = document.getElementById('empty-msg');
-        const summary = document.getElementById('cart-summary');
-        const footer = document.getElementById('cart-footer');
-
-        loadHeldCarts();
-
-        if(cart.length === 0) {
-            list.innerHTML = '';
-            msg.style.display = 'block';
-            summary.style.display = 'none';
-            footer.style.display = 'none';
-            return;
-        }
-        
-        msg.style.display = 'none';
-        summary.style.display = 'block';
-        footer.style.display = 'flex';
-        
-        let totalQty = 0;
-        let totalPrice = 0;
-
-        list.innerHTML = cart.map((item, i) => {
-            const qty = parseFloat(item.quantity) || 1;
-            const price = parseFloat(item.price) || 0;
-            const subtotal = qty * price;
-            totalQty += qty;
-            totalPrice += subtotal;
-
-            let badgeClass = "bg-primary-subtle text-primary";
-            let typeLabel = item.type ? item.type.replace(" зарлага", "") : "Жижиглэн"; 
-            
-            if (item.name.includes("[АЖЛЫН ХӨЛС]")) { 
-                badgeClass = "bg-info text-white"; 
-            } else if (item.name.includes("[БҮРТГЭЛГҮЙ]")) { 
-                badgeClass = "bg-success text-white"; 
-            }
-
-            return `
-                <div class="list-group-item p-3 border-bottom">
-                    <div class="d-flex justify-content-between align-items-start mb-2">
-                        <div class="d-flex align-items-center gap-3">
-                            <div class="bg-light rounded-circle d-flex align-items-center justify-content-center text-primary fw-bold" style="width: 30px; height: 30px; min-width: 30px;">${i + 1}</div>
-                            <div style="min-width: 0;">
-                                <h6 class="mb-0 fw-bold text-truncate" style="max-width: 180px;">${item.name}</h6>
-                                <span class="badge ${badgeClass}" style="font-size: 10px;">${typeLabel}</span>
-                            </div>
-                        </div>
-                        <button class="btn btn-link text-danger p-0" onclick="remove(${i})"><i class="bi bi-x-lg"></i></button>
-                    </div>
-                    <div class="row g-2 align-items-center bg-light p-2 rounded-3 mx-0">
-                        <div class="col-4">
-                            <input type="number" class="form-control form-control-sm border-primary fw-bold text-primary" value="${price}" onchange="updateItemPrice(${i}, this.value)">
-                        </div>
-                        <div class="col-4">
-                            <div class="input-group input-group-sm">
-                                <button class="btn btn-outline-secondary px-1" onclick="updateQty(${i}, -1)"><i class="bi bi-dash"></i></button>
-                                <input type="number" class="form-control form-control-sm text-center px-0 fw-bold" value="${qty}" onchange="changeQty(${i}, this.value)">
-                                <button class="btn btn-outline-secondary px-1" onclick="updateQty(${i}, 1)"><i class="bi bi-plus"></i></button>
-                            </div>
-                        </div>
-                        <div class="col-4 text-end">
-                            <div class="fw-bold text-dark small">${subtotal.toLocaleString()}₮</div>
-                        </div>
-                    </div>
-                </div>`;
-        }).join('');
-
-        document.getElementById('total-qty').innerText = totalQty.toLocaleString();
-        document.getElementById('total-price').innerText = totalPrice.toLocaleString() + '₮';
-    }
-
     function remove(i) {
         let cart = JSON.parse(localStorage.getItem('myCart')) || [];
         cart.splice(i, 1);
         localStorage.setItem('myCart', JSON.stringify(cart));
         render();
-        if (window.updateBadge) window.updateBadge();
     }
 
     function clearAll() {
         if(confirm("Сагсыг цэвэрлэх үү?")) {
             localStorage.removeItem('myCart');
             render();
-            if (window.updateBadge) window.updateBadge();
         }
     }
 
+    // --- ХАДГАЛАХ ФУНКЦ (updatedItems засагдсан хэсэг) ---
     async function saveWithMethod(method) {
         let cart = JSON.parse(localStorage.getItem('myCart')) || [];
         if (cart.length === 0) return;
-        
         let totalPrice = cart.reduce((acc, item) => acc + (parseFloat(item.quantity) * parseFloat(item.price)), 0);
         if(!confirm(`Төлбөр: ${method}\nНийт ${totalPrice.toLocaleString()}₮-ийн тооцоог батлах уу?`)) return;
 
-        // "Зарлага" гэдэг үгийг хасаж, цэвэр төрөл + төлбөрийн хэлбэрээр хадгалах
+        // ЭНД ЗАСВАР ОРСОН: Бүртгэлгүй бараа болон Ажлын хөлсөнд "Жижиглэн" төрөл онооно
         const updatedItems = cart.map(item => {
-            let baseType = item.type ? item.type.replace(" зарлага", "") : "Жижиглэн";
+            let baseType = "Жижиглэн"; // Default утга
+
+            if (item.type) {
+                // Хэрэв сагсанд төрөл нь байгаа бол (бүртгэлтэй бараа) түүнийг ашиглана
+                baseType = item.type.replace(" зарлага", "");
+            } else if (item.is_labor || item.name.includes("[БҮРТГЭЛГҮЙ]")) {
+                // Хэрэв төрөлгүй боловч Ажлын хөлс эсвэл Бүртгэлгүй бол "Жижиглэн" гэнэ
+                baseType = "Жижиглэн";
+            }
+
             return { 
                 ...item, 
                 type: `${baseType} (${method})` 
@@ -404,9 +362,7 @@
                 const err = await res.json();
                 alert("Алдаа: " + (err.message || "Серверт алдаа гарлаа"));
             }
-        } catch (e) { 
-            alert("Холболтын алдаа гарлаа!"); 
-        }
+        } catch (e) { alert("Холболтын алдаа!"); }
     }
 
     document.addEventListener('DOMContentLoaded', render);
