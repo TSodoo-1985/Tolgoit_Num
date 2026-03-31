@@ -515,7 +515,8 @@ def add_transaction_bulk():
         return jsonify({'status': 'error', 'message': 'Өгөгдөл хоосон байна'}), 400
 
     import random
-    batch_id = datetime.now().strftime('%Y%m%d%H%M') + "-" + str(random.randint(100, 999))
+    now = datetime.now()
+    batch_id = now.strftime('%Y%m%d%H%M') + "-" + str(random.randint(100, 999))
 
     try:
         for item in data['items']:
@@ -523,45 +524,48 @@ def add_transaction_bulk():
             is_labor = item.get('is_labor', False)
             raw_name = item.get('name', 'Мэдэгдэхгүй')
             
-            # Төлбөрийн төрөл байхгүй бол 'Жижиглэн' гэж авна
-            payment_type = item.get('type') if item.get('type') else "Жижиглэн"
+            # Төлбөрийн суваг (Бэлэн, Картаар г.м)
+            raw_type = item.get('type') if item.get('type') else "Жижиглэн"
             price_val = float(item.get('price', 0))
             qty_val = float(item.get('quantity', 1))
 
-            # --- 1. ЗӨВХӨН АЖЛЫН ХӨЛС (LaborFee болон Transaction-д орно) ---
-            if is_labor and "[АЖЛЫН ХӨЛС]" in raw_name:
+            # --- 1. АЖЛЫН ХӨЛС ---
+            if is_labor:
+                # Төрлийг "Жижиглэн (Төлбөрийн хэлбэр)" болгож форматлах
+                payment_type = f"Жижиглэн ({raw_type})" if "(" not in raw_type else raw_type
                 clean_name = raw_name.replace("[АЖЛЫН ХӨЛС] ", "").strip()
                 
-                # Ажилчдын цалингийн бүртгэлд нэмэх
                 new_labor = LaborFee(
                     description=f"[{batch_id}] {clean_name} ({payment_type})",
                     amount=price_val,
                     staff_name=current_user.username,
-                    timestamp=datetime.now()
+                    timestamp=now
                 )
                 db.session.add(new_labor)
 
-                # Гүйлгээний түүхэнд нэмэх
                 new_tx = Transaction(
                     product_id=None,
                     description=f"[{batch_id}] [АЖЛЫН ХӨЛС] {clean_name}",
                     quantity=1,
                     price=price_val,
                     type=payment_type,
-                    timestamp=datetime.now(),
+                    timestamp=now,
                     user_id=current_user.id
                 )
                 db.session.add(new_tx)
 
             # --- 2. БАГЦ БАРАА (BUNDLE) ---
             elif is_bundle:
+                # Багц барааг мөн "Жижиглэн" ангилалд оруулна
+                payment_type = f"Жижиглэн ({raw_type})" if "(" not in raw_type else raw_type
+
                 new_tx = Transaction(
                     product_id=None,
                     description=f"[{batch_id}] {raw_name}",
                     quantity=qty_val,
                     price=price_val,
                     type=payment_type,
-                    timestamp=datetime.now(),
+                    timestamp=now,
                     user_id=current_user.id
                 )
                 db.session.add(new_tx)
@@ -579,8 +583,8 @@ def add_transaction_bulk():
                 p_id = item.get('product_id')
                 tx_desc = f"[{batch_id}] {raw_name}"
                 target_p_id = None
+                payment_type = raw_type
 
-                # Хэрэв ID-тай (бүртгэлтэй) бараа бол stock-оос хасна
                 if p_id and str(p_id).isdigit():
                     product = Product.query.get(int(p_id))
                     if product:
@@ -588,14 +592,13 @@ def add_transaction_bulk():
                         target_p_id = product.id
                         tx_desc = f"[{batch_id}] {product.name}"
                 
-                # Бүртгэлгүй бараа байсан ч, энгийн бараа байсан ч энд бүртгэгдэнэ
                 new_tx = Transaction(
                     product_id=target_p_id,
                     description=tx_desc,
                     quantity=qty_val,
                     price=price_val,
                     type=payment_type,
-                    timestamp=datetime.now(),
+                    timestamp=now,
                     user_id=current_user.id
                 )
                 db.session.add(new_tx)
@@ -606,7 +609,7 @@ def add_transaction_bulk():
     except Exception as e:
         db.session.rollback()
         return jsonify({'status': 'error', 'message': str(e)}), 500
-
+ 
 @app.route('/special_transfer', methods=['GET', 'POST'])
 @login_required
 def special_transfer():
