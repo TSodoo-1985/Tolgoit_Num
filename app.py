@@ -514,7 +514,6 @@ def add_transaction_bulk():
     if not data or 'items' not in data:
         return jsonify({'status': 'error', 'message': 'Өгөгдөл хоосон байна'}), 400
 
-    # Сагсанд байгаа бүх зүйлийг нэгтгэх давтагдашгүй код (Batch ID)
     import random
     batch_id = datetime.now().strftime('%Y%m%d%H%M') + "-" + str(random.randint(100, 999))
 
@@ -523,30 +522,32 @@ def add_transaction_bulk():
             is_bundle = item.get('is_bundle', False)
             is_labor = item.get('is_labor', False)
             raw_name = item.get('name', 'Мэдэгдэхгүй')
-            # Төлбөрийн төрлийг сагснаас авах (Бэлэн, Картаар г.м)
-            payment_type = item.get('type', 'Жижиглэн')
+            
+            # Төлбөрийн төрөл байхгүй бол 'Жижиглэн' гэж авна
+            payment_type = item.get('type') if item.get('type') else "Жижиглэн"
+            price_val = float(item.get('price', 0))
+            qty_val = float(item.get('quantity', 1))
 
-            # --- 1. АЖЛЫН ХӨЛС ЭСВЭЛ БҮРТГЭЛГҮЙ БАРАА ---
-            if is_labor:
-                clean_name = raw_name.replace("[АЖЛЫН ХӨЛС] ", "").replace("[БҮРТГЭЛГҮЙ] ", "")
-                labor_amt = float(item.get('price', 0))
-
-                # LaborFee хүснэгтэд
+            # --- 1. ЗӨВХӨН АЖЛЫН ХӨЛС (LaborFee болон Transaction-д орно) ---
+            if is_labor and "[АЖЛЫН ХӨЛС]" in raw_name:
+                clean_name = raw_name.replace("[АЖЛЫН ХӨЛС] ", "").strip()
+                
+                # Ажилчдын цалингийн бүртгэлд нэмэх
                 new_labor = LaborFee(
                     description=f"[{batch_id}] {clean_name} ({payment_type})",
-                    amount=labor_amt,
+                    amount=price_val,
                     staff_name=current_user.username,
                     timestamp=datetime.now()
                 )
                 db.session.add(new_labor)
 
-                # Transaction хүснэгтэд (Төлбөрийн төрлийг 'type' дээр хадгална)
+                # Гүйлгээний түүхэнд нэмэх
                 new_tx = Transaction(
                     product_id=None,
-                    description=f"[{batch_id}] {'[БҮРТГЭЛГҮЙ] ' if '[БҮРТГЭЛГҮЙ]' in raw_name else '[АЖЛЫН ХӨЛС] '}{clean_name}",
+                    description=f"[{batch_id}] [АЖЛЫН ХӨЛС] {clean_name}",
                     quantity=1,
-                    price=labor_amt,
-                    type=payment_type, # <--- Энд "Зарлага (Бэлэн)" гэх мэтээр орно
+                    price=price_val,
+                    type=payment_type,
                     timestamp=datetime.now(),
                     user_id=current_user.id
                 )
@@ -554,15 +555,12 @@ def add_transaction_bulk():
 
             # --- 2. БАГЦ БАРАА (BUNDLE) ---
             elif is_bundle:
-                bundle_name = item.get('name', 'Багц')
-                bundle_qty = float(item.get('quantity', 1))
-
                 new_tx = Transaction(
                     product_id=None,
-                    description=f"[{batch_id}] {bundle_name}",
-                    quantity=bundle_qty,
-                    price=float(item.get('price', 0)),
-                    type=payment_type, # <--- Багц гүйлгээний төлбөрийн төрөл
+                    description=f"[{batch_id}] {raw_name}",
+                    quantity=qty_val,
+                    price=price_val,
+                    type=payment_type,
                     timestamp=datetime.now(),
                     user_id=current_user.id
                 )
@@ -571,30 +569,36 @@ def add_transaction_bulk():
                 bundle_items = item.get('bundle_items', [])
                 for b_item in bundle_items:
                     p_id = b_item.get('product_id')
-                    if p_id and str(p_id).isdigit():
+                    if p_id:
                         p = Product.query.get(int(p_id))
                         if p:
-                            p.stock -= float(b_item.get('quantity', 0)) * bundle_qty
+                            p.stock -= float(b_item.get('quantity', 0)) * qty_val
 
-            # --- 3. ЭНГИЙН БАРАА ---
+            # --- 3. БҮРТГЭЛГҮЙ БАРАА БОЛОН ЭНГИЙН БАРАА ---
             else:
                 p_id = item.get('product_id')
+                tx_desc = f"[{batch_id}] {raw_name}"
+                target_p_id = None
+
+                # Хэрэв ID-тай (бүртгэлтэй) бараа бол stock-оос хасна
                 if p_id and str(p_id).isdigit():
                     product = Product.query.get(int(p_id))
                     if product:
-                        qty = float(item.get('quantity', 0))
-                        product.stock -= qty
-
-                        new_tx = Transaction(
-                            product_id=product.id,
-                            description=f"[{batch_id}] {product.name}",
-                            quantity=qty,
-                            price=float(item.get('price', 0)),
-                            type=payment_type, # <--- "Зарлага (Картаар)" гэх мэт
-                            timestamp=datetime.now(),
-                            user_id=current_user.id
-                        )
-                        db.session.add(new_tx)
+                        product.stock -= qty_val
+                        target_p_id = product.id
+                        tx_desc = f"[{batch_id}] {product.name}"
+                
+                # Бүртгэлгүй бараа байсан ч, энгийн бараа байсан ч энд бүртгэгдэнэ
+                new_tx = Transaction(
+                    product_id=target_p_id,
+                    description=tx_desc,
+                    quantity=qty_val,
+                    price=price_val,
+                    type=payment_type,
+                    timestamp=datetime.now(),
+                    user_id=current_user.id
+                )
+                db.session.add(new_tx)
 
         db.session.commit()
         return jsonify({'status': 'success', 'message': 'Амжилттай бүртгэгдлээ'})
