@@ -122,6 +122,7 @@
                         </button>
                     </li>
                     <div id="sub-trans" class="submenu-container" style="display: none;">
+                        <li><button class="submenu-item text-dark" onclick="handleDownload('mobile_summary')">Утасны хураангуй</button>
                         <li><button class="submenu-item" onclick="handleDownload('Жижиглэн зарлага')">Жижиглэн зарлага</button></li>
                         <li><button class="submenu-item" onclick="handleDownload('Бөөний зарлага')">Бөөний зарлага</button></li>
                         <li><button class="submenu-item" onclick="handleDownload('Орлого')">Орлого салбараар</button></li>
@@ -225,18 +226,21 @@
         if(!s || !e) { alert("Огноо сонгоно уу!"); return; }
 
         let url = "";
-        if (type === 'Хуучин нум') {
-            url = `/export-old-bow?start_date=${s}&end_date=${e}`;
+    // ЭНД УТАСНЫ ХУРААНГУЙН ЛОГИКИЙГ НЭМЭВ
+        if (type === 'mobile_summary') {
+        url = `/export-mobile-summary?start_date=${s}&end_date=${e}`;
+        } else if (type === 'Хуучин нум') {
+        url = `/export-old-bow?start_date=${s}&end_date=${e}`;
         } else if (type === 'inventory') {
-            url = `/export-inventory-report?start_date=${s}&end_date=${e}`;
+        url = `/export-inventory-report?start_date=${s}&end_date=${e}`;
         } else if (type === 'labor') {
-            url = `/export-labor-report?start_date=${s}&end_date=${e}&exclude_unregistered=true`;
+        url = `/export-labor-report?start_date=${s}&end_date=${e}&exclude_unregistered=true`;
         } else if (type === 'salary') {
-            url = `/export-salary-report?start_date=${s}&end_date=${e}`;
+        url = `/export-salary-report?start_date=${s}&end_date=${e}`;
         } else if (type === 'Орлого') {
-            url = `/export-internal-income?start_date=${s}&end_date=${e}`;
+        url = `/export-internal-income?start_date=${s}&end_date=${e}`;
         } else {
-            url = `/export-transactions/${type}?start_date=${s}&end_date=${e}`;
+        url = `/export-transactions/${type}?start_date=${s}&end_date=${e}`;
         }
         window.location.href = url;
     }
