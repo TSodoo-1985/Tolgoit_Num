@@ -2261,6 +2261,259 @@ def reports():
                            total_sales=total_sales,
                            selected_date=selected_date_str)
 
+@app.route('/export-mobile-summary')
+@login_required
+def export_mobile_summary():
+    if current_user.role not in ['admin', 'staff']:
+        flash("Танд тайлан харах эрх байхгүй.", "danger")
+        return redirect(url_for('dashboard'))
+
+    # 1. URL-аас ирж болох бүх огнооны хувилбарыг барьж авах
+    start_str = request.args.get('start_date') or request.args.get('date') or request.args.get('selected_date')
+    end_str = request.args.get('end_date') or start_str
+
+    today = date.today()
+    try:
+        start_d = datetime.strptime(start_str, '%Y-%m-%d').date() if start_str else today
+        end_d = datetime.strptime(end_str, '%Y-%m-%d').date() if end_str else start_d
+    except (ValueError, TypeError):
+        start_d = today
+        end_d = today
+
+    # 2. SQLite дээр цаг минут тулгах (00:00:00 - 23:59:59)
+    start_dt = datetime.combine(start_d, datetime.min.time())
+    end_dt = datetime.combine(end_d, datetime.max.time())
+
+    # 3. Баталгаатай шүүлтүүр
+    transactions = Transaction.query.filter(
+        Transaction.timestamp >= start_dt,
+        Transaction.timestamp <= end_dt
+    ).all()
+
+    expenses = Expense.query.filter(
+        Expense.date >= start_d,
+        Expense.date <= end_d
+    ).all()
+
+    labors = LaborFee.query.filter(
+        LaborFee.timestamp >= start_dt,
+        LaborFee.timestamp <= end_dt
+    ).all()
+
+    # Борлуулалтыг ангилах
+    retail_sales = []
+    wholesale_sales = []
+    special_transfers = []  # Өртгөөр зарлагыг тусад нь цуглуулах жагсаалт
+
+    for t in transactions:
+        t_type_lower = str(t.type or "").lower()
+        desc_lower = str(t.description or "").lower()
+
+        # Эхлээд орлого, тооллого, буцаалтыг алгасах
+        if "орлого" in t_type_lower or "тооллого" in t_type_lower or "буцаалт" in t_type_lower:
+            continue
+
+        # Хэрэв "өртөг" эсвэл "special_transfer" гэсэн үг төрөл болон тайлбарт байвал тусад нь авна
+        if "өртөг" in t_type_lower or "өртөг" in desc_lower or "transfer" in t_type_lower or "transfer" in desc_lower:
+            special_transfers.append(t)
+            continue
+
+        # Бусад гүйлгээг Бөөний болон Жижиглэнд ангилах
+        if "бөөний" in t_type_lower or "бөөний" in desc_lower:
+            wholesale_sales.append(t)
+        else:
+            retail_sales.append(t)
+
+    # Санхүүгийн нэгтгэл тооцоолох
+    total_retail = sum((float(t.price or 0) * float(t.quantity or 0)) for t in retail_sales)
+    total_wholesale = sum((float(t.price or 0) * float(t.quantity or 0)) for t in wholesale_sales)
+    total_sales = total_retail + total_wholesale
+
+    total_expense = sum(float(e.amount or 0) for e in expenses)
+    total_labor = sum(float(l.amount or 0) for l in labors)
+    net_profit = total_sales - total_expense - total_labor
+
+    output = io.BytesIO()
+
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        workbook = writer.book
+
+        # 🎨 МЭРГЭЖЛИЙН СТИЛЬ БЭЛДЭЦҮҮД
+        font_family = "Segoe UI"
+        title_font = Font(name=font_family, size=14, bold=True, color="FFFFFF")
+        title_fill = PatternFill(start_color="1F4E78", end_color="1F4E78", fill_type="solid")
+        section_font = Font(name=font_family, size=11, bold=True, color="1F4E78")
+        section_fill = PatternFill(start_color="DDEBF7", end_color="DDEBF7", fill_type="solid")
+        header_font = Font(name=font_family, size=10, bold=True, color="FFFFFF")
+        header_fill = PatternFill(start_color="5B9BD5", end_color="5B9BD5", fill_type="solid")
+        bold_font = Font(name=font_family, size=10, bold=True)
+        regular_font = Font(name=font_family, size=10)
+        profit_font = Font(name=font_family, size=12, bold=True, color="375623")
+        profit_fill = PatternFill(start_color="E2EFDA", end_color="E2EFDA", fill_type="solid")
+
+        align_center = Alignment(horizontal="center", vertical="center")
+        align_left = Alignment(horizontal="left", vertical="center")
+        align_right = Alignment(horizontal="right", vertical="center")
+        thin_border = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
+
+        # ----------------------------------------------------
+        # SHEET 1: ХУРААНГУЙ ТАЙЛАН
+        # ----------------------------------------------------
+        ws1 = workbook.create_sheet(title='Хураангуй')
+        ws1.views.sheetView[0].showGridLines = True
+        workbook.active = workbook.sheetnames.index('Хураангуй')
+
+        ws1.merge_cells('A1:C1')
+        ws1['A1'] = 'ТОЛГОЙТ НУМ СЕРВИС'
+        ws1['A1'].font = title_font
+        ws1['A1'].fill = title_fill
+        ws1['A1'].alignment = align_center
+        ws1.row_dimensions[1].height = 30
+
+        date_display = f"{start_d.strftime('%Y-%m-%d')} - {end_d.strftime('%Y-%m-%d')}" if start_d != end_d else start_d.strftime('%Y-%m-%d')
+
+        ws1.merge_cells('A2:C2')
+        ws1['A2'] = f'Тайлант хугацаа: {date_display}'
+        ws1['A2'].font = Font(name=font_family, size=9, italic=True, color="595959")
+        ws1['A2'].alignment = align_center
+
+        ws1.merge_cells('A4:C4')
+        ws1['A4'] = ' 💰 БОРЛУУЛАЛТЫН ОРЛОГО'
+        ws1['A4'].font = section_font
+        ws1['A4'].fill = section_fill
+        ws1.row_dimensions[4].height = 20
+
+        rows_data = [
+            ('A5', '1. Жижиглэн борлуулалт:', total_retail),
+            ('A6', '2. Бөөний борлуулалт:', total_wholesale),
+            ('A7', '➕ Нийт орлого:', total_sales)
+        ]
+        for row_lbl, txt, val in rows_data:
+            ws1[row_lbl] = txt
+            ws1[row_lbl.replace('A', 'C')] = val
+            ws1[row_lbl].font = bold_font if 'Нийт' in txt else regular_font
+            ws1[row_lbl.replace('A', 'C')].font = bold_font if 'Нийт' in txt else regular_font
+            ws1[row_lbl.replace('A', 'C')].number_format = '#,##0₮'
+            ws1[row_lbl.replace('A', 'C')].alignment = align_right
+
+        ws1.merge_cells('A9:C9')
+        ws1['A9'] = ' 📉 ЗАРДЛЫН НЭГТГЭЛ'
+        ws1['A9'].font = section_font
+        ws1['A9'].fill = section_fill
+        ws1.row_dimensions[9].height = 20
+
+        rows_exp = [
+            ('A10', '1. Үйл ажиллагааны зардал:', total_expense),
+            ('A11', '2. Засварчдын цалин хөлс:', total_labor)
+        ]
+        for row_lbl, txt, val in rows_exp:
+            ws1[row_lbl] = txt
+            ws1[row_lbl.replace('A', 'C')] = val
+            ws1[row_lbl].font = regular_font
+            ws1[row_lbl.replace('A', 'C')].number_format = '#,##0₮'
+            ws1[row_lbl.replace('A', 'C')].alignment = align_right
+
+        ws1.merge_cells('A13:B13')
+        ws1['A13'] = ' 💎  ЦЭВЭР АШИГ:'
+        ws1['C13'] = net_profit
+
+        ws1['A13'].font = profit_font
+        ws1['A13'].fill = profit_fill
+        ws1['B13'].fill = profit_fill
+        ws1['C13'].font = profit_font
+        ws1['C13'].fill = profit_fill
+        ws1['C13'].number_format = '#,##0₮'
+        ws1['C13'].alignment = align_right
+        ws1.row_dimensions[13].height = 24
+
+        for r_idx in [4, 5, 6, 7, 9, 10, 11, 13]:
+            for col in range(1, 4):
+                ws1.cell(row=r_idx, column=col).border = thin_border
+
+        ws1.column_dimensions['A'].width = 24
+        ws1.column_dimensions['B'].width = 8
+        ws1.column_dimensions['C'].width = 20
+
+        # ----------------------------------------------------
+        # ДЭЛГЭРЭНГҮЙ ШИЙТҮҮД
+        # ----------------------------------------------------
+        def fill_detail_sheet(title, data_list, is_expense=False):
+            ws = workbook.create_sheet(title=title)
+
+            headers = ['Огноо', 'Зардлын утга', 'Дүн'] if is_expense else ['Огноо', 'Нэр', 'Тоо', 'Дүн']
+            ws.append(headers)
+            ws.row_dimensions[1].height = 22
+
+            max_cols = 3 if is_expense else 4
+            for col_idx, text in enumerate(headers, 1):
+                cell = ws.cell(row=1, column=col_idx)
+                cell.font = header_font
+                cell.fill = header_fill
+                cell.border = thin_border
+                if col_idx == 1 or (not is_expense and col_idx == 3): cell.alignment = align_center
+                elif col_idx == max_cols: cell.alignment = align_right
+                else: cell.alignment = align_left
+
+            for item in data_list:
+                if is_expense:
+                    d_str = item.date.strftime('%m/%d') if item.date else ""
+                    desc_str = f"{item.category or ''} - {item.description or ''}"
+                    val = float(item.amount or 0)
+                    ws.append([d_str, desc_str, val])
+                else:
+                    d_str = item.timestamp.strftime('%m/%d') if item.timestamp else ""
+                    p_name = str(item.product.name) if item.product else str(item.description or "Бүртгэлгүй бараа")
+                    qty = int(item.quantity or 0)
+                    total_amt = float(item.price or 0) * qty
+                    ws.append([d_str, p_name, qty, total_amt])
+
+                curr_row = ws.max_row
+                ws.row_dimensions[curr_row].height = 18
+
+                for col in range(1, max_cols + 1):
+                    cell = ws.cell(row=curr_row, column=col)
+                    cell.font = regular_font
+                    cell.border = thin_border
+
+                    if col == 1: cell.alignment = align_center
+                    elif col == 2: cell.alignment = align_left
+                    elif col == 3 and not is_expense:
+                        cell.alignment = align_center
+                        cell.number_format = '#,##0'
+                    elif col == max_cols:
+                        cell.alignment = align_right
+                        cell.number_format = '#,##0₮'
+
+            ws.column_dimensions['A'].width = 12
+            ws.column_dimensions['B'].width = 35
+            if is_expense: ws.column_dimensions['C'].width = 20
+            else:
+                ws.column_dimensions['C'].width = 10
+                ws.column_dimensions['D'].width = 20
+
+        fill_detail_sheet('Жижиглэн', retail_sales)
+        fill_detail_sheet('Бөөний', wholesale_sales)
+        fill_detail_sheet('Зардал', expenses, is_expense=True)
+        fill_detail_sheet('Өртгөөр зарлага', special_transfers) # ШИНЭ SHEET НЭМЭВ
+
+        if 'Sheet' in workbook.sheetnames:
+            workbook.remove(workbook['Sheet'])
+
+    output.seek(0)
+
+    if start_d == end_d:
+        filename = quote(f"ТОЛГОЙТ_Нум_{start_d.strftime('%m_%d')}.xlsx")
+    else:
+        filename = quote(f"ТОЛГОЙТ_Нум_{start_d.strftime('%m_%d')}_ээс_{end_d.strftime('%m_%d')}.xlsx")
+
+    return send_file(
+        output,
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        as_attachment=True,
+        download_name=filename
+    )
+    
+
 if __name__ == "__main__":
     with app.app_context():
         db.create_all()  # Энэ мөр нь байхгүй байгаа бүх хүснэгтийг (old_bow) үүсгэнэ
