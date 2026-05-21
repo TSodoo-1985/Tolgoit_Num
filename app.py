@@ -2264,6 +2264,14 @@ def reports():
 @app.route('/export-mobile-summary')
 @login_required
 def export_mobile_summary():
+    # ⚠️ Хэрэгцээт модулиудыг функц дотор шууд найдвартай импортлов
+    from datetime import datetime, date 
+    import io
+    import pandas as pd
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    from urllib.parse import quote
+    from flask import send_file, flash, redirect, url_for, request
+
     if current_user.role not in ['admin', 'staff']:
         flash("Танд тайлан харах эрх байхгүй.", "danger")
         return redirect(url_for('dashboard'))
@@ -2272,7 +2280,7 @@ def export_mobile_summary():
     start_str = request.args.get('start_date') or request.args.get('date') or request.args.get('selected_date')
     end_str = request.args.get('end_date') or start_str
 
-    today = date.today()
+    today = date.today()  # 💡 Одоо 'date' олдсон тул NameError өгөхгүй!
     try:
         start_d = datetime.strptime(start_str, '%Y-%m-%d').date() if start_str else today
         end_d = datetime.strptime(end_str, '%Y-%m-%d').date() if end_str else start_d
